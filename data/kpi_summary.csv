@@ -1,0 +1,4 @@
+﻿Metric,Value,Goal,Gap,Status,Unit
+QA Score,94.14,85.0,9.14,green,score
+CSAT,79.95,85.0,-5.05,red,%
+Recontact Rate,5.83,5.44,0.39,amber,%

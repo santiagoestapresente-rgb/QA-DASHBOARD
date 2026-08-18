@@ -1,0 +1,10 @@
+{
+  "qa_goal": 85,
+  "csat_goal": 85,
+  "recontact_goal": 5.44,
+  "qa_mismatch_pct": 18.78,
+  "total_qa_audits": 2460,
+  "total_csat_feedback": 77266,
+  "total_contacts": 994591,
+  "total_recontacts": 57976
+}

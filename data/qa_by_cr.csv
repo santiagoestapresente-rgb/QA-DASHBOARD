@@ -1,0 +1,131 @@
+﻿CR_Lv4,Channel,QA_Score,Audits,Critical_Fails,Status,Gap_vs_Goal
+Inedible order,Phone,0.0,1,1,red,-85.0
+Incomplete order,Phone,0.0,1,1,red,-85.0
+Courier picked up order incorrectly,Phone,0.0,1,1,red,-85.0
+Referral coupon information,Phone,0.0,1,1,red,-85.0
+Order appears as completed but customer haven't receive it - market place,Phone,47.5,4,2,red,-37.5
+become a driver or shopper,Live Chat,50.0,2,1,red,-35.0
+Order is active but customer already received it,Phone,65.83,12,4,red,-19.17
+Issues while paying to courier,Phone,66.67,3,1,red,-18.33
+Order appears as completed but customer haven't receive it - full service,Phone,68.16,49,14,red,-16.84
+Courier overcharged me,Phone,68.57,7,2,red,-16.43
+Duplicated charge,Phone,74.0,5,1,red,-11.0
+verbal aggression,Live Chat,76.0,5,1,red,-9.0
+Refund status and conditions,Phone,76.4,25,5,red,-8.6
+referral coupon information,Live Chat,80.0,5,1,amber,-5.0
+store registration,Live Chat,80.0,5,1,amber,-5.0
+User disagrees with cancellation charge/debt,Phone,80.0,19,3,amber,-5.0
+Wrong order,Phone,81.0,20,3,amber,-4.0
+User placed order with wrong information,Phone,84.29,7,1,amber,-0.71
+User don't want the order anymore,Phone,86.0,10,1,green,1.0
+modify payment method,Live Chat,86.67,9,1,green,1.67
+cancel the order,Live Chat,86.67,9,1,green,1.67
+After sales user fraud (under anti fraud review),Phone,86.88,16,1,green,1.88
+Damaged order,Live Chat,87.67,30,3,green,2.67
+delivery verification code,Live Chat,88.15,27,3,green,3.15
+delivery fee information,Live Chat,88.89,9,1,green,3.89
+User don't want the order anymore,Live Chat,88.89,9,1,green,3.89
+didi pay balance & top up,Live Chat,89.68,63,6,green,4.68
+Cancel the order,Phone,90.0,49,3,green,5.0
+Robbery,Phone,90.0,1,0,green,5.0
+Didi pay balance & top up,Phone,90.0,1,0,green,5.0
+Service not available in my area,Phone,90.0,1,0,green,5.0
+Account stolen (under antifraud review),Phone,90.0,3,0,green,5.0
+stalking,Live Chat,90.0,2,0,green,5.0
+order location information,Live Chat,90.0,1,0,green,5.0
+cannot use my coupon (under antifraud review),Live Chat,90.0,12,1,green,5.0
+payment methods available,Live Chat,90.37,27,2,green,5.37
+Partnerships information,Live Chat,90.77,13,1,green,5.77
+Damaged order,Phone,91.0,20,1,green,6.0
+Invalid contact,Phone,92.58,31,2,green,7.58
+modify or add address,Live Chat,92.67,15,1,green,7.67
+Cannot place cash order (under antifraud review),Phone,93.33,3,0,green,8.33
+Apply coupon to pay an order(non-af),Phone,93.33,3,0,green,8.33
+Membership program renewal charge,Phone,93.33,6,0,green,8.33
+User disagrees with cancellation charge/debt-groceries,Live Chat,93.33,3,0,green,8.33
+Driver mismatch,Phone,93.33,3,0,green,8.33
+Verbal aggression,Phone,93.33,3,0,green,8.33
+cannot place cash order (under antifraud review),Live Chat,93.64,55,2,green,8.64
+modify order products,Live Chat,93.89,18,1,green,8.89
+Courier overcharged me,Live Chat,93.98,83,4,green,8.98
+Bank Card Stolen (under antifraud review),Live Chat,94.24,66,3,green,9.24
+membership program benefits,Live Chat,94.69,49,2,green,9.69
+Online payment failure (under antifraud review),Live Chat,94.81,52,2,green,9.81
+Refund failed,Phone,95.0,2,0,green,10.0
+Placing an order information,Phone,95.0,2,0,green,10.0
+Cannot share my referral promocode (under antifraud review),Phone,95.0,2,0,green,10.0
+Membership program benefits,Phone,95.0,2,0,green,10.0
+Driver or store request to cancel order,Phone,95.0,2,0,green,10.0
+account creation and login,Live Chat,95.0,2,0,green,10.0
+Account Stolen (under antifraud review),Live Chat,95.19,27,1,green,10.19
+User request order status or delay information,Live Chat,95.22,23,1,green,10.22
+store promotions doubts,Live Chat,95.38,26,1,green,10.38
+membership program renewal charge,Live Chat,95.43,92,3,green,10.43
+Duplicated charge,Live Chat,95.97,62,2,green,10.97
+Bank card stolen (under antifraud review),Phone,96.0,5,0,green,11.0
+Issues while paying to courier,Live Chat,96.12,49,1,green,11.12
+order is active but customer already received it,Live Chat,96.43,42,1,green,11.43
+placing an order information,Live Chat,96.52,46,1,green,11.52
+order appears as completed but customer haven't receive it - full service,Live Chat,96.63,89,2,green,11.63
+Can't choose card as payment method (under antifraud review),Phone,96.67,6,0,green,11.67
+incomplete order,Live Chat,96.67,30,1,green,11.67
+User disagrees with cancellation charge/debt,Live Chat,96.75,40,1,green,11.75
+Incomplete order,Live Chat,96.88,160,4,green,11.88
+order status & delays,Live Chat,97.33,45,1,green,12.33
+scam,Live Chat,97.5,4,0,green,12.5
+delete account,Live Chat,97.5,16,0,green,12.5
+Driver or store request to cancel,Live Chat,97.5,4,0,green,12.5
+Can't choose card as payment method (under antifraud review),Live Chat,97.56,78,1,green,12.56
+User placed order with wrong information,Live Chat,97.78,27,0,green,12.78
+order invoice issues,Live Chat,98.0,10,0,green,13.0
+access to personal data,Live Chat,98.0,5,0,green,13.0
+Inedible order,Live Chat,98.12,154,2,green,13.12
+pick up order at store,Live Chat,98.18,11,0,green,13.18
+driver or store request to cancel,Live Chat,98.33,6,0,green,13.33
+refund status and conditions,Live Chat,98.44,45,0,green,13.44
+settle a pending offline payment,Live Chat,98.57,14,0,green,13.57
+modify phone number,Live Chat,98.67,30,0,green,13.67
+refund status and conditions doubts,Live Chat,99.0,10,0,green,14.0
+Other business line,Phone,99.0,10,0,green,14.0
+After sales user fraud (under anti fraud review),Live Chat,99.02,102,0,green,14.02
+wrong order,Live Chat,99.52,21,0,green,14.52
+rate another user,Live Chat,99.56,45,0,green,14.56
+apply coupon to pay an order(Non-AF),Live Chat,99.57,23,0,green,14.57
+verification fee information,Live Chat,99.57,23,0,green,14.57
+inedible order,Live Chat,99.58,48,0,green,14.58
+Courier over charged me,Live Chat,100.0,1,0,green,15.0
+Courier hasn´t arrived,Live Chat,100.0,1,0,green,15.0
+User disagrees with cancellation charge/debt-groceries,Phone,100.0,2,0,green,15.0
+Terms and conditions,Phone,100.0,1,0,green,15.0
+Stalking,Phone,100.0,1,0,green,15.0
+Store refuses to deliver,Phone,100.0,1,0,green,15.0
+Refund status and conditions doubts,Phone,100.0,2,0,green,15.0
+Order status management,Live Chat,100.0,1,0,green,15.0
+Payment methods available,Phone,100.0,1,0,green,15.0
+Rate another user,Phone,100.0,4,0,green,15.0
+Online payment failure (under antifraud review),Phone,100.0,2,0,green,15.0
+Modify phone number,Phone,100.0,1,0,green,15.0
+business modalities information,Live Chat,100.0,1,0,green,15.0
+User request order status or delay information,Phone,100.0,2,0,green,15.0
+cannot receive cash order (under antifraud review),Live Chat,100.0,1,0,green,15.0
+cannot place cash order,Live Chat,100.0,1,0,green,15.0
+accept or stop orders,Live Chat,100.0,1,0,green,15.0
+cannot receive coupon (under antifraud review),Live Chat,100.0,1,0,green,15.0
+manage preparation instructions,Live Chat,100.0,1,0,green,15.0
+invalid contact,Live Chat,100.0,4,0,green,15.0
+drug possession,Live Chat,100.0,1,0,green,15.0
+food poisoning,Live Chat,100.0,10,0,green,15.0
+cannot share my referral promocode (under antifraud review),Live Chat,100.0,1,0,green,15.0
+cannot use my coupon,Live Chat,100.0,1,0,green,15.0
+driver mismatch,Live Chat,100.0,8,0,green,15.0
+order appears as completed but customer haven't receive it - groceries,Live Chat,100.0,2,0,green,15.0
+physical aggression,Live Chat,100.0,1,0,green,15.0
+other business line,Live Chat,100.0,40,0,green,15.0
+order invoice issues - groceries,Live Chat,100.0,1,0,green,15.0
+order appears as completed but customer haven't receive it - market place,Live Chat,100.0,1,0,green,15.0
+review order history,Live Chat,100.0,2,0,green,15.0
+refund failed,Live Chat,100.0,5,0,green,15.0
+Cannot use my coupon (under antifraud review),Phone,100.0,2,0,green,15.0
+Driver or store request to cancel order,Live Chat,100.0,28,0,green,15.0
+terms and conditions,Live Chat,100.0,12,0,green,15.0
+system instabilities,Live Chat,100.0,1,0,green,15.0

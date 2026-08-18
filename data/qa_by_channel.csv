@@ -1,0 +1,3 @@
+﻿Channel,QA_Score,Audits,Critical_Fails,Status,Gap_vs_Goal
+Phone,83.04,355,48,amber,-1.96
+Live Chat,96.01,2105,62,green,11.01

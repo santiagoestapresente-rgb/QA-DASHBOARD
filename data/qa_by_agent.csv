@@ -1,0 +1,299 @@
+﻿Evaluado,Channel,QA_Score,Audits,Critical_Fails,Status,Gap_vs_Goal
+Agent 251,Phone,0.0,2,2,red,-85.0
+Agent 134,Phone,0.0,3,3,red,-85.0
+Agent 260,Phone,0.0,1,1,red,-85.0
+Agent 26,Phone,0.0,2,2,red,-85.0
+Agent 141,Live Chat,0.0,1,1,red,-85.0
+Agent 2,Phone,0.0,1,1,red,-85.0
+Agent 194,Phone,0.0,1,1,red,-85.0
+Agent 253,Phone,33.33,3,2,red,-51.67
+Agent 220,Phone,33.33,3,2,red,-51.67
+Agent 112,Live Chat,33.33,3,2,red,-51.67
+Agent 228,Phone,36.0,5,3,red,-49.0
+Agent 25,Phone,45.0,4,2,red,-40.0
+Agent 46,Phone,50.0,4,2,red,-35.0
+Agent 211,Live Chat,50.0,2,1,red,-35.0
+Agent 259,Live Chat,50.0,2,1,red,-35.0
+Agent 254,Phone,60.0,3,1,red,-25.0
+Agent 217,Phone,60.0,3,1,red,-25.0
+Agent 21,Phone,61.67,6,2,red,-23.33
+Agent 221,Phone,63.33,3,1,red,-21.67
+Agent 45,Phone,63.33,3,1,red,-21.67
+Agent 135,Live Chat,66.67,3,1,red,-18.33
+Agent 236,Live Chat,66.67,3,1,red,-18.33
+Agent 99,Live Chat,66.67,3,1,red,-18.33
+Agent 82,Phone,66.67,3,1,red,-18.33
+Agent 28,Phone,66.67,3,1,red,-18.33
+Agent 135,Phone,66.67,3,1,red,-18.33
+Agent 47,Phone,70.0,4,1,red,-15.0
+Agent 44,Phone,71.43,7,2,red,-13.57
+Agent 225,Phone,72.5,4,1,red,-12.5
+Agent 8,Live Chat,72.5,4,1,red,-12.5
+Agent 197,Phone,75.0,4,1,red,-10.0
+Agent 22,Phone,75.0,4,1,red,-10.0
+Agent 144,Phone,75.0,4,1,red,-10.0
+Agent 48,Phone,76.0,5,1,red,-9.0
+Agent 31,Phone,76.0,5,1,red,-9.0
+Agent 203,Live Chat,79.09,11,2,red,-5.91
+Agent 171,Live Chat,80.0,17,3,amber,-5.0
+Agent 19,Phone,80.0,5,1,amber,-5.0
+Agent 1,Phone,80.0,6,1,amber,-5.0
+Agent 134,Live Chat,80.0,1,0,amber,-5.0
+Agent 97,Live Chat,80.0,5,1,amber,-5.0
+Agent 10,Phone,81.54,13,2,amber,-3.46
+Agent 27,Phone,81.67,6,1,amber,-3.33
+Agent 53,Phone,81.67,6,1,amber,-3.33
+Agent 74,Live Chat,81.82,11,2,amber,-3.18
+Agent 190,Live Chat,83.18,22,3,amber,-1.82
+Agent 193,Live Chat,83.75,8,1,amber,-1.25
+Agent 12,Phone,84.0,5,0,amber,-1.0
+Agent 137,Live Chat,84.17,12,1,amber,-0.83
+Agent 116,Live Chat,84.23,26,4,amber,-0.77
+Agent 226,Phone,84.29,7,1,amber,-0.71
+Agent 33,Phone,85.56,9,1,green,0.56
+Agent 4,Phone,86.67,15,1,green,1.67
+Agent 91,Live Chat,87.0,10,1,green,2.0
+Agent 154,Live Chat,88.0,10,1,green,3.0
+Agent 140,Live Chat,88.57,21,2,green,3.57
+Agent 157,Live Chat,88.89,18,2,green,3.89
+Agent 208,Live Chat,89.0,10,1,green,4.0
+Agent 57,Live Chat,89.09,11,1,green,4.09
+Agent 227,Phone,90.0,2,0,green,5.0
+Agent 222,Phone,90.0,1,0,green,5.0
+Agent 218,Phone,90.0,3,0,green,5.0
+Agent 255,Phone,90.0,1,0,green,5.0
+Agent 16,Phone,90.0,2,0,green,5.0
+Agent 76,Live Chat,90.0,10,1,green,5.0
+Agent 3,Phone,90.0,1,0,green,5.0
+Agent 37,Phone,90.0,2,0,green,5.0
+Agent 262,Phone,90.0,1,0,green,5.0
+Agent 259,Phone,90.0,2,0,green,5.0
+Agent 52,Phone,90.0,1,0,green,5.0
+Agent 187,Live Chat,91.43,14,1,green,6.43
+Agent 158,Live Chat,91.48,27,2,green,6.48
+Agent 147,Live Chat,91.54,13,1,green,6.54
+Agent 238,Live Chat,91.67,12,1,green,6.67
+Agent 133,Live Chat,91.67,12,1,green,6.67
+Agent 129,Live Chat,91.67,12,1,green,6.67
+Agent 114,Live Chat,91.88,16,1,green,6.88
+Agent 17,Phone,92.0,5,0,green,7.0
+Agent 54,Phone,92.0,5,0,green,7.0
+Agent 234,Live Chat,92.14,14,1,green,7.14
+Agent 94,Live Chat,92.14,14,1,green,7.14
+Agent 195,Live Chat,92.31,13,1,green,7.31
+Agent 65,Live Chat,92.33,30,2,green,7.33
+Agent 51,Phone,92.5,4,0,green,7.5
+Agent 55,Phone,92.5,4,0,green,7.5
+Agent 6,Phone,92.5,4,0,green,7.5
+Agent 172,Live Chat,92.67,15,1,green,7.67
+Agent 102,Live Chat,92.67,15,1,green,7.67
+Agent 165,Live Chat,92.94,17,1,green,7.94
+Agent 100,Live Chat,93.0,20,1,green,8.0
+Agent 256,Live Chat,93.33,3,0,green,8.33
+Agent 42,Phone,93.33,6,0,green,8.33
+Agent 86,Phone,93.33,3,0,green,8.33
+Agent 5,Phone,94.0,5,0,green,9.0
+Agent 175,Live Chat,94.21,19,1,green,9.21
+Agent 189,Live Chat,94.29,21,1,green,9.29
+Agent 35,Phone,94.29,7,0,green,9.29
+Agent 66,Live Chat,94.29,21,1,green,9.29
+Agent 205,Live Chat,94.55,11,0,green,9.55
+Agent 62,Live Chat,94.64,28,1,green,9.64
+Agent 50,Phone,95.0,4,0,green,10.0
+Agent 49,Phone,95.0,2,0,green,10.0
+Agent 8,Phone,95.0,2,0,green,10.0
+Agent 248,Live Chat,95.0,2,0,green,10.0
+Agent 173,Phone,95.0,2,0,green,10.0
+Agent 82,Live Chat,95.0,2,0,green,10.0
+Agent 200,Live Chat,95.0,20,1,green,10.0
+Agent 103,Live Chat,95.0,20,1,green,10.0
+Agent 156,Live Chat,95.0,10,0,green,10.0
+Agent 202,Live Chat,95.0,2,0,green,10.0
+Agent 230,Phone,95.0,2,0,green,10.0
+Agent 149,Live Chat,95.0,2,0,green,10.0
+Agent 11,Phone,95.0,6,0,green,10.0
+Agent 152,Live Chat,95.0,2,0,green,10.0
+Agent 155,Live Chat,95.33,15,0,green,10.33
+Agent 169,Live Chat,95.38,26,1,green,10.38
+Agent 237,Live Chat,95.83,12,0,green,10.83
+Agent 101,Live Chat,95.83,24,1,green,10.83
+Agent 20,Phone,96.0,5,0,green,11.0
+Agent 64,Live Chat,96.06,33,1,green,11.06
+Agent 23,Phone,96.15,13,0,green,11.15
+Agent 24,Phone,96.67,3,0,green,11.67
+Agent 145,Live Chat,96.67,3,0,green,11.67
+Agent 232,Live Chat,96.67,12,0,green,11.67
+Agent 40,Live Chat,96.67,9,0,green,11.67
+Agent 32,Phone,96.67,3,0,green,11.67
+Agent 159,Live Chat,96.67,6,0,green,11.67
+Agent 188,Phone,96.67,3,0,green,11.67
+Agent 181,Live Chat,96.84,19,0,green,11.84
+Agent 104,Live Chat,97.0,10,0,green,12.0
+Agent 3,Live Chat,97.14,35,1,green,12.14
+Agent 233,Live Chat,97.27,11,0,green,12.27
+Agent 67,Live Chat,97.27,11,0,green,12.27
+Agent 177,Live Chat,97.33,15,0,green,12.33
+Agent 107,Live Chat,97.5,8,0,green,12.5
+Agent 166,Phone,97.5,4,0,green,12.5
+Agent 15,Phone,97.5,4,0,green,12.5
+Agent 182,Live Chat,97.5,8,0,green,12.5
+Agent 63,Live Chat,97.5,12,0,green,12.5
+Agent 75,Live Chat,97.5,4,0,green,12.5
+Agent 36,Phone,97.5,4,0,green,12.5
+Agent 210,Live Chat,98.0,10,0,green,13.0
+Agent 223,Phone,98.0,5,0,green,13.0
+Agent 213,Live Chat,98.12,16,0,green,13.12
+Agent 18,Phone,98.18,11,0,green,13.18
+Agent 201,Live Chat,98.18,11,0,green,13.18
+Agent 161,Live Chat,98.33,6,0,green,13.33
+Agent 14,Phone,98.33,6,0,green,13.33
+Agent 78,Live Chat,98.33,6,0,green,13.33
+Agent 84,Live Chat,98.33,6,0,green,13.33
+Agent 93,Live Chat,98.46,13,0,green,13.46
+Agent 136,Live Chat,98.46,13,0,green,13.46
+Agent 209,Live Chat,98.46,13,0,green,13.46
+Agent 183,Live Chat,98.5,20,0,green,13.5
+Agent 7,Live Chat,98.57,7,0,green,13.57
+Agent 162,Live Chat,98.57,14,0,green,13.57
+Agent 130,Live Chat,98.67,15,0,green,13.67
+Agent 61,Live Chat,98.7,23,0,green,13.7
+Agent 121,Live Chat,98.7,23,0,green,13.7
+Agent 186,Live Chat,98.75,16,0,green,13.75
+Agent 77,Live Chat,98.75,8,0,green,13.75
+Agent 56,Live Chat,98.75,8,0,green,13.75
+Agent 235,Live Chat,98.89,27,0,green,13.89
+Agent 13,Live Chat,98.89,18,0,green,13.89
+Agent 179,Live Chat,98.89,9,0,green,13.89
+Agent 79,Live Chat,98.97,29,0,green,13.97
+Agent 174,Live Chat,99.0,10,0,green,14.0
+Agent 198,Live Chat,99.0,10,0,green,14.0
+Agent 207,Live Chat,99.0,10,0,green,14.0
+Agent 206,Live Chat,99.0,10,0,green,14.0
+Agent 72,Live Chat,99.09,11,0,green,14.09
+Agent 115,Live Chat,99.17,24,0,green,14.17
+Agent 241,Live Chat,99.17,12,0,green,14.17
+Agent 83,Live Chat,99.17,12,0,green,14.17
+Agent 123,Live Chat,99.17,12,0,green,14.17
+Agent 26,Live Chat,99.23,26,0,green,14.23
+Agent 150,Live Chat,99.23,13,0,green,14.23
+Agent 151,Live Chat,99.29,14,0,green,14.29
+Agent 85,Live Chat,99.29,14,0,green,14.29
+Agent 110,Live Chat,99.29,14,0,green,14.29
+Agent 167,Live Chat,99.29,28,0,green,14.29
+Agent 120,Live Chat,99.29,14,0,green,14.29
+Agent 88,Live Chat,99.33,15,0,green,14.33
+Agent 164,Live Chat,99.38,16,0,green,14.38
+Agent 118,Live Chat,99.38,16,0,green,14.38
+Agent 139,Live Chat,99.41,17,0,green,14.41
+Agent 95,Live Chat,99.41,17,0,green,14.41
+Agent 68,Live Chat,99.43,35,0,green,14.43
+Agent 109,Live Chat,99.47,19,0,green,14.47
+Agent 191,Live Chat,99.52,21,0,green,14.52
+Agent 98,Live Chat,99.55,22,0,green,14.55
+Agent 71,Live Chat,99.55,22,0,green,14.55
+Agent 24,Live Chat,100.0,15,0,green,15.0
+Agent 240,Live Chat,100.0,7,0,green,15.0
+Agent 243,Live Chat,100.0,3,0,green,15.0
+Agent 242,Live Chat,100.0,2,0,green,15.0
+Agent 244,Live Chat,100.0,3,0,green,15.0
+Agent 229,Phone,100.0,2,0,green,15.0
+Agent 222,Live Chat,100.0,3,0,green,15.0
+Agent 141,Phone,100.0,2,0,green,15.0
+Agent 215,Live Chat,100.0,9,0,green,15.0
+Agent 216,Live Chat,100.0,3,0,green,15.0
+Agent 192,Live Chat,100.0,10,0,green,15.0
+Agent 199,Live Chat,100.0,2,0,green,15.0
+Agent 185,Live Chat,100.0,3,0,green,15.0
+Agent 178,Live Chat,100.0,10,0,green,15.0
+Agent 184,Live Chat,100.0,1,0,green,15.0
+Agent 219,Phone,100.0,1,0,green,15.0
+Agent 224,Phone,100.0,3,0,green,15.0
+Agent 146,Live Chat,100.0,11,0,green,15.0
+Agent 204,Live Chat,100.0,2,0,green,15.0
+Agent 148,Live Chat,100.0,1,0,green,15.0
+Agent 142,Live Chat,100.0,2,0,green,15.0
+Agent 143,Live Chat,100.0,11,0,green,15.0
+Agent 144,Live Chat,100.0,1,0,green,15.0
+Agent 188,Live Chat,100.0,1,0,green,15.0
+Agent 92,Live Chat,100.0,9,0,green,15.0
+Agent 105,Live Chat,100.0,10,0,green,15.0
+Agent 106,Live Chat,100.0,3,0,green,15.0
+Agent 113,Live Chat,100.0,4,0,green,15.0
+Agent 111,Live Chat,100.0,12,0,green,15.0
+Agent 112,Phone,100.0,1,0,green,15.0
+Agent 176,Phone,100.0,2,0,green,15.0
+Agent 108,Live Chat,100.0,2,0,green,15.0
+Agent 89,Live Chat,100.0,12,0,green,15.0
+Agent 9,Phone,100.0,5,0,green,15.0
+Agent 90,Live Chat,100.0,2,0,green,15.0
+Agent 90,Phone,100.0,2,0,green,15.0
+Agent 91,Phone,100.0,1,0,green,15.0
+Agent 87,Live Chat,100.0,12,0,green,15.0
+Agent 86,Live Chat,100.0,1,0,green,15.0
+Agent 113,Phone,100.0,1,0,green,15.0
+Agent 163,Live Chat,100.0,3,0,green,15.0
+Agent 166,Live Chat,100.0,2,0,green,15.0
+Agent 168,Live Chat,100.0,2,0,green,15.0
+Agent 170,Live Chat,100.0,10,0,green,15.0
+Agent 173,Live Chat,100.0,4,0,green,15.0
+Agent 176,Live Chat,100.0,1,0,green,15.0
+Agent 108,Phone,100.0,1,0,green,15.0
+Agent 180,Live Chat,100.0,12,0,green,15.0
+Agent 197,Live Chat,100.0,2,0,green,15.0
+Agent 196,Live Chat,100.0,12,0,green,15.0
+Agent 212,Live Chat,100.0,1,0,green,15.0
+Agent 194,Live Chat,100.0,1,0,green,15.0
+Agent 214,Live Chat,100.0,3,0,green,15.0
+Agent 160,Live Chat,100.0,3,0,green,15.0
+Agent 153,Live Chat,100.0,3,0,green,15.0
+Agent 30,Phone,100.0,3,0,green,15.0
+Agent 34,Phone,100.0,1,0,green,15.0
+Agent 38,Live Chat,100.0,1,0,green,15.0
+Agent 35,Live Chat,100.0,1,0,green,15.0
+Agent 43,Phone,100.0,2,0,green,15.0
+Agent 41,Phone,100.0,1,0,green,15.0
+Agent 40,Phone,100.0,1,0,green,15.0
+Agent 39,Phone,100.0,2,0,green,15.0
+Agent 29,Live Chat,100.0,1,0,green,15.0
+Agent 261,Phone,100.0,1,0,green,15.0
+Agent 263,Live Chat,100.0,1,0,green,15.0
+Agent 29,Phone,100.0,4,0,green,15.0
+Agent 38,Phone,100.0,3,0,green,15.0
+Agent 13,Phone,100.0,4,0,green,15.0
+Agent 128,Live Chat,100.0,1,0,green,15.0
+Agent 231,Phone,100.0,2,0,green,15.0
+Agent 239,Live Chat,100.0,1,0,green,15.0
+Agent 249,Live Chat,100.0,1,0,green,15.0
+Agent 250,Live Chat,100.0,6,0,green,15.0
+Agent 252,Phone,100.0,1,0,green,15.0
+Agent 258,Live Chat,100.0,4,0,green,15.0
+Agent 257,Live Chat,100.0,1,0,green,15.0
+Agent 138,Live Chat,100.0,13,0,green,15.0
+Agent 247,Live Chat,100.0,1,0,green,15.0
+Agent 246,Live Chat,100.0,1,0,green,15.0
+Agent 132,Live Chat,100.0,2,0,green,15.0
+Agent 132,Phone,100.0,2,0,green,15.0
+Agent 245,Live Chat,100.0,11,0,green,15.0
+Agent 131,Live Chat,100.0,11,0,green,15.0
+Agent 31,Live Chat,100.0,2,0,green,15.0
+Agent 70,Live Chat,100.0,9,0,green,15.0
+Agent 7,Phone,100.0,1,0,green,15.0
+Agent 60,Live Chat,100.0,3,0,green,15.0
+Agent 126,Phone,100.0,2,0,green,15.0
+Agent 127,Live Chat,100.0,17,0,green,15.0
+Agent 70,Phone,100.0,1,0,green,15.0
+Agent 73,Live Chat,100.0,12,0,green,15.0
+Agent 58,Live Chat,100.0,15,0,green,15.0
+Agent 80,Live Chat,100.0,26,0,green,15.0
+Agent 81,Live Chat,100.0,6,0,green,15.0
+Agent 59,Live Chat,100.0,13,0,green,15.0
+Agent 69,Live Chat,100.0,16,0,green,15.0
+Agent 45,Live Chat,100.0,2,0,green,15.0
+Agent 125,Live Chat,100.0,3,0,green,15.0
+Agent 119,Live Chat,100.0,11,0,green,15.0
+Agent 126,Live Chat,100.0,4,0,green,15.0
+Agent 122,Live Chat,100.0,11,0,green,15.0
+Agent 117,Live Chat,100.0,4,0,green,15.0
+Agent 124,Live Chat,100.0,6,0,green,15.0
+Agent 96,Live Chat,100.0,12,0,green,15.0
+,Live Chat,100.0,1,0,green,15.0

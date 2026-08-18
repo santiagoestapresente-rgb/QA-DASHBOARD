@@ -1,0 +1,98 @@
+﻿CR Lv4,Contacts,Recontact_Volume,Recontact_Rate,Status,Gap_vs_Goal
+malicious property damage,5,4,80.0,red,74.56
+store registration,120,77,64.17,red,58.73
+notification permission,2,1,50.0,red,44.56
+schedule or postpone an order,3,1,33.33,red,27.89
+after sales user fraud (under anti fraud review),3146,895,28.45,red,23.01
+cannot place cash order (under antifraud review),7278,1776,24.4,red,18.96
+system instabilities,564,136,24.11,red,18.67
+order status & delays,39706,7680,19.34,red,13.9
+user request order status or delay information,76911,13014,16.92,red,11.48
+accidental injury or damage,6,1,16.67,red,11.23
+refund status and conditions,18484,2901,15.69,red,10.25
+refund failed,102,16,15.69,red,10.25
+placing an order information,1880,259,13.78,red,8.34
+membership program benefits,644,86,13.35,red,7.91
+User disagrees with cancellation charge/debt,50902,6599,12.96,red,7.52
+Bank Card Stolen (under antifraud review),1580,204,12.91,red,7.47
+membership program renewal charge,1886,231,12.25,red,6.81
+store promotions doubts,279,32,11.47,red,6.03
+Partnerships information,83,8,9.64,amber,4.2
+Can't choose card as payment method (under antifraud review),4342,416,9.58,amber,4.14
+legal request,21,2,9.52,amber,4.08
+invalid contact,6298,589,9.35,amber,3.91
+stalking,33,3,9.09,amber,3.65
+Duplicated charge,2657,238,8.96,amber,3.52
+Courier overcharged me,4635,411,8.87,amber,3.43
+account creation and login,151,13,8.61,amber,3.17
+Online payment failure (under antifraud review),2686,218,8.12,amber,2.68
+book of claims,775,62,8.0,amber,2.56
+didi pay balance & top up,854,66,7.73,amber,2.29
+order invoice issues,2204,165,7.49,amber,2.05
+delete account,261,18,6.9,amber,1.46
+scam,106,7,6.6,amber,1.16
+order is active but customer already received it,3983,259,6.5,amber,1.06
+cannot use my coupon (under antifraud review),142,9,6.34,amber,0.9
+driver or store request to cancel,64,4,6.25,amber,0.81
+food poisoning,1545,95,6.15,amber,0.71
+Account Stolen (under antifraud review),340,19,5.59,amber,0.15
+apply coupon to pay an order(Non-AF),186,10,5.38,green,-0.06
+inedible order,57682,2985,5.17,green,-0.27
+review order history,20,1,5.0,green,-0.44
+modify phone number,414,19,4.59,green,-0.85
+payment methods available,838,35,4.18,green,-1.26
+access to personal data,24,1,4.17,green,-1.27
+cannot share my referral promocode (under antifraud review),24,1,4.17,green,-1.27
+robbery,1311,53,4.04,green,-1.4
+order appears as completed but customer haven't receive it - full service,12158,485,3.99,green,-1.45
+driver or store request to cancel order,3318,120,3.62,green,-1.82
+user placed order with wrong information,5751,205,3.56,green,-1.88
+cannot receive coupon (under antifraud review),30,1,3.33,green,-2.11
+verbal aggression,338,11,3.25,green,-2.19
+incomplete order,128724,4110,3.19,green,-2.25
+pick up order at store,169,5,2.96,green,-2.48
+wrong order,70148,2056,2.93,green,-2.51
+Damaged order,38723,1130,2.92,green,-2.52
+order appears as completed but customer haven't receive it - market place,1875,54,2.88,green,-2.56
+physical aggression,593,17,2.87,green,-2.57
+delivery verification code,280,8,2.86,green,-2.58
+issues while paying to courier,716,20,2.79,green,-2.65
+cancel the order,136897,3786,2.77,green,-2.67
+user don't want the order anymore,282543,6216,2.2,green,-3.24
+delivery fee information,139,3,2.16,green,-3.28
+terms and conditions,192,4,2.08,green,-3.36
+settle a pending offline payment,291,6,2.06,green,-3.38
+rate another user,664,13,1.96,green,-3.48
+verification fee information,294,5,1.7,green,-3.74
+modify order products,595,10,1.68,green,-3.76
+sexual harassment,92,1,1.09,green,-4.35
+modify or add address,287,3,1.05,green,-4.39
+ticket returned by clipper,4473,47,1.05,green,-4.39
+Driver or store request to cancel,110,1,0.91,green,-4.53
+driver mismatch,5306,36,0.68,green,-4.76
+modify payment method,468,3,0.64,green,-4.8
+add payment method,1,0,0.0,green,-5.44
+discover business categories,2,0,0.0,green,-5.44
+coupon bundle management,1,0,0.0,green,-5.44
+customer service observations,33,0,0.0,green,-5.44
+data breach/leakege,3,0,0.0,green,-5.44
+business modalities information,61,0,0.0,green,-5.44
+become a driver or shopper,14,0,0.0,green,-5.44
+User disagrees with cancellation charge/debt-groceries,12,0,0.0,green,-5.44
+fraud behavior report,10,0,0.0,green,-5.44
+other business line,3892,0,0.0,green,-5.44
+order location information,9,0,0.0,green,-5.44
+order appears as completed but customer haven't receive it - groceries,15,0,0.0,green,-5.44
+missing people,13,0,0.0,green,-5.44
+frequent user discount program,12,0,0.0,green,-5.44
+information disclosure,1,0,0.0,green,-5.44
+install software or app,3,0,0.0,green,-5.44
+manage preparation instructions,8,0,0.0,green,-5.44
+drug possession,37,0,0.0,green,-5.44
+referral coupon information,33,0,0.0,green,-5.44
+pre-authorization charge,6,0,0.0,green,-5.44
+ticket return from clipper,5,0,0.0,green,-5.44
+update e-mail,4,0,0.0,green,-5.44
+traffic accident,51,0,0.0,green,-5.44
+update password,5,0,0.0,green,-5.44
+user-to-user contact,9,0,0.0,green,-5.44

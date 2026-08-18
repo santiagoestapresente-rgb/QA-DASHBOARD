@@ -1,0 +1,57 @@
+﻿CR Lv4,Feedback_CNT,Satisfied_CNT,CSAT_Pct,Status,Gap_vs_Goal
+data breach/leakege,1,0,0.0,red,-85.0
+order location information,1,0,0.0,red,-85.0
+update phone number,1,0,0.0,red,-85.0
+after sales user fraud (under anti fraud review),475,29,6.11,red,-78.89
+delivery fee information,21,4,19.05,red,-65.95
+account creation and login,5,1,20.0,red,-65.0
+Other,566,149,26.33,red,-58.67
+system instabilities,28,8,28.57,red,-56.43
+membership program renewal charge,248,71,28.63,red,-56.37
+pick up order at store,10,3,30.0,red,-55.0
+issues while paying to courier,96,29,30.21,red,-54.79
+delete account,25,8,32.0,red,-53.0
+modify or add address,15,5,33.33,red,-51.67
+referral coupon information,6,2,33.33,red,-51.67
+apply coupon to pay an order(Non-AF),26,9,34.62,red,-50.38
+modify order products,52,18,34.62,red,-50.38
+order invoice issues,8,3,37.5,red,-47.5
+settle a pending offline payment,15,6,40.0,red,-45.0
+business modalities information,5,2,40.0,red,-45.0
+modify phone number,42,17,40.48,red,-44.52
+membership program benefits,109,47,43.12,red,-41.88
+store promotions doubts,41,18,43.9,red,-41.1
+verification fee information,9,4,44.44,red,-40.56
+payment methods available,47,23,48.94,red,-36.06
+review order history,4,2,50.0,red,-35.0
+placing an order information,142,72,50.7,red,-34.3
+terms and conditions,36,19,52.78,red,-32.22
+didi pay balance & top up,88,48,54.55,red,-30.45
+Partnerships information,14,8,57.14,red,-27.86
+order status & delays,5096,3296,64.68,red,-20.32
+store registration,3,2,66.67,red,-18.33
+refund status and conditions,3582,2401,67.03,red,-17.97
+User disagrees with cancellation charge/debt,5992,4041,67.44,red,-17.56
+user request order status or delay information,9918,6729,67.85,red,-17.15
+Duplicated charge,58,41,70.69,red,-14.31
+rate another user,131,93,70.99,red,-14.01
+order is active but customer already received it,598,426,71.24,red,-13.76
+Driver or store request to cancel,14,10,71.43,red,-13.57
+Courier overcharged me,962,718,74.64,red,-10.36
+refund failed,36,27,75.0,red,-10.0
+order appears as completed but customer haven't receive it - full service,948,738,77.85,red,-7.15
+delivery verification code,32,25,78.12,red,-6.88
+driver or store request to cancel order,994,784,78.87,red,-6.13
+order appears as completed but customer haven't receive it - market place,148,119,80.41,amber,-4.59
+user placed order with wrong information,1245,1006,80.8,amber,-4.2
+driver or store request to cancel,18,15,83.33,amber,-1.67
+cancel the order,5593,4759,85.09,green,0.09
+modify payment method,7,6,85.71,green,0.71
+user don't want the order anymore,10518,9289,88.32,green,3.32
+incomplete order,8227,7353,89.38,green,4.38
+inedible order,7685,7018,91.32,green,6.32
+Damaged order,5962,5489,92.07,green,7.07
+wrong order,7359,6784,92.19,green,7.19
+access to personal data,2,2,100.0,green,15.0
+order appears as completed but customer haven't receive it - groceries,1,1,100.0,green,15.0
+order invoice issues - groceries,1,1,100.0,green,15.0

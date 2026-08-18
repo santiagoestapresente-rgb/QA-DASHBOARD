@@ -1,0 +1,9 @@
+﻿Country,Channel,QA_Score,Audits,Critical_Fails,Status,Gap_vs_Goal
+CR,Phone,74.17,12,3,red,-10.83
+MX,Phone,81.51,238,36,amber,-3.49
+CO,Phone,87.28,103,9,green,2.28
+CR,Live Chat,94.94,79,3,green,9.94
+MX,Live Chat,95.87,1337,42,green,10.87
+PE,Live Chat,96.03,73,2,green,11.03
+CO,Live Chat,96.46,616,15,green,11.46
+PE,Phone,100.0,2,0,green,15.0

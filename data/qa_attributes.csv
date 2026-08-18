@@ -1,0 +1,21 @@
+﻿Channel,Attribute,Attribute_Raw,Is_Critical,Fail_Count,Applicable_Count,Fail_Rate_Pct
+Live Chat,Saludo E Identificacion,Saludo_e_identificacion,False,96,2105,4.56
+Live Chat,Actitud De Servicio,Actitud_de_servicio,False,69,2105,3.28
+Live Chat,Disponibilidad Del Servicio,Critical_Disponibilidad_del_servicio,True,46,2105,2.19
+Live Chat,Calidad Del Sondeo,Calidad_del_sondeo,False,32,2105,1.52
+Live Chat,Calidad De Comunicacion,Calidad_de_comunicacion,False,25,2105,1.19
+Live Chat,Objetividad Del Chat,Critical_Objetividad_del_chat,True,18,2105,0.86
+Live Chat,Recurrencia De Informacion,Recurrencia_de_informacion,False,16,2105,0.76
+Live Chat,Personalizacion,Personalizacion,False,9,2105,0.43
+Phone,Manejo Del Tiempo,atributo_manejo_del_tiempo_end_user,False,133,355,37.46
+Phone,Informacion Completa Y Correcta,Critical_atributo_informacion_completa_y_correcta_end_user,True,28,355,7.89
+Phone,Nombre De Usuario,atributo_nombre_de_usuario_end_user,False,15,355,4.23
+Phone,Compensaciones Reembolsos,Critical_atributo_compensaciones_reembolsos_end_user,True,12,355,3.38
+Phone,Negacion De Servicio,Critical_atributo_negacion_de_servicio_end_user,True,8,355,2.25
+Phone,Rudeza Con El Usuario,Critical_atributo_rudeza_con_el_usuario_end_user,True,4,355,1.13
+Phone,Presentacion,atributo_presentacion_end_user,False,3,355,0.85
+Phone,Actitud De Servicio,Critical_atributo_actitud_de_servicio_end_user,True,2,355,0.56
+Phone,Comunicacion Efectiva,atributo_comunicacion_efectiva_end_user,False,2,355,0.56
+Phone,Escucha Activa,atributo_escucha_activa_end_user,False,0,355,0.0
+Phone,Manejo Del Lenguaje,atributo_manejo_del_lenguaje_end_user,False,0,355,0.0
+Phone,Personalizacion De La Interaccion,atributo_personalizacion_de_la_interaccion_end_user,False,0,355,0.0

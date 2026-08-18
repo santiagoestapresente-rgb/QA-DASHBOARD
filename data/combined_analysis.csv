@@ -1,0 +1,149 @@
+﻿CR_Lv4_Name,QA_Score,QA_Audits,Feedback_CNT,Satisfied_CNT,CSAT_Pct,Contacts,Recontact_Volume,Recontact_Rate,QA_Status,CSAT_Status,RC_Status,Risk_Flags
+store promotions doubts,95.38461538461539,26.0,41.0,18.0,43.9,279.0,32.0,11.47,green,red,red,2
+refund status and conditions,98.44444444444444,45.0,3582.0,2401.0,67.03,18484.0,2901.0,15.69,green,red,red,2
+after sales user fraud (under anti fraud review),,,475.0,29.0,6.11,3146.0,895.0,28.45,na,red,red,2
+User disagrees with cancellation charge/debt,91.35593220338983,59.0,5992.0,4041.0,67.44,50902.0,6599.0,12.96,green,red,red,2
+user request order status or delay information,,,9918.0,6729.0,67.85,76911.0,13014.0,16.92,na,red,red,2
+store registration,80.0,5.0,3.0,2.0,66.67,120.0,77.0,64.17,amber,red,red,2
+order status & delays,97.33333333333333,45.0,5096.0,3296.0,64.68,39706.0,7680.0,19.34,green,red,red,2
+system instabilities,100.0,1.0,28.0,8.0,28.57,564.0,136.0,24.11,green,red,red,2
+membership program benefits,94.6938775510204,49.0,109.0,47.0,43.12,644.0,86.0,13.35,green,red,red,2
+membership program renewal charge,95.43478260869566,92.0,248.0,71.0,28.63,1886.0,231.0,12.25,green,red,red,2
+refund failed,100.0,5.0,36.0,27.0,75.0,102.0,16.0,15.69,green,red,red,2
+placing an order information,96.52173913043478,46.0,142.0,72.0,50.7,1880.0,259.0,13.78,green,red,red,2
+Duplicated charge,94.32835820895522,67.0,58.0,41.0,70.69,2657.0,238.0,8.96,green,red,amber,1
+Order appears as completed but customer haven't receive it - market place,47.5,4.0,,,,,,,red,na,na,1
+Order appears as completed but customer haven't receive it - full service,68.16326530612245,49.0,,,,,,,red,na,na,1
+Other,,,566.0,149.0,26.33,,,,na,red,na,1
+Courier overcharged me,92.0,90.0,962.0,718.0,74.64,4635.0,411.0,8.87,green,red,amber,1
+Courier picked up order incorrectly,0.0,1.0,,,,,,,red,na,na,1
+Driver or store request to cancel,97.5,4.0,14.0,10.0,71.43,110.0,1.0,0.91,green,red,green,1
+Bank Card Stolen (under antifraud review),94.24242424242425,66.0,,,,1580.0,204.0,12.91,green,na,red,1
+issues while paying to courier,,,96.0,29.0,30.21,716.0,20.0,2.79,na,red,green,1
+update phone number,,,1.0,0.0,0.0,,,,na,red,na,1
+payment methods available,90.37037037037037,27.0,47.0,23.0,48.94,838.0,35.0,4.18,green,red,green,1
+modify or add address,92.66666666666667,15.0,15.0,5.0,33.33,287.0,3.0,1.05,green,red,green,1
+order appears as completed but customer haven't receive it - full service,96.62921348314607,89.0,948.0,738.0,77.85,12158.0,485.0,3.99,green,red,green,1
+order location information,90.0,1.0,1.0,0.0,0.0,9.0,0.0,0.0,green,red,green,1
+order invoice issues,98.0,10.0,8.0,3.0,37.5,2204.0,165.0,7.49,green,red,amber,1
+referral coupon information,80.0,5.0,6.0,2.0,33.33,33.0,0.0,0.0,amber,red,green,1
+settle a pending offline payment,98.57142857142857,14.0,15.0,6.0,40.0,291.0,6.0,2.06,green,red,green,1
+schedule or postpone an order,,,,,,3.0,1.0,33.33,na,na,red,1
+verification fee information,99.56521739130434,23.0,9.0,4.0,44.44,294.0,5.0,1.7,green,red,green,1
+verbal aggression,76.0,5.0,,,,338.0,11.0,3.25,red,na,green,1
+terms and conditions,100.0,12.0,36.0,19.0,52.78,192.0,4.0,2.08,green,red,green,1
+rate another user,99.55555555555556,45.0,131.0,93.0,70.99,664.0,13.0,1.96,green,red,green,1
+review order history,100.0,2.0,4.0,2.0,50.0,20.0,1.0,5.0,green,red,green,1
+pick up order at store,98.18181818181819,11.0,10.0,3.0,30.0,169.0,5.0,2.96,green,red,green,1
+data breach/leakege,,,1.0,0.0,0.0,3.0,0.0,0.0,na,red,green,1
+delete account,97.5,16.0,25.0,8.0,32.0,261.0,18.0,6.9,green,red,amber,1
+delivery fee information,88.88888888888889,9.0,21.0,4.0,19.05,139.0,3.0,2.16,green,red,green,1
+delivery verification code,88.14814814814815,27.0,32.0,25.0,78.12,280.0,8.0,2.86,green,red,green,1
+didi pay balance & top up,89.68253968253968,63.0,88.0,48.0,54.55,854.0,66.0,7.73,green,red,amber,1
+driver or store request to cancel order,,,994.0,784.0,78.87,3318.0,120.0,3.62,na,red,green,1
+Referral coupon information,0.0,1.0,,,,,,,red,na,na,1
+Order is active but customer already received it,65.83333333333333,12.0,,,,,,,red,na,na,1
+Refund status and conditions,76.4,25.0,,,,,,,red,na,na,1
+cannot place cash order (under antifraud review),93.63636363636364,55.0,,,,7278.0,1776.0,24.4,green,na,red,1
+become a driver or shopper,50.0,2.0,,,,14.0,0.0,0.0,red,na,green,1
+business modalities information,100.0,1.0,5.0,2.0,40.0,61.0,0.0,0.0,green,red,green,1
+accidental injury or damage,,,,,,6.0,1.0,16.67,na,na,red,1
+apply coupon to pay an order(Non-AF),99.56521739130434,23.0,26.0,9.0,34.62,186.0,10.0,5.38,green,red,green,1
+account creation and login,95.0,2.0,5.0,1.0,20.0,151.0,13.0,8.61,green,red,amber,1
+Partnerships information,90.76923076923077,13.0,14.0,8.0,57.14,83.0,8.0,9.64,green,red,amber,1
+malicious property damage,,,,,,5.0,4.0,80.0,na,na,red,1
+order is active but customer already received it,96.42857142857143,42.0,598.0,426.0,71.24,3983.0,259.0,6.5,green,red,amber,1
+modify phone number,98.66666666666667,30.0,42.0,17.0,40.48,414.0,19.0,4.59,green,red,green,1
+modify order products,93.88888888888889,18.0,52.0,18.0,34.62,595.0,10.0,1.68,green,red,green,1
+notification permission,,,,,,2.0,1.0,50.0,na,na,red,1
+Cannot share my referral promocode (under antifraud review),95.0,2.0,,,,,,,green,na,na,0
+Cannot use my coupon (under antifraud review),100.0,2.0,,,,,,,green,na,na,0
+Courier hasn´t arrived,100.0,1.0,,,,,,,green,na,na,0
+Cancel the order,90.0,49.0,,,,,,,green,na,na,0
+Can't choose card as payment method (under antifraud review),97.5,84.0,,,,4342.0,416.0,9.58,green,na,amber,0
+Bank card stolen (under antifraud review),96.0,5.0,,,,,,,green,na,na,0
+Cannot place cash order (under antifraud review),93.33333333333333,3.0,,,,,,,green,na,na,0
+Account Stolen (under antifraud review),95.18518518518519,27.0,,,,340.0,19.0,5.59,green,na,amber,0
+Account stolen (under antifraud review),90.0,3.0,,,,,,,green,na,na,0
+After sales user fraud (under anti fraud review),97.37288135593221,118.0,,,,,,,green,na,na,0
+Apply coupon to pay an order(non-af),93.33333333333333,3.0,,,,,,,green,na,na,0
+Driver or store request to cancel order,99.66666666666667,30.0,,,,,,,green,na,na,0
+Driver mismatch,93.33333333333333,3.0,,,,,,,green,na,na,0
+Didi pay balance & top up,90.0,1.0,,,,,,,green,na,na,0
+Damaged order,89.0,50.0,5962.0,5489.0,92.07,38723.0,1130.0,2.92,green,green,green,0
+Courier over charged me,100.0,1.0,,,,,,,green,na,na,0
+User placed order with wrong information,95.0,34.0,,,,,,,green,na,na,0
+Online payment failure (under antifraud review),95.0,54.0,,,,2686.0,218.0,8.12,green,na,amber,0
+Order status management,100.0,1.0,,,,,,,green,na,na,0
+Other business line,99.0,10.0,,,,,,,green,na,na,0
+Modify phone number,100.0,1.0,,,,,,,green,na,na,0
+Membership program benefits,95.0,2.0,,,,,,,green,na,na,0
+Issues while paying to courier,94.42307692307692,52.0,,,,,,,green,na,na,0
+Invalid contact,92.58064516129032,31.0,,,,,,,green,na,na,0
+Membership program renewal charge,93.33333333333333,6.0,,,,,,,green,na,na,0
+Inedible order,97.48387096774194,155.0,,,,,,,green,na,na,0
+Incomplete order,96.27329192546584,161.0,,,,,,,green,na,na,0
+driver or store request to cancel,98.33333333333333,6.0,18.0,15.0,83.33,64.0,4.0,6.25,green,amber,amber,0
+driver mismatch,100.0,8.0,,,,5306.0,36.0,0.68,green,na,green,0
+discover business categories,,,,,,2.0,0.0,0.0,na,na,green,0
+cannot receive coupon (under antifraud review),100.0,1.0,,,,30.0,1.0,3.33,green,na,green,0
+cannot use my coupon,100.0,1.0,,,,,,,green,na,na,0
+cannot use my coupon (under antifraud review),90.0,12.0,,,,142.0,9.0,6.34,green,na,amber,0
+coupon bundle management,,,,,,1.0,0.0,0.0,na,na,green,0
+customer service observations,,,,,,33.0,0.0,0.0,na,na,green,0
+cannot receive cash order (under antifraud review),100.0,1.0,,,,,,,green,na,na,0
+cannot share my referral promocode (under antifraud review),100.0,1.0,,,,24.0,1.0,4.17,green,na,green,0
+Wrong order,81.0,20.0,,,,,,,amber,na,na,0
+accept or stop orders,100.0,1.0,,,,,,,green,na,na,0
+Verbal aggression,93.33333333333333,3.0,,,,,,,green,na,na,0
+book of claims,,,,,,775.0,62.0,8.0,na,na,amber,0
+cancel the order,86.66666666666667,9.0,5593.0,4759.0,85.09,136897.0,3786.0,2.77,green,green,green,0
+cannot place cash order,100.0,1.0,,,,,,,green,na,na,0
+User request order status or delay information,95.6,25.0,,,,,,,green,na,na,0
+add payment method,,,,,,1.0,0.0,0.0,na,na,green,0
+access to personal data,98.0,5.0,2.0,2.0,100.0,24.0,1.0,4.17,green,green,green,0
+Placing an order information,95.0,2.0,,,,,,,green,na,na,0
+Rate another user,100.0,4.0,,,,,,,green,na,na,0
+Refund failed,95.0,2.0,,,,,,,green,na,na,0
+Refund status and conditions doubts,100.0,2.0,,,,,,,green,na,na,0
+Payment methods available,100.0,1.0,,,,,,,green,na,na,0
+Robbery,90.0,1.0,,,,,,,green,na,na,0
+Service not available in my area,90.0,1.0,,,,,,,green,na,na,0
+Store refuses to deliver,100.0,1.0,,,,,,,green,na,na,0
+Stalking,100.0,1.0,,,,,,,green,na,na,0
+Terms and conditions,100.0,1.0,,,,,,,green,na,na,0
+User disagrees with cancellation charge/debt-groceries,96.0,5.0,,,,12.0,0.0,0.0,green,na,green,0
+User don't want the order anymore,87.36842105263158,19.0,,,,,,,green,na,na,0
+drug possession,100.0,1.0,,,,37.0,0.0,0.0,green,na,green,0
+physical aggression,100.0,1.0,,,,593.0,17.0,2.87,green,na,green,0
+other business line,100.0,40.0,,,,3892.0,0.0,0.0,green,na,green,0
+order invoice issues - groceries,100.0,1.0,1.0,1.0,100.0,,,,green,green,na,0
+order appears as completed but customer haven't receive it - market place,100.0,1.0,148.0,119.0,80.41,1875.0,54.0,2.88,green,amber,green,0
+order appears as completed but customer haven't receive it - groceries,100.0,2.0,1.0,1.0,100.0,15.0,0.0,0.0,green,green,green,0
+modify payment method,86.66666666666667,9.0,7.0,6.0,85.71,468.0,3.0,0.64,green,green,green,0
+fraud behavior report,,,,,,10.0,0.0,0.0,na,na,green,0
+frequent user discount program,,,,,,12.0,0.0,0.0,na,na,green,0
+install software or app,,,,,,3.0,0.0,0.0,na,na,green,0
+information disclosure,,,,,,1.0,0.0,0.0,na,na,green,0
+inedible order,99.58333333333333,48.0,7685.0,7018.0,91.32,57682.0,2985.0,5.17,green,green,green,0
+incomplete order,96.66666666666667,30.0,8227.0,7353.0,89.38,128724.0,4110.0,3.19,green,green,green,0
+legal request,,,,,,21.0,2.0,9.52,na,na,amber,0
+invalid contact,100.0,4.0,,,,6298.0,589.0,9.35,green,na,amber,0
+manage preparation instructions,100.0,1.0,,,,8.0,0.0,0.0,green,na,green,0
+missing people,,,,,,13.0,0.0,0.0,na,na,green,0
+food poisoning,100.0,10.0,,,,1545.0,95.0,6.15,green,na,amber,0
+sexual harassment,,,,,,92.0,1.0,1.09,na,na,green,0
+stalking,90.0,2.0,,,,33.0,3.0,9.09,green,na,amber,0
+scam,97.5,4.0,,,,106.0,7.0,6.6,green,na,amber,0
+pre-authorization charge,,,,,,6.0,0.0,0.0,na,na,green,0
+refund status and conditions doubts,99.0,10.0,,,,,,,green,na,na,0
+robbery,,,,,,1311.0,53.0,4.04,na,na,green,0
+ticket return from clipper,,,,,,5.0,0.0,0.0,na,na,green,0
+update password,,,,,,5.0,0.0,0.0,na,na,green,0
+update e-mail,,,,,,4.0,0.0,0.0,na,na,green,0
+traffic accident,,,,,,51.0,0.0,0.0,na,na,green,0
+ticket returned by clipper,,,,,,4473.0,47.0,1.05,na,na,green,0
+user placed order with wrong information,,,1245.0,1006.0,80.8,5751.0,205.0,3.56,na,amber,green,0
+user don't want the order anymore,,,10518.0,9289.0,88.32,282543.0,6216.0,2.2,na,green,green,0
+user-to-user contact,,,,,,9.0,0.0,0.0,na,na,green,0
+wrong order,99.52380952380952,21.0,7359.0,6784.0,92.19,70148.0,2056.0,2.93,green,green,green,0

@@ -1,0 +1,7 @@
+﻿Country Code,Feedback_CNT,Satisfied_CNT,CSAT_Pct,Status,Gap_vs_Goal
+DO,11,7,63.64,red,-21.36
+CR,2606,1944,74.6,red,-10.4
+PE,2109,1648,78.14,red,-6.86
+CO,24122,19271,79.89,red,-5.11
+MX,48417,38907,80.36,amber,-4.64
+PA,1,1,100.0,green,15.0
