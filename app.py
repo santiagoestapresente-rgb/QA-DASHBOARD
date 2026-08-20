@@ -6,6 +6,7 @@ Power BI layout · Business Case analytics only
 from __future__ import annotations
 
 from html import escape as html_escape
+from pathlib import Path
 from urllib.parse import quote
 import time
 
@@ -210,9 +211,12 @@ from modules.kpis import (
     _vs_goal_status,
 )
 
+_APP_DIR = Path(__file__).resolve().parent
+_DIDI_FAVICON = _APP_DIR / "assets" / "didi_favicon.png"
+
 st.set_page_config(
     page_title="DiDi CX Quality Dashboard",
-    page_icon="🟠",
+    page_icon=str(_DIDI_FAVICON) if _DIDI_FAVICON.exists() else "🟠",
     layout="wide",
     initial_sidebar_state="expanded",
 )

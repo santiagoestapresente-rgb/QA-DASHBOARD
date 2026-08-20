@@ -1,12 +1,12 @@
 # Runtime dependencies for the Streamlit dashboard (app.py + modules/).
-# Pinned to the versions verified locally on Python 3.11 so the deploy is reproducible.
-# Deploy target: Streamlit Community Cloud — select Python 3.11 in "Advanced settings".
+# Streamlit Community Cloud currently installs Python 3.14 even when 3.11
+# is selected locally. Pins below must have cp314 wheels (no source builds).
 streamlit==1.61.1
 pandas==3.0.3
-numpy==2.1.2
+# pandas 3.0.3 needs numpy>=2.3.3; 2.1.2 has no Python 3.14 wheel.
+numpy>=2.3.3,<3
 plotly==6.9.0
-# Reads the packaged parquet snapshot in data/packaged/ (primary data path).
-pyarrow==20.0.0
-# Fallback path only: rebuild the model from data/Business Case.xlsx if the
-# snapshot is missing. Tiny package, keeps the app self-healing.
+# pyarrow 20 has no cp314 wheel; 22+ does. Cap below 25 (known crash).
+pyarrow>=22.0.0,<25
+# Fallback path only: rebuild from data/Business Case.xlsx if parquet is missing.
 openpyxl==3.1.5
