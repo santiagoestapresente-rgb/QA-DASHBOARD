@@ -4,3 +4,12 @@ __pycache__/
 .env
 .venv/
 venv/
+
+# Local build cache (regenerable, ~34 MB). The versioned data lives in data/packaged/.
+data/cache/
+
+# Personal dashboard label/theme tweaks (sidebar Edit labels → Save)
+ui_overrides.json
+
+# Office lock files
+~$*

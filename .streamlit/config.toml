@@ -1,12 +1,25 @@
+# Theme mirrors the DiDi brand palette used by the dashboard CSS (config.py).
+# No secrets or local paths belong in this file — it is versioned in the repo.
 [theme]
 primaryColor = "#FF6600"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F5F5F5"
+secondaryBackgroundColor = "#F5F6F8"
 textColor = "#1A1A1A"
 font = "sans serif"
 
 [server]
 headless = true
+# The dashboard data is static and versioned; no file watching needed in production.
+fileWatcherType = "none"
+enableStaticServing = false
 
 [browser]
 gatherUsageStats = false
+
+[client]
+# Keep tracebacks off the executive view; details stay in the Cloud logs.
+showErrorDetails = "none"
+toolbarMode = "minimal"
+
+[logger]
+level = "warning"

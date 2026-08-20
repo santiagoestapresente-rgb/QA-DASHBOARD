@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qué cuentan estos números — DiDi CX · mayo 2026</title>
+  <style>
+    :root {
+      --bg: #f7f5f2;
+      --card: #fff;
+      --ink: #1a1a1a;
+      --muted: #5c5c5c;
+      --line: #e4e0da;
+      --ok: #1f7a4d;
+      --ok-bg: #e8f6ee;
+      --bad: #b42318;
+      --bad-bg: #fdecea;
+      --warn: #b54708;
+      --warn-bg: #fef4e6;
+      --info: #175cd3;
+      --info-bg: #eff4ff;
+      --bar: #344054;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 32px 24px 64px; }
+    h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.03em; }
+    h2 { font-size: 20px; margin: 36px 0 10px; letter-spacing: -0.02em; }
+    h3 { font-size: 15px; margin: 0 0 8px; }
+    p { margin: 0 0 12px; }
+    .lede, .note, .cap { color: var(--muted); }
+    .note, .cap { font-size: 13px; }
+    .cap { margin-top: 6px; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+    .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .kpi b { display: block; font-size: 28px; letter-spacing: -0.04em; }
+    .kpi span { font-size: 12px; color: var(--muted); }
+    .ok b { color: var(--ok); }
+    .bad b { color: var(--bad); }
+    .warn b { color: var(--warn); }
+    .callout {
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 16px 0;
+      border: 1px solid var(--line);
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+    .c-warn { background: var(--warn-bg); }
+    .c-info { background: var(--info-bg); }
+    .c-bad { background: var(--bad-bg); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+    .card .meta { float: right; font-size: 11px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--card); }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+    td.r, th.r { text-align: right; }
+    tr:nth-child(even) td { background: #faf9f7; }
+    .bar-row { display: grid; grid-template-columns: 180px 1fr 64px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+    .bar-track { height: 10px; background: #ece8e1; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--bar); }
+    .bar-fill.bad { background: var(--bad); }
+    .bar-fill.warn { background: var(--warn); }
+    .bar-fill.ok { background: var(--ok); }
+    .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin: 8px 0; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+    .stars { display: flex; height: 18px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+    .stars span { height: 100%; }
+    footer { margin-top: 40px; font-size: 12px; color: var(--muted); }
+    @media print {
+      body { background: #fff; }
+      .wrap { padding: 0; max-width: none; }
+      .card, .kpi, .callout { break-inside: avoid; }
+      h2 { break-after: avoid; }
+    }
+    @media (max-width: 720px) {
+      .kpis, .grid2 { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Qué cuentan estos números</h1>
+    <p class="lede">Mayo 2026 · 2,460 evaluaciones QA · 77,266 encuestas CSAT · 994,591 contactos. Lectura de interpretación; no cambia las fórmulas del dashboard.</p>
+
+    <div class="callout c-warn">
+      <strong>La tesis en una frase</strong>
+      QA dice que el agente hizo el proceso bien. El cliente dice que no se resolvió. El Recontact oficial casi cumple porque Self Help diluye el mix: dos de cada tres contactos ni siquiera pasan por un agente auditado.
+    </div>
+
+    <div class="kpis">
+      <div class="kpi ok"><b>94.14</b><span>QA vs meta 85 · verde +9.14</span></div>
+      <div class="kpi bad"><b>79.95%</b><span>CSAT vs meta 85% · rojo −5.05</span></div>
+      <div class="kpi warn"><b>5.83%</b><span>Recontact vs 5.44% · ámbar +0.39</span></div>
+    </div>
+
+    <h2>1. Tres KPIs, tres historias distintas</h2>
+    <p>El promedio global es engañoso si se lee como “la operación está bien”. QA está holgado. CSAT es el miss real: 5.05 puntos bajo la meta, justo fuera de la banda ámbar de 5 puntos. Recontact está a 0.39 puntos de 5.44% —cerca en el encabezado, lejos en los canales vivos.</p>
+
+    <h3>CSAT no es tibio: está polarizado</h3>
+    <p>De 77,266 encuestas, 80.0% son 4★ o 5★ (meta 85%). El hueco son ~3,900 encuestas. No es un mar de 3★: el 16.5% del universo es 1★ (12,753). El 82% de los insatisfechos son 1★, no 2★/3★. Convertir ~31% de esas 1★ a 4–5★ cierra la meta.</p>
+    <div class="stars" title="Mix de estrellas">
+      <span style="width:75.7%;background:#1f7a4d"></span>
+      <span style="width:4.3%;background:#175cd3"></span>
+      <span style="width:2.3%;background:#b54708"></span>
+      <span style="width:1.2%;background:#98a2b3"></span>
+      <span style="width:16.5%;background:#b42318"></span>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#1f7a4d"></i>5★ 75.7%</span>
+      <span><i class="dot" style="background:#175cd3"></i>4★ 4.3%</span>
+      <span><i class="dot" style="background:#b54708"></i>3★ 2.3%</span>
+      <span><i class="dot" style="background:#98a2b3"></i>2★ 1.2%</span>
+      <span><i class="dot" style="background:#b42318"></i>1★ 16.5%</span>
+    </div>
+    <p class="cap">CSAT oficial = (4★+5★) / Feedback CNT. 61,778 satisfechos de 77,266. VOC: Refund / compensation not received (754), No solution provided (664), Driver behavior (435). El cliente habla de resultado, no de script.</p>
+
+    <h2>QA 94 no es “todos en 94”</h2>
+    <p>El histograma es bimodal. El 82.7% de las auditorías sacan 100. El 4.5% sacan 0 (critical fail: 110 de 2,460). El 17.3% tiene al menos un fail (426 auditorías). El 94.14 es un promedio de muchos perfectos y una cola fatal corta.</p>
+    <div class="bar-row"><span>0 (fail crítico)</span><div class="bar-track"><div class="bar-fill bad" style="width:5.4%"></div></div><span>110</span></div>
+    <div class="bar-row"><span>70</span><div class="bar-track"><div class="bar-fill" style="width:0.1%"></div></div><span>2</span></div>
+    <div class="bar-row"><span>80</span><div class="bar-track"><div class="bar-fill" style="width:1.0%"></div></div><span>21</span></div>
+    <div class="bar-row"><span>90</span><div class="bar-track"><div class="bar-fill" style="width:14.4%"></div></div><span>293</span></div>
+    <div class="bar-row"><span>100</span><div class="bar-track"><div class="bar-fill ok" style="width:100%"></div></div><span>2,034</span></div>
+    <p class="cap">Distribución de QA Score · n = 2,460. Un fail crítico pone el score en 0; el resto parte de 100 y resta 10 por atributo. Barras relativas al máximo (2,034).</p>
+
+    <div class="grid2">
+      <div class="card">
+        <span class="meta">volumen</span>
+        <h3>Time management</h3>
+        <p>133 fails (25.7% de los fails). Impacto en el promedio: −1.2 pp. Es el atributo más frecuente, no crítico. Greeting and identification: 96 fails (−0.42 pp).</p>
+      </div>
+      <div class="card">
+        <span class="meta">letalidad</span>
+        <h3>Service availability</h3>
+        <p>Solo 46 fails, pero −1.76 pp en el promedio global —el mayor impacto. Es CRITICAL: un fail tumba el score a 0. Service attitude: 71 fails CRITICAL (−0.57 pp).</p>
+      </div>
+    </div>
+
+    <h2>El tiempo: QA estable, CSAT atascado, Recontact sí bajó</h2>
+    <table>
+      <thead>
+        <tr><th>Week</th><th class="r">QA</th><th class="r">CSAT</th><th class="r">Recontact</th><th>Notas</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>W18</td><td class="r">—</td><td class="r">79.8%</td><td class="r">6.33%</td><td>Sin QA (auditorías arrancan W19)</td></tr>
+        <tr><td>W19</td><td class="r">92.4</td><td class="r">79.2%</td><td class="r">6.04%</td><td>QA verde · CSAT rojo</td></tr>
+        <tr><td>W20</td><td class="r">94.9</td><td class="r">80.1%</td><td class="r">5.98%</td><td>CSAT entra a ámbar</td></tr>
+        <tr><td>W21</td><td class="r">94.2</td><td class="r">81.0%</td><td class="r">5.81%</td><td>Mejor CSAT del mes, aún bajo 85</td></tr>
+        <tr><td>W22</td><td class="r">95.5</td><td class="r">79.4%</td><td class="r">5.26%</td><td>QA máximo · CSAT otra vez rojo · RC bajo meta</td></tr>
+      </tbody>
+    </table>
+    <div class="callout c-info">
+      <strong>Qué no se puede concluir</strong>
+      Bajar Recontact en W22 no levantó CSAT (cayó a 79.4%). Resolver a la primera y que el cliente se sienta bien no es el mismo mecanismo este mes. QA alto tampoco predice CSAT.
+    </div>
+
+    <hr />
+
+    <h2>2. La inversión Phone vs Live Chat</h2>
+    <p>Live Chat es el 85.6% de las auditorías y arrastra el QA global a verde. Phone es el 14.4% y está bajo meta. CSAT hace lo contrario: Phone cumple, Chat no. Si se coachingea “calidad” mirando solo el 94.14, se entrena el canal que ya pasa QA y se ignora el que genera el CSAT bajo.</p>
+    <table>
+      <thead>
+        <tr><th>Canal</th><th class="r">QA</th><th class="r">CSAT</th><th class="r">Recontact</th><th class="r">Volumen</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Live Chat</td><td class="r">96.01</td><td class="r">77.55%</td><td class="r">15.99%</td><td class="r">2,105 evals · 55,962 encuestas · 243,626 contactos</td></tr>
+        <tr><td>Phone</td><td class="r">83.04</td><td class="r">86.26%</td><td class="r">13.47%</td><td class="r">355 evals · 21,304 encuestas · 49,674 contactos</td></tr>
+      </tbody>
+    </table>
+    <p class="cap">Recontact en ambos canales vivos está ~3× sobre 5.44%. No es comparable en magnitud con QA/CSAT 85; se muestra para ver el gap operativo.</p>
+    <div class="grid2">
+      <div class="card">
+        <span class="meta">QA verde · CSAT rojo</span>
+        <h3>Live Chat</h3>
+        <p>El rubric se cumple; el ticket no cierra el problema del cliente (status, cargo, refund). 38,961 recontactos. Coaching de script aquí tiene poco ROI.</p>
+      </div>
+      <div class="card">
+        <span class="meta">QA rojo · CSAT verde</span>
+        <h3>Phone</h3>
+        <p>Único canal auditado bajo meta (−2.0 vs 85). El teléfono falla atributos de proceso (tiempo, saludo) que el auditor ve y el cliente, en media, perdona. Aquí sí hay caso de coaching QA.</p>
+      </div>
+    </div>
+
+    <h2>Recontact 5.83% es un mix, no un resultado de agentes</h2>
+    <p>Self Help es el 67.0% de los 994,591 contactos, con Recontact 1.22%. Eso empuja el oficial a 5.83%. Sin Self Help el rate es 15.19%. En Phone + Live Chat (el universo que QA puede tocar) es 15.56% —casi 10 puntos sobre la meta 5.44%.</p>
+    <div class="bar-row"><span>All 12 (oficial)</span><div class="bar-track"><div class="bar-fill warn" style="width:37%"></div></div><span>5.83%</span></div>
+    <div class="bar-row"><span>Excluding Self Help</span><div class="bar-track"><div class="bar-fill bad" style="width:98%"></div></div><span>15.19%</span></div>
+    <div class="bar-row"><span>Phone + Live Chat</span><div class="bar-track"><div class="bar-fill bad" style="width:100%"></div></div><span>15.56%</span></div>
+    <p class="cap">Scopes · Σ Recontact Volume / Σ Contacts. Nunca promediar tasas de fila. Barras relativas a 15.56%. Meta 5.44%.</p>
+    <table>
+      <thead>
+        <tr><th>Canal</th><th class="r">Contactos</th><th class="r">Share</th><th class="r">Recontact</th><th class="r">vs 5.44%</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Self Help</td><td class="r">666,650</td><td class="r">67.0%</td><td class="r">1.22%</td><td class="r">−4.22</td></tr>
+        <tr><td>Live Chat</td><td class="r">243,626</td><td class="r">24.5%</td><td class="r">15.99%</td><td class="r">+10.55</td></tr>
+        <tr><td>Phone</td><td class="r">49,674</td><td class="r">5.0%</td><td class="r">13.47%</td><td class="r">+8.03</td></tr>
+        <tr><td>GPTBot</td><td class="r">19,508</td><td class="r">2.0%</td><td class="r">13.73%</td><td class="r">+8.29</td></tr>
+        <tr><td>Help Center</td><td class="r">12,224</td><td class="r">1.2%</td><td class="r">7.70%</td><td class="r">+2.26</td></tr>
+      </tbody>
+    </table>
+    <p class="cap">FCR derivado oficial ≈ 94.17% (100 − 5.83). En Phone+Chat ≈ 84.4%. Usar el FCR global para decir “resolvemos a la primera” mezcla self-service con agentes.</p>
+    <div class="callout c-bad">
+      <strong>Implicación operativa</strong>
+      El 5.83 ámbar no se arregla pidiendo a los agentes “menos recontacto” en abstracto. La palanca de volumen está en Live Chat (38,961 recontactos) y en tres Contact reason Lv4 de status / cargo / refund. Self Help ya está “barato”; no es el problema.
+    </div>
+
+    <hr />
+
+    <h2>3. Los mismos tres motivos empujan CSAT y Recontact</h2>
+    <p>No es un long-tail de 80 reasons. Status del pedido, cargo de cancelación y refund concentran insatisfacción y recontacto. En esos CRs el QA suele estar verde: el agente “pasa el audit” y el cliente vuelve. Eso apunta a política, herramienta o promesa —no a un hueco masivo de skill.</p>
+    <div class="bar-row"><span>order status / delay info</span><div class="bar-track"><div class="bar-fill bad" style="width:100%"></div></div><span>3,189</span></div>
+    <div class="bar-row"><span>cancellation charge/debt</span><div class="bar-track"><div class="bar-fill bad" style="width:61%"></div></div><span>1,951</span></div>
+    <div class="bar-row"><span>order status &amp; delays</span><div class="bar-track"><div class="bar-fill bad" style="width:56%"></div></div><span>1,800</span></div>
+    <div class="bar-row"><span>don't want the order</span><div class="bar-track"><div class="bar-fill" style="width:39%"></div></div><span>1,229</span></div>
+    <div class="bar-row"><span>refund status</span><div class="bar-track"><div class="bar-fill bad" style="width:37%"></div></div><span>1,181</span></div>
+    <div class="bar-row"><span>incomplete order</span><div class="bar-track"><div class="bar-fill" style="width:27%"></div></div><span>874</span></div>
+    <p class="cap">Top Contact reason Lv4 por encuestas insatisfechas (1–3★). “don't want the order” e “incomplete order” tienen CSAT alto (88.3 y 89.4): mucho volumen, poca queja.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Contact reason Lv4 (detail)</th>
+          <th class="r">CSAT</th>
+          <th class="r">Insatisfechos</th>
+          <th class="r">Recontact</th>
+          <th class="r">QA</th>
+          <th>Patrón</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>user request order status or delay information</td>
+          <td class="r">67.8%</td><td class="r">3,189 / 9,918</td>
+          <td class="r">16.92% · 13,014 rec</td><td class="r">—</td><td>CSAT bajo + RC alto</td>
+        </tr>
+        <tr>
+          <td>User disagrees with cancellation charge/debt</td>
+          <td class="r">67.4%</td><td class="r">1,951 / 5,992</td>
+          <td class="r">12.96% · 6,599 rec</td><td class="r">91.4 (n=59)</td><td>QA ok · cliente no</td>
+        </tr>
+        <tr>
+          <td>order status &amp; delays</td>
+          <td class="r">64.7%</td><td class="r">1,800 / 5,096</td>
+          <td class="r">19.34% · 7,680 rec</td><td class="r">97.3 (n=45)</td><td>QA ok · cliente no</td>
+        </tr>
+        <tr>
+          <td>user don't want the order anymore</td>
+          <td class="r">88.3%</td><td class="r">1,229 / 10,518</td>
+          <td class="r">2.20% · 6,216 rec</td><td class="r">—</td><td>Alto volumen, CSAT ok</td>
+        </tr>
+        <tr>
+          <td>refund status and conditions</td>
+          <td class="r">67.0%</td><td class="r">1,181 / 3,582</td>
+          <td class="r">15.69% · 2,901 rec</td><td class="r">98.4 (n=45)</td><td>QA ok · cliente no</td>
+        </tr>
+        <tr>
+          <td>Order appears completed, not received — full service</td>
+          <td class="r">—</td><td class="r">—</td>
+          <td class="r">—</td><td class="r">68.2 (n=49)</td><td>Aquí sí falla QA</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="cap">Donde hay n QA decente, el patrón “QA alto + CSAT bajo + RC alto” se sostiene. Excepción: mismatch de status de orden, QA 68.2 con n=49.</p>
+
+    <h3>VOC confirma el mismo cuello</h3>
+    <table>
+      <thead><tr><th>Tema en comentarios negativos</th><th class="r">Menciones</th><th class="r">% de tagged</th></tr></thead>
+      <tbody>
+        <tr><td>Refund / compensation not received</td><td class="r">754</td><td class="r">27.4%</td></tr>
+        <tr><td>No solution provided</td><td class="r">664</td><td class="r">24.2%</td></tr>
+        <tr><td>Driver behavior</td><td class="r">435</td><td class="r">15.8%</td></tr>
+        <tr><td>Order / trip issues</td><td class="r">292</td><td class="r">10.6%</td></tr>
+        <tr><td>Long wait time</td><td class="r">237</td><td class="r">8.6%</td></tr>
+        <tr><td>Poor service</td><td class="r">196</td><td class="r">7.1%</td></tr>
+      </tbody>
+    </table>
+    <p class="cap">Universo: 8,223 comentarios reales; 4,655 negativos. Driver behavior es marketplace: el contacto hereda un problema que CX no controla del todo.</p>
+    <div class="callout c-warn">
+      <strong>Worklist, no más promedio</strong>
+      El combined analysis del dashboard (CRs que fallan 2+ KPIs) ya es la cola de trabajo: order status &amp; delays, cancellation charge/debt, refund status, cash/card antifraud, courier overcharged.
+    </div>
+
+    <hr />
+
+    <h2>4. Agentes y tenure</h2>
+    <p>Los promedios esconden concentración, pero el miss de CSAT es sistémico.</p>
+    <div class="grid2">
+      <div class="card">
+        <span class="meta">222 agentes · ≥5 audits</span>
+        <h3>QA by agent</h3>
+        <p><b style="color:var(--warn);font-size:22px">33</b> bajo meta 85 (15% del roster). El miss de QA es minoría. Agent 190 (Supervisor 8): 12 fails, QA 82.7. Coaching por volumen de fail, no por “el peor promedio”.</p>
+      </div>
+      <div class="card">
+        <span class="meta">304 agentes · ≥20 encuestas</span>
+        <h3>CSAT by agent</h3>
+        <p><b style="color:var(--bad);font-size:22px">223</b> bajo meta 85 (73% del roster). El miss es la norma. Caso extremo: Agent 212 (Supervisor 11) — CSAT 27.1, 411 insatisfechos de 564 encuestas.</p>
+      </div>
+    </div>
+    <div class="callout c-info">
+      <strong>Supervisor 11 es el contraste</strong>
+      QA 90.7 (n=44, 15 agentes) y CSAT 71.0 sobre 4,243 encuestas. El supervisor “pasa calidad” y pierde satisfacción. Agent 212 vive ahí. No se resuelve con más calibración de rubric; hay que abrir mix de CR y canal de ese roster.
+    </div>
+    <table>
+      <thead>
+        <tr><th>Supervisor</th><th class="r">QA</th><th class="r">Evals</th><th class="r">CSAT</th><th class="r">Encuestas</th><th>Lectura</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Supervisor 24</td><td class="r">76.2</td><td class="r">13</td><td class="r">77.0</td><td class="r">139</td><td>QA y CSAT bajos; n QA chico</td></tr>
+        <tr><td>Supervisor 22</td><td class="r">81.8</td><td class="r">17</td><td class="r">81.1</td><td class="r">1,664</td><td>Ambos bajo 85</td></tr>
+        <tr><td>Supervisor 12</td><td class="r">82.1</td><td class="r">53</td><td class="r">79.3</td><td class="r">2,583</td><td>QA bajo con n útil</td></tr>
+        <tr><td>Supervisor 23</td><td class="r">82.9</td><td class="r">14</td><td class="r">80.3</td><td class="r">467</td><td>QA bajo; n chico</td></tr>
+        <tr><td>Supervisor 11</td><td class="r">90.7</td><td class="r">44</td><td class="r">71.0</td><td class="r">4,243</td><td>QA ok · peor CSAT de volumen</td></tr>
+      </tbody>
+    </table>
+    <p class="cap">71 agentes CSAT quedan en “Not mapped to a QA supervisor”. Recontact no tiene grano de agente.</p>
+
+    <h2>Tenure: los de más de un año son el único cohort bajo 85</h2>
+    <p>New hire está en 92.05. El pico es 3–6 months (96.24). More than 1 year cae a 83.97 (n=136). No se puede leer como “los veteranos se descuidan”: tenure solo existe en QA, n es el más chico, y puede ser mix de Phone / CRs difíciles. Sirve como alerta, no como causa.</p>
+    <div class="bar-row"><span>New hire (n=259)</span><div class="bar-track"><div class="bar-fill ok" style="width:47%"></div></div><span>92.05</span></div>
+    <div class="bar-row"><span>30–90 d (n=1,128)</span><div class="bar-track"><div class="bar-fill ok" style="width:71%"></div></div><span>95.68</span></div>
+    <div class="bar-row"><span>3–6 mo (n=529)</span><div class="bar-track"><div class="bar-fill ok" style="width:75%"></div></div><span>96.24</span></div>
+    <div class="bar-row"><span>6–12 mo (n=408)</span><div class="bar-track"><div class="bar-fill ok" style="width:46%"></div></div><span>91.89</span></div>
+    <div class="bar-row"><span>&gt; 1 year (n=136)</span><div class="bar-track"><div class="bar-fill warn" style="width:0%"></div></div><span>83.97</span></div>
+    <p class="cap">Barras = puntos sobre 85 (escala 0–15 pp). El cohort &gt;1 year queda en 0 porque está 1.03 pp bajo meta. CSAT y Recontact no tienen este corte.</p>
+
+    <h2>Qué haría con esto (prioridad, no catálogo)</h2>
+    <table>
+      <thead>
+        <tr><th>Prioridad</th><th>Dónde</th><th>Por qué</th><th>Qué no hacer</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Contact reason Lv4: status / delay</td><td>13k+ recontactos y 3,189 insatisfechos. QA alto.</td><td>Más training de greeting</td></tr>
+        <tr><td>2</td><td>Cancellation charge / debt + refund</td><td>Mismo patrón: CSAT ~67, RC alto, QA verde.</td><td>Tratarlo como skill de agente</td></tr>
+        <tr><td>3</td><td>Live Chat (no el 94 global)</td><td>72% de las encuestas, CSAT 77.6, RC 16%.</td><td>Celebrar QA 96 de Chat como éxito CX</td></tr>
+        <tr><td>4</td><td>Phone QA + Agent 212 / Supervisor 11</td><td>Único canal QA bajo meta; un agente con CSAT 27.</td><td>Coaching masivo del roster CSAT (223 personas)</td></tr>
+        <tr><td>5</td><td>Self Help / FCR oficial</td><td>Explicar a negocio que 5.83% no es el live rate.</td><td>Usar FCR 94% como prueba de resolución</td></tr>
+      </tbody>
+    </table>
+
+    <footer>
+      Fuente: Business Case mayo 2026 · Market = All · Week = todas · Day = All · fórmulas oficiales (no promedios de tasas).<br />
+      Archivo exportado desde el canvas de Cursor · Historia Mayo CX.
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,611 +1,6122 @@
 """
-DiDi CX Quality Analyst — Performance Dashboard
-Deliverable 1 — Business Case Selection Process
+DiDi CX — Executive Quality Dashboard
+Power BI layout · Business Case analytics only
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from html import escape as html_escape
+from urllib.parse import quote
+import time
 
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
+import pandas as pd
 
-# ── Config ─────────────────────────────────────────────────────────────────
+from config import (
+    CHART_COLORS,
+    COUNTRY_FROM_ISO3,
+    COUNTRY_NAMES,
+    CSAT_GOAL,
+    DIDI_CARD,
+    DIDI_CARD_BORDER,
+    DIDI_DARK,
+    DIDI_FILTER,
+    DIDI_GRAY,
+    DIDI_MUTED,
+    DIDI_NAVY,
+    DIDI_ORANGE,
+    DIDI_SIDEBAR,
+    DIDI_TEXT,
+    DIDI_WHITE,
+    LABEL_GROUPS,
+    LABELS,
+    QA_GOAL,
+    RECONTACT_GOAL,
+    SUPERVISOR_Q4_SHARE_ALERT,
+    STATUS_COLORS,
+    TENURE_SOURCE_ORDER,
+    THEME_DEFAULTS,
+    apply_ui_overrides,
+    clear_ui_overrides,
+    load_ui_overrides,
+    save_ui_overrides,
+)
+import modules.dashboard_charts as _dash_charts
+from modules.dashboard_charts import (
+    CHART_CFG,
+    control_i_chart,
+    cr_group_hbar,
+    critical_split_chart,
+    csat_star_chart,
+    pareto_dual_axis,
+    qa_by_cr_chart,
+    qa_aht_scatter,
+    aht_metric_scatter,
+    qa_channel_compare_chart,
+    qa_csat_scatter,
+    score_volume_combo,
+    grouped_qa_csat_chart,
+    channel_kpi_combo,
+    hbar_score_chart,
+    voc_bar_chart,
+    manner_pie_chart,
+    corr_r_bars,
+    multimetric_risk_chart,
+    qa_histogram_chart,
+    csat_histogram_chart,
+    qa_recontact_scatter,
+    csat_recontact_scatter,
+    recontact_scope_chart,
+    sparkbar_fig,
+    sparkline_fig,
+    spark_hbar_fig,
+    spark_donut_fig,
+    spark_r_fig,
+    square_pie_fig,
+    top_failing_attributes_chart,
+    weekly_kpi_chart,
+    americas_map_chart,
+    recontact_channel_combo_chart,
+    recontact_cr_combo_chart,
+    quartile_count_chart,
+    supervisor_mix_chart,
+)
+from modules.chart_notes import (
+    aht_outcome_notes,
+    attr_notes,
+    combined_notes,
+    pareto_notes,
+    qa_rc_chart_notes,
+    rc_scope_notes,
+    scatter_notes,
+    voc_notes,
+    csat_tenure_notes,
+)
+from modules.alerts import (
+    agents_for_supervisor,
+    annotate_watch_pipeline,
+    make_agent_ticket,
+    make_csat_ticket,
+    make_qa_ticket,
+    people_watchlist,
+    qa_coaching_queue,
+    recontact_ops_table,
+)
+from modules.micro_insights import (
+    attr_chip,
+    channel_chip,
+    combined_chip,
+    csat_chip,
+    fcr_scope_chip,
+    gap_chip,
+    pareto_chip,
+    qa_chip,
+    aht_overlap_empty_text,
+    r_explain,
+    rate_chip,
+    scatter_chip,
+    tenure_chip,
+    voc_chip,
+    weekly_chip,
+)
+from modules.data_loader import load_all_data
+from modules.executive_engine import (
+    build_executive_brief,
+    combined_operational_analysis,
+    csat_segmentation,
+    generate_action_plan,
+    qa_channel_breakdown,
+    requester_performance,
+    period_volume_delta,
+)
+from modules.kpis import (
+    agent_scores,
+    channel_performance,
+    attach_cr_group,
+    cr_correlation_summary,
+    cr_join_coverage,
+    CR_UNMAPPED,
+    cr_group_lookup,
+    cr_level_metrics,
+    map_cr_group,
+    channel_match,
+    cr_match,
+    normalize_channel_label,
+    critical_fail_stats,
+    csat_unsatisfied_by_cr,
+    csat_score_by_cr,
+    csat_by_supervisor,
+    csat_by_business_type,
+    csat_by_star_rating,
+    csat_by_user_tenure,
+    voc_all_comments,
+    filter_csat_by_supervisor,
+    filter_csat_by_agent,
+    fail_event_totals,
+    csat_control_daily,
+    daily_metrics_trend,
+    daily_volume_series,
+    cut_csat_recontact_for_weeks,
+    calendar_days_in_scope,
+    filter_by_calendar_day,
+    analysis_date_span,
+    kpi_summary,
+    kpi_by_channel,
+    market_performance,
+    qa_aht_by_cr,
+    qa_aht_by_channel,
+    supervisor_overview,
+    gap_pareto_frame,
+    tenure_qa_overview,
+    tenure_csat_overview,
+    agents_below_qa_goal,
+    qa_agent_roster,
+    qa_agent_fail_concentrators,
+    csat_agent_roster,
+    CSAT_UNMAPPED_SUPERVISOR,
+    AHT_CR_MIN_AUDITS,
+    qa_agent_quartiles,
+    csat_agent_quartiles,
+    quartile_band_summary,
+    supervisor_quartile_mix,
+    aht_joined_outcomes,
+    aht_correlation_summary,
+    qa_by_audit_type,
+    qa_by_special_project,
+    qa_by_tenure,
+    qa_channel_dispersion,
+    qa_control_daily,
+    qa_fails_by_cr,
+    qa_fails_by_cr_group,
+    qa_score_by_cr,
+    qa_score_histogram,
+    csat_score_histogram,
+    recontact_by_cr,
+    recontact_by_std_channel,
+    recontact_channel_table,
+    recontact_by_cr_group,
+    contact_volume_by_cr,
+    recontact_by_scope,
+    recontact_control_daily,
+    recontact_dilution_stats,
+    recontact_rate,
+    scoring_method_stats,
+    slice_coverage_table,
+    top_failing_attributes,
+    voc_themes_negative,
+    volume_totals,
+    weekly_kpi_table,
+    weekly_trends,
+    _vs_goal_status,
+)
+
 st.set_page_config(
-    page_title="DiDi CX Performance Dashboard",
+    page_title="DiDi CX Quality Dashboard",
     page_icon="🟠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-
-DIDI_ORANGE = "#FF6600"
-DIDI_DARK = "#1A1A1A"
-DIDI_WHITE = "#FFFFFF"
-STATUS_COLORS = {"green": "#28a745", "amber": "#ffc107", "red": "#dc3545"}
-
-QA_GOAL = 85
-CSAT_GOAL = 85
-RECONTACT_GOAL = 5.44
+THEME_PICKERS = (
+    ("navy", "App background"),
+    ("sidebar", "Sidebar"),
+    ("card", "Cards"),
+    ("orange", "Accent"),
+    ("text", "Text"),
+)
 
 
-@st.cache_data(ttl=300)
-def load_table(name: str) -> pd.DataFrame:
-    path = DATA_DIR / f"{name}.csv"
-    if not path.exists():
+def _hex_color(value: object, fallback: str) -> str:
+    if isinstance(value, str) and value.startswith("#") and len(value) in (4, 7):
+        return value
+    return fallback
+
+
+def _hex_rgb(value: str, fallback: str = "255, 102, 0") -> str:
+    raw = str(value or "").strip().lstrip("#")
+    if len(raw) == 3:
+        raw = "".join(ch * 2 for ch in raw)
+    if len(raw) != 6:
+        return fallback
+    try:
+        r, g, b = int(raw[0:2], 16), int(raw[2:4], 16), int(raw[4:6], 16)
+    except ValueError:
+        return fallback
+    return f"{r}, {g}, {b}"
+
+
+_STALE_DARK_SURFACES = {"#0a0e1a", "#0c1220", "#151c2c"}
+_STALE_LIGHT_TEXT = {"#f8fafc", "#ffffff", "#fff"}
+
+
+def _is_broken_theme(value: object, key: str = "") -> bool:
+    """Streamlit color_picker defaults to #000000 when first mounted without value=."""
+    if not isinstance(value, str):
+        return True
+    raw = value.strip().lower()
+    if raw in {"", "#000", "#000000", "black"}:
+        return True
+    if key in {"navy", "sidebar", "card"} and raw in _STALE_DARK_SURFACES:
+        return True
+    if key == "text" and raw in _STALE_LIGHT_TEXT:
+        return True
+    return False
+
+
+def init_labels() -> None:
+    applied = apply_ui_overrides()
+    for key, value in applied["labels"].items():
+        sk = f"lbl_{key}"
+        stored = st.session_state.get(sk)
+        allow_blank = key in {"overview_insight", "overview_action", "overview_hypothesis", "qa_story"}
+        if not allow_blank and (not isinstance(stored, str) or not stored.strip()):
+            st.session_state[sk] = value
+        else:
+            st.session_state.setdefault(sk, value)
+    for key, value in applied["theme"].items():
+        sk = f"theme_{key}"
+        if _is_broken_theme(st.session_state.get(sk)):
+            st.session_state[sk] = value
+        else:
+            st.session_state.setdefault(sk, value)
+
+
+def L(key: str) -> str:
+    ss_key = f"lbl_{key}"
+    if ss_key in st.session_state:
+        stored = st.session_state[ss_key]
+        if isinstance(stored, str) and stored.strip():
+            return stored
+        builtin = str(LABELS.get(key, key))
+        if builtin:
+            return builtin
+        return stored
+    file_labels = load_ui_overrides().get("labels") or {}
+    if isinstance(file_labels.get(key), str):
+        return file_labels[key]
+    return str(LABELS.get(key, key))
+
+
+def runtime_theme() -> dict:
+    theme = dict(apply_ui_overrides()["theme"])
+    for key, default in THEME_DEFAULTS.items():
+        raw = st.session_state.get(f"theme_{key}")
+        if _is_broken_theme(raw, key):
+            st.session_state[f"theme_{key}"] = theme.get(key, default)
+            theme[key] = theme.get(key, default)
+        else:
+            theme[key] = _hex_color(raw, theme.get(key, default))
+    return theme
+
+
+def apply_chart_theme(theme: dict) -> None:
+    """Keep Plotly panel colors in sync without restarting Streamlit."""
+    text = theme["text"]
+    card = theme["card"]
+    _dash_charts.DIDI_ORANGE = theme["orange"]
+    _dash_charts.DIDI_TEXT = text
+    _dash_charts.DIDI_CARD = card
+    _dash_charts.PAPER = card
+    _dash_charts.TICK = text
+    _dash_charts.GRID = "rgba(26,26,26,0.10)"
+    _dash_charts.LINE = "rgba(26,26,26,0.16)"
+    _dash_charts.LEGEND_BOTTOM["font"]["color"] = text
+    _dash_charts.LEGEND_TOP["font"]["color"] = text
+
+
+init_labels()
+_THEME = runtime_theme()
+DIDI_NAVY = _THEME["navy"]
+DIDI_SIDEBAR = _THEME["sidebar"]
+DIDI_CARD = _THEME["card"]
+DIDI_ORANGE = _THEME["orange"]
+DIDI_TEXT = _THEME["text"]
+apply_chart_theme(_THEME)
+_ORANGE_RGB = _hex_rgb(DIDI_ORANGE)
+
+# Streamlit 1.61 `st.html("<style>…</style>")` is treated as style-only, sent to
+# the event container WITHOUT unsafe_allow_javascript, then DOMPurify strips the
+# <style> tag. Inject CSS via markdown and a non-style-only st.html payload.
+# Do not use class name kpi-card (smoke test treats it as a leak).
+_TILE = DIDI_CARD
+_GRAD_PAGE = (
+    f"radial-gradient(ellipse 90% 55% at 6% -8%, rgba({_ORANGE_RGB},.10), transparent 52%), "
+    f"linear-gradient(180deg, {DIDI_WHITE} 0%, {DIDI_NAVY} 55%, {DIDI_GRAY} 100%)"
+)
+_GRAD_SIDE = DIDI_SIDEBAR
+_GRAD_CARD = DIDI_CARD
+_GRAD_ORANGE = DIDI_ORANGE
+_GRAD_TITLE = DIDI_DARK
+_GRAD_BLUE = DIDI_DARK
+
+
+def _nav_mask(inner: str) -> str:
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' "
+        "stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>"
+        f"{inner}</svg>"
+    )
+    return f'url("data:image/svg+xml,{quote(svg)}")'
+
+
+_NAV_HOME = _nav_mask(
+    '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>'
+)
+_NAV_PIE = _nav_mask(
+    '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>'
+    '<path d="M22 12A10 10 0 0 0 12 2v10z"/>'
+)
+_NAV_SMILE = _nav_mask(
+    '<circle cx="12" cy="12" r="9"/>'
+    '<path d="M8 14s1.5 2 4 2 4-2 4-2"/>'
+    '<path d="M9 9h.01M15 9h.01"/>'
+)
+_NAV_PHONE = _nav_mask(
+    '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 '
+    '19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 '
+    '2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27'
+    'a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>'
+)
+_NAV_BELL = _nav_mask(
+    '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>'
+    '<path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
+)
+_CSS = f"""
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"], .stApp, .stMarkdown, .stCaption, button, input, textarea {{
+    font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
+}}
+.stApp {{
+    background: {DIDI_NAVY};
+    background-image: {_GRAD_PAGE};
+    background-attachment: fixed;
+    color: {DIDI_TEXT};
+}}
+/* Overlay toasts: pin the keyed dock itself (Streamlit puts st-key-* on the
+   block, not inside stElementContainer, so :has() on that testid never fired). */
+[class*="st-key-didi_toast_dock"] {{
+    position: fixed !important;
+    top: 4.75rem !important;
+    right: 1.15rem !important;
+    left: auto !important;
+    z-index: 2147483000 !important;
+    width: min(380px, calc(100vw - 24px)) !important;
+    max-width: 380px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    flex: 0 0 auto !important;
+    align-self: flex-end !important;
+}}
+[data-testid="stElementContainer"]:has([class*="st-key-didi_toast_dock"]),
+[data-testid="stVerticalBlockBorderWrapper"]:has(> [class*="st-key-didi_toast_dock"]) {{
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+}}
+[class*="st-key-didi_toast_dock"] [data-testid="stVerticalBlock"] {{
+    gap: 8px !important;
+}}
+[class*="st-key-didi_toast_item"] {{
+    background: linear-gradient(180deg, #24344F 0%, #151C2C 100%) !important;
+    border: 1px solid rgba(242, 169, 0, .45) !important;
+    border-left: 4px solid {STATUS_COLORS["amber"]} !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 28px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.08) !important;
+    padding: 0.8rem 0.55rem 1.15rem 0.9rem !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    contain: none !important;
+    box-sizing: border-box !important;
+}}
+[class*="st-key-didi_toast_item"]:has(.didi-toast--shake) {{
+    animation: didi-toast-in 0.48s cubic-bezier(.22,.9,.35,1) both;
+}}
+[class*="st-key-didi_toast_item"] [data-testid="stVerticalBlockBorderWrapper"],
+[class*="st-key-didi_toast_item"] [data-testid="stVerticalBlock"],
+[class*="st-key-didi_toast_item"] [data-testid="stHorizontalBlock"],
+[class*="st-key-didi_toast_item"] [data-testid="stColumn"],
+[class*="st-key-didi_toast_item"] [data-testid="stColumn"] > div,
+[class*="st-key-didi_toast_item"] [data-testid="stElementContainer"],
+[class*="st-key-didi_toast_item"] [data-testid="stMarkdown"],
+[class*="st-key-didi_toast_item"] [data-testid="stMarkdownContainer"] {{
+    gap: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    contain: none !important;
+}}
+section.main [class*="st-key-didi_toast_item"] [data-testid="stHorizontalBlock"] {{
+    gap: 0.35rem !important;
+    align-items: flex-start !important;
+}}
+section.main [class*="st-key-didi_toast_item"] [data-testid="stColumn"] > div {{
+    flex: 0 1 auto !important;
+    height: auto !important;
+}}
+section.main [class*="st-key-didi_toast_item"] [data-testid="stMarkdownContainer"] > p {{
+    margin: 0 !important;
+    line-height: inherit !important;
+}}
+[class*="st-key-didi_toast_item"] button {{
+    min-height: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
+    border-radius: 8px !important;
+    background: rgba(255,255,255,.06) !important;
+    color: #E2E8F0 !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+}}
+[class*="st-key-didi_toast_item"] button:hover {{
+    background: rgba({_ORANGE_RGB},.28) !important;
+    border-color: {DIDI_ORANGE} !important;
+    color: #FFFFFF !important;
+}}
+.didi-toast {{
+    display: block; overflow: visible; padding: 0 0.15rem 0.15rem 0;
+}}
+.didi-toast-kicker {{
+    color: {STATUS_COLORS["amber"]}; font-size: 10px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; margin: 0 0 6px;
+    display: block; line-height: 1.3;
+}}
+.didi-toast-body {{
+    color: #E8EEF6; font-size: 0.8rem; line-height: 1.55; margin: 0; font-weight: 500;
+    display: block; overflow: visible; padding-bottom: 0.35rem;
+    white-space: normal; overflow-wrap: anywhere;
+}}
+@keyframes didi-toast-in {{
+    0% {{ transform: translateX(120%); opacity: 0; }}
+    100% {{ transform: translateX(0); opacity: 1; }}
+}}
+@keyframes didi-toast-out {{
+    to {{ transform: translateX(120%); opacity: 0; visibility: hidden; pointer-events: none; }}
+}}
+#didi-toast-live {{
+    position: fixed !important;
+    top: 4.75rem !important;
+    right: 1.15rem !important;
+    z-index: 2147483000 !important;
+    width: min(380px, calc(100vw - 24px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: didi-toast-in 0.48s cubic-bezier(.22,.9,.35,1) both,
+               didi-toast-out 0.35s 7.65s forwards;
+}}
+.didi-toast-card {{
+    position: relative;
+    background: linear-gradient(180deg, #24344F 0%, #151C2C 100%);
+    border: 1px solid rgba(242, 169, 0, .45);
+    border-left: 4px solid {STATUS_COLORS["amber"]};
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.08);
+    padding: 0.8rem 2.4rem 1.05rem 0.9rem;
+}}
+.didi-toast-x {{
+    position: absolute; top: 8px; right: 8px;
+    width: 28px; height: 28px; padding: 0;
+    border-radius: 8px; cursor: pointer;
+    background: rgba(255,255,255,.06);
+    color: #E2E8F0; border: 1px solid rgba(255,255,255,.14);
+    font-size: 1.05rem; line-height: 1;
+}}
+.didi-toast-x:hover {{
+    background: rgba({_ORANGE_RGB},.28);
+    border-color: {DIDI_ORANGE};
+    color: #FFFFFF;
+}}
+div[data-testid="stHtml"]:has(#didi-toast-live) {{
+    height: 0 !important; min-height: 0 !important; margin: 0 !important;
+    padding: 0 !important; overflow: visible !important;
+}}
+.didi-toast-sr {{
+    position: absolute !important; width: 1px !important; height: 1px !important;
+    overflow: hidden !important; clip: rect(0,0,0,0) !important;
+}}
+section.main [data-testid="stVerticalBlock"] {{
+    gap: 0.8rem !important;
+}}
+section.main [data-testid="stHorizontalBlock"] {{
+    gap: 0.85rem !important;
+    align-items: stretch !important;
+}}
+section.main [data-testid="stColumn"] {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+section.main [data-testid="stColumn"] > div {{
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    height: 100%;
+    width: 100%;
+}}
+section.main [class*="st-key-didi_tile"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_panel"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_head"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_action"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_alert"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_watch"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_sup"] [data-testid="stVerticalBlock"] {{
+    gap: 0.32rem !important;
+}}
+section.main [data-testid="stCaptionContainer"] {{
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+section.main [data-testid="stCaptionContainer"] p {{
+    margin: 0 !important;
+    line-height: 1.4 !important;
+    color: {DIDI_MUTED} !important;
+    font-size: 0.8rem !important;
+}}
+section.main [data-testid="stDataFrame"],
+section.main [data-testid="stDataFrameResizable"] {{
+    margin: 0 !important;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid {DIDI_DARK} !important;
+    border-top: 3px solid {DIDI_ORANGE} !important;
+    background: {DIDI_DARK} !important;
+}}
+section.main [data-testid="stDataFrame"] [class*="header"],
+section.main [data-testid="stDataFrame"] [role="columnheader"],
+section.main [data-testid="stDataFrameResizable"] [role="columnheader"] {{
+    background: {DIDI_DARK} !important;
+    color: {DIDI_WHITE} !important;
+}}
+section.main [data-testid="stAlert"] {{
+    margin: 0 !important;
+}}
+section.main [data-testid="stMarkdownContainer"] {{
+    margin: 0 !important;
+}}
+section.main [data-testid="stMarkdownContainer"] > p {{
+    margin: 0 0 0.55rem;
+}}
+section.main [data-testid="stMarkdownContainer"] > p:last-child {{
+    margin-bottom: 0;
+}}
+section.main [data-testid="stMarkdownContainer"]:has(.didi-kpi-banner-wrap) > p,
+section.main [data-testid="stMarkdownContainer"]:has(.didi-note) > p,
+section.main [data-testid="stMarkdownContainer"]:has(.didi-rbox) > p,
+section.main [data-testid="stMarkdownContainer"]:has(.didi-ops-strip) > p,
+section.main [data-testid="stMarkdownContainer"]:has(.didi-flow) > p,
+section.main [data-testid="stMarkdownContainer"]:has(.didi-head-top) > p {{
+    margin: 0 !important;
+}}
+
+section[data-testid="stSidebar"] {{
+    background: {DIDI_SIDEBAR} !important;
+    background-image: {_GRAD_SIDE} !important;
+    width: 268px !important;
+    border-right: 1px solid {DIDI_CARD_BORDER} !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
+    color: {DIDI_MUTED} !important; font-size: 11px !important; font-weight: 600 !important;
+    text-transform: uppercase; letter-spacing: .06em;
+}}
+section[data-testid="stSidebar"] [data-testid="stSelectbox"] span,
+section[data-testid="stSidebar"] [data-testid="stMultiSelect"] span,
+section[data-testid="stSidebar"] [data-baseweb="select"] * {{
+    color: {DIDI_MUTED} !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] {{
+    width: 100% !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] [data-testid="stRadio"],
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] [data-testid="stRadio"] > div,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"],
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div {{
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] {{
+    display: flex !important; flex-direction: column !important; gap: 6px !important;
+    align-items: stretch !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label {{
+    display: grid !important;
+    grid-template-columns: 18px minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 10px !important;
+    padding: 10px 12px 10px 14px !important;
+    margin: 0 !important;
+    min-height: 42px;
+    cursor: pointer;
+    text-align: left !important;
+    transition: background .15s ease, border-color .15s ease, filter .15s ease;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label:hover {{
+    background: {DIDI_GRAY} !important;
+    border-color: rgba({_ORANGE_RGB},.4) !important;
+    filter: brightness(0.92);
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label:has(input:checked) {{
+    border-color: {DIDI_ORANGE} !important;
+    background: linear-gradient(180deg, rgba({_ORANGE_RGB},.38) 0%, rgba({_ORANGE_RGB},.16) 100%) !important;
+    filter: none;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label:has(input:checked):hover {{
+    background: linear-gradient(180deg, rgba({_ORANGE_RGB},.46) 0%, rgba({_ORANGE_RGB},.20) 100%) !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label input {{
+    position: absolute !important; opacity: 0 !important;
+    width: 0 !important; height: 0 !important; pointer-events: none !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] [data-baseweb="radio"],
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label > *:not(input):not(:has(p)) {{
+    display: none !important;
+    width: 0 !important; height: 0 !important; overflow: hidden !important;
+    position: absolute !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label > div:has(p) {{
+    display: block !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    text-align: left !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] p {{
+    color: {DIDI_TEXT} !important; font-size: 13.5px !important; font-weight: 650 !important;
+    text-transform: none !important; letter-spacing: 0.01em !important;
+    text-align: left !important; margin: 0 !important;
+    width: 100% !important; display: block !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label:has(input:checked) p {{
+    color: #FFFFFF !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div > label::before {{
+    content: "";
+    grid-column: 1;
+    grid-row: 1;
+    width: 18px; height: 18px;
+    background-color: {DIDI_TEXT};
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-size: contain; mask-size: contain;
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label:nth-of-type(1)::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div:nth-of-type(1) label::before {{
+    -webkit-mask-image: {_NAV_HOME}; mask-image: {_NAV_HOME};
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label:nth-of-type(2)::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div:nth-of-type(2) label::before {{
+    -webkit-mask-image: {_NAV_PIE}; mask-image: {_NAV_PIE};
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label:nth-of-type(3)::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div:nth-of-type(3) label::before {{
+    -webkit-mask-image: {_NAV_SMILE}; mask-image: {_NAV_SMILE};
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label:nth-of-type(4)::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div:nth-of-type(4) label::before {{
+    -webkit-mask-image: {_NAV_PHONE}; mask-image: {_NAV_PHONE};
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > label:nth-of-type(5)::before,
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] > div:nth-of-type(5) label::before {{
+    -webkit-mask-image: {_NAV_BELL}; mask-image: {_NAV_BELL};
+}}
+section[data-testid="stSidebar"] [class*="st-key-didi_nav"] div[role="radiogroup"] label:has(input:checked)::before {{
+    background-color: {DIDI_WHITE};
+}}
+section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] small {{
+    color: {DIDI_FILTER} !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] {{
+    background: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 10px !important;
+    margin-bottom: 0.35rem;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary p,
+section[data-testid="stSidebar"] [data-testid="stExpander"] p {{
+    color: {DIDI_TEXT} !important; font-size: 12px !important; font-weight: 600 !important;
+}}
+
+/* Filled tiles — scoped to keyed containers only (global border wrappers
+   painted tables/metrics black when theme keys got reset to #000000). */
+section.main [class*="st-key-didi_tile"],
+section.main [class*="st-key-didi_panel"],
+section.main [class*="st-key-didi_insight"],
+section.main [class*="st-key-didi_action"],
+section.main [class*="st-key-didi_alert"] {{
+    background: {_GRAD_CARD} !important;
+    background-color: {DIDI_CARD} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.8), 0 8px 20px rgba(26,26,26,.06);
+    padding: 0.85rem 1rem 0.95rem;
+    margin-bottom: 0;
+    height: 100%;
+    box-sizing: border-box;
+}}
+section.main [class*="st-key-didi_tile"] {{
+    min-height: 236px;
+}}
+section.main [class*="st-key-didi_qa_fail_grid"] {{
+    height: 100%;
+    min-height: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+section.main [class*="st-key-didi_qa_fail_grid"] > div,
+section.main [class*="st-key-didi_qa_fail_grid"] [data-testid="stVerticalBlock"] {{
+    height: 100% !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    gap: 0.85rem !important;
+}}
+section.main [class*="st-key-didi_qa_fail_grid"] [data-testid="stHorizontalBlock"] {{
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+}}
+section.main [class*="st-key-didi_qa_fail_grid"] [class*="st-key-didi_tile"] {{
+    min-height: 0 !important;
+    height: 100%;
+}}
+section.main [class*="st-key-didi_tile_green"] {{
+    box-shadow: inset 5px 0 0 {STATUS_COLORS["green"]}, 0 1px 0 rgba(255,255,255,.07), 0 12px 28px rgba(0,0,0,.32) !important;
+}}
+section.main [class*="st-key-didi_tile_amber"] {{
+    box-shadow: inset 5px 0 0 {STATUS_COLORS["amber"]}, 0 1px 0 rgba(255,255,255,.07), 0 12px 28px rgba(0,0,0,.32) !important;
+}}
+section.main [class*="st-key-didi_tile_red"] {{
+    box-shadow: inset 5px 0 0 {STATUS_COLORS["red"]}, 0 1px 0 rgba(255,255,255,.07), 0 12px 28px rgba(0,0,0,.32) !important;
+}}
+section.main [class*="st-key-didi_tile_sm"] {{
+    min-height: 156px;
+    padding: 0.55rem 0.8rem 0.65rem;
+}}
+section.main [class*="st-key-didi_tile_sm"] [data-testid="stMetricValue"] {{
+    font-size: 1.28rem !important;
+}}
+section.main [class*="st-key-didi_tile_sm"] [data-testid="stPlotlyChart"] {{
+    min-height: 64px !important;
+    max-height: 72px !important;
+}}
+section.main [class*="st-key-didi_tile"] > div,
+section.main [class*="st-key-didi_tile"] > div > div,
+section.main [class*="st-key-didi_panel"] > div,
+section.main [class*="st-key-didi_panel"] > div > div,
+section.main [class*="st-key-didi_insight"] > div,
+section.main [class*="st-key-didi_insight"] > div > div,
+section.main [class*="st-key-didi_tile"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_tile"] [data-testid="stElementContainer"],
+section.main [class*="st-key-didi_tile"] [data-testid="stMetric"],
+section.main [class*="st-key-didi_tile"] [data-testid="stCaptionContainer"],
+section.main [class*="st-key-didi_tile"] [data-testid="stPlotlyChart"],
+section.main [class*="st-key-didi_tile"] [data-testid="stPlotlyChart"] > div,
+section.main [class*="st-key-didi_rcard"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stElementContainer"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stMetric"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stCaptionContainer"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"] > div,
+section.main [class*="st-key-didi_panel"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_panel"] [data-testid="stElementContainer"],
+section.main [class*="st-key-didi_panel"] [data-testid="stPlotlyChart"],
+section.main [class*="st-key-didi_panel"] [data-testid="stPlotlyChart"] > div,
+section.main [class*="st-key-didi_insight"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_insight"] [data-testid="stElementContainer"],
+section.main [class*="st-key-didi_action"] > div,
+section.main [class*="st-key-didi_action"] > div > div,
+section.main [class*="st-key-didi_action"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_action"] [data-testid="stElementContainer"] {{
+    background: transparent !important;
+    background-color: transparent !important;
+}}
+section.main [class*="st-key-didi_tile"] [data-testid="stPlotlyChart"] {{
+    min-height: 80px !important;
+    max-height: 88px !important;
+}}
+section.main [class*="st-key-didi_rcard"] {{
+    min-height: 248px;
+    text-align: center;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0;
+    margin-bottom: 0;
+    height: 100%;
+}}
+section.main [class*="st-key-didi_rcard"] [data-testid="stVerticalBlockBorderWrapper"] {{
+    background: {DIDI_WHITE} !important;
+    background-color: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.8), 0 8px 20px rgba(26,26,26,.06);
+    padding: 0.85rem 1rem 0.95rem;
+    height: 100%;
+    box-sizing: border-box;
+}}
+section.main [class*="st-key-didi_rcard_on"] [data-testid="stVerticalBlockBorderWrapper"],
+section.main [class*="st-key-didi_rcard"]:has(.didi-rcard-flag--on) [data-testid="stVerticalBlockBorderWrapper"] {{
+    border-color: rgba({_ORANGE_RGB},.88) !important;
+    box-shadow: 0 0 0 1px rgba({_ORANGE_RGB},.28), 0 12px 28px rgba(0,0,0,.32);
+}}
+section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"] {{
+    min-height: 110px !important;
+    max-height: 128px !important;
+}}
+/* Preview-card titles are Streamlit buttons. Match .didi-panel-title fill.
+   Do not require section.main — Streamlit 1.61 uses stMain, not class "main". */
+[class*="st-key-didi_rcard"] button,
+[class*="st-key-didi_rcard"] [data-testid^="stBaseButton"],
+[class*="st-key-didi_rcard"] [data-testid^="stBaseButton"] > div,
+[class*="st-key-pvbtn"] button,
+[class*="st-key-pvbtn"] [data-testid^="stBaseButton"],
+[class*="st-key-pvbtn"] [data-testid^="stBaseButton"] > div,
+section.main [class*="st-key-didi_rcard"] button,
+section.main [class*="st-key-didi_rcard"] [data-testid^="stBaseButton"],
+section.main [class*="st-key-didi_rcard"] [data-testid^="stBaseButton"] > div,
+section.main [class*="st-key-pvbtn"] button,
+section.main [class*="st-key-pvbtn"] [data-testid^="stBaseButton"],
+section.main [class*="st-key-pvbtn"] [data-testid^="stBaseButton"] > div,
+section[data-testid="stMain"] [class*="st-key-didi_rcard"] button,
+section[data-testid="stMain"] [class*="st-key-didi_rcard"] [data-testid^="stBaseButton"],
+section[data-testid="stMain"] [class*="st-key-pvbtn"] button,
+section[data-testid="stMain"] [class*="st-key-pvbtn"] [data-testid^="stBaseButton"] {{
+    background-image: none !important;
+    background: {DIDI_DARK} !important;
+    background-color: {DIDI_DARK} !important;
+    border: 1px solid {DIDI_DARK} !important;
+    border-bottom: 3px solid {DIDI_ORANGE} !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 14px rgba(0,0,0,.22) !important;
+    color: {DIDI_WHITE} !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .01em;
+    text-transform: none;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 0.42rem 0.7rem !important;
+    min-height: 2.45rem !important;
+    height: auto !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+}}
+[class*="st-key-didi_rcard"][class*="btnpie"] button,
+[class*="st-key-didi_rcard"][class*="btnscope"] button,
+[class*="st-key-didi_rcard"][class*="btnch"] button,
+[class*="st-key-didi_rcard"][class*="btncr"] button,
+[class*="st-key-didi_rcard"][class*="btngroup"] button,
+[class*="st-key-didi_rcard"][class*="btndaily"] button,
+[class*="st-key-didi_rcard"][class*="btnscat"] button {{
+    background-image: none !important;
+    background: {DIDI_DARK} !important;
+    background-color: {DIDI_DARK} !important;
+    box-shadow: 0 6px 14px rgba(0,0,0,.22) !important;
+}}
+[class*="st-key-didi_rcard"] button:hover,
+[class*="st-key-didi_rcard"] [data-testid^="stBaseButton"]:hover,
+[class*="st-key-pvbtn"] button:hover,
+[class*="st-key-pvbtn"] [data-testid^="stBaseButton"]:hover,
+section.main [class*="st-key-didi_rcard"] button:hover,
+section.main [class*="st-key-pvbtn"] button:hover,
+section[data-testid="stMain"] [class*="st-key-didi_rcard"] button:hover,
+section[data-testid="stMain"] [class*="st-key-pvbtn"] button:hover {{
+    filter: brightness(1.12);
+    color: #FFFFFF !important;
+    background: {DIDI_DARK} !important;
+    background-color: {DIDI_DARK} !important;
+}}
+[class*="st-key-didi_rcard"] button p,
+[class*="st-key-pvbtn"] button p,
+[class*="st-key-didi_rcard"] [data-testid^="stBaseButton"] p,
+[class*="st-key-pvbtn"] [data-testid^="stBaseButton"] p,
+section.main [class*="st-key-didi_rcard"] button p,
+section.main [class*="st-key-pvbtn"] button p {{
+    font-weight: 700 !important;
+    text-transform: none !important;
+    letter-spacing: .01em !important;
+    font-size: 0.80rem !important;
+    text-align: center !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+    color: #FFFFFF !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}}
+section.main [class*="st-key-didi_rcard"] [data-testid="stMetric"],
+section.main [class*="st-key-didi_rcard"] [data-testid="stMetric"] > div {{
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}}
+
+[data-testid="stMetricValue"] {{
+    font-size: 1.7rem !important; font-weight: 600 !important;
+    color: {DIDI_TEXT} !important; letter-spacing: -0.03em; line-height: 1.15 !important;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
+}}
+[data-testid="stMetricLabel"] {{
+    color: {DIDI_MUTED} !important; text-transform: uppercase; letter-spacing: .08em;
+    font-size: 0.68rem !important; font-weight: 500 !important;
+}}
+[data-testid="stMetricDelta"] {{ font-size: 0.78rem !important; font-weight: 500 !important; }}
+
+h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
+    color: {DIDI_TEXT} !important; font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
+    font-weight: 600 !important; letter-spacing: -0.02em;
+}}
+.main .stMarkdown, .main p {{ color: {DIDI_TEXT}; }}
+section.main div[data-testid="stExpander"] {{
+    background: {_GRAD_CARD} !important; border-radius: 12px; border: 1px solid {DIDI_CARD_BORDER};
+    margin: 0 !important;
+}}
+section.main [data-testid="stExpander"] details summary,
+section.main [data-testid="stExpander"] [data-testid="stExpanderHeader"] {{
+    background-image: none !important;
+    background-color: {DIDI_DARK} !important;
+    color: {DIDI_WHITE} !important;
+    border-radius: 8px !important;
+    border-bottom: 3px solid {DIDI_ORANGE} !important;
+    padding: 0.45rem 0.75rem !important;
+}}
+section.main [data-testid="stExpander"] details summary p,
+section.main [data-testid="stExpander"] [data-testid="stExpanderHeader"] p {{
+    color: {DIDI_WHITE} !important;
+    font-weight: 700 !important;
+}}
+
+button[kind="primary"],
+[data-testid="stBaseButton-primary"] {{
+    background: {DIDI_ORANGE} !important; color: {DIDI_WHITE} !important;
+    border: none !important; font-weight: 700 !important;
+    transition: filter .15s ease, transform .15s ease !important;
+}}
+button[kind="primary"]:hover,
+[data-testid="stBaseButton-primary"]:hover {{
+    filter: brightness(0.9);
+}}
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-header"] {{
+    transition: background .15s ease, filter .15s ease, border-color .15s ease !important;
+}}
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stBaseButton-header"]:hover {{
+    filter: brightness(0.88);
+    border-color: rgba({_ORANGE_RGB},.45) !important;
+}}
+
+.didi-wordmark {{
+    display: inline-flex; align-items: center; justify-content: center;
+    background: {DIDI_ORANGE}; color: {DIDI_WHITE};
+    font-weight: 700; font-size: 1.2rem; letter-spacing: .14em;
+    padding: 0.52rem 1.05rem; border-radius: 10px; line-height: 1; flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba({_ORANGE_RGB},.28);
+}}
+.didi-head-top {{
+    display: flex; flex-direction: row; align-items: stretch;
+    gap: 18px; width: 100%; flex-wrap: wrap;
+}}
+.didi-head-titlebox {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    flex: 1.15 1 320px;
+    width: auto;
+    min-width: 260px;
+    margin: 0;
+    padding: 22px 28px 20px;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 14px;
+    box-sizing: border-box;
+    box-shadow: 0 10px 28px rgba(0,0,0,.34);
+}}
+.didi-head-titlebox .didi-wordmark {{
+    font-size: 1.05rem; padding: 0.44rem 0.95rem; letter-spacing: .16em; margin: 0 0 12px;
+    background: {DIDI_ORANGE}; color: {DIDI_WHITE}; box-shadow: none;
+}}
+.didi-head-title {{
+    font-size: 1.85rem; font-weight: 800; color: {DIDI_WHITE};
+    letter-spacing: .06em; line-height: 1.12; margin: 0; text-transform: uppercase;
+    text-align: center;
+}}
+.didi-head-sub {{
+    font-size: 0.9rem; color: rgba(255,255,255,.82); margin: 10px 0 0; font-weight: 400;
+    text-align: center; letter-spacing: .02em;
+}}
+.didi-head-meta {{
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 12px 0 0; color: {DIDI_ORANGE}; font-size: 0.84rem; font-weight: 600;
+}}
+.didi-head-meta svg {{ width: 15px; height: 15px; flex-shrink: 0; }}
+.didi-head-meta-split {{
+    width: 1px; height: 12px; background: rgba({_ORANGE_RGB},.45); flex-shrink: 0;
+}}
+.didi-head-right {{
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+    gap: 8px; flex: 1 1 300px; min-width: 280px; margin: 0;
+}}
+.didi-head-updated {{
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    color: {DIDI_MUTED}; font-size: 0.72rem; font-weight: 500;
+}}
+.didi-head-updated svg {{ width: 13px; height: 13px; }}
+.didi-targets-box {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px;
+    background: {DIDI_WHITE};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 14px;
+    padding: 16px 18px 18px;
+    min-width: 0;
+    width: 100%;
+    flex: 1;
+    box-sizing: border-box;
+    box-shadow: 0 8px 20px rgba(26,26,26,.06);
+}}
+.didi-targets-kicker {{
+    color: {DIDI_MUTED}; font-size: 11px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase; margin: 0;
+    width: 100%; text-align: center;
+}}
+.didi-targets {{
+    display: flex; align-items: center; justify-content: center;
+    gap: 22px; flex-wrap: wrap; width: 100%;
+}}
+.didi-targets-legend {{
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px 20px; flex-wrap: wrap; width: 100%;
+    padding-top: 10px;
+    border-top: 1px solid {DIDI_CARD_BORDER};
+}}
+.didi-targets-legend .didi-light-item {{
+    color: {DIDI_MUTED}; font-size: 0.74rem;
+}}
+.didi-tgt {{
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.02rem; font-weight: 600; white-space: nowrap;
+    color: {DIDI_TEXT};
+}}
+.didi-tgt-ico {{
+    width: 32px; height: 32px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: {DIDI_GRAY};
+    color: {DIDI_TEXT};
+    border: 1px solid {DIDI_CARD_BORDER};
+}}
+.didi-tgt-ico svg {{ width: 16px; height: 16px; }}
+.didi-page {{
+    font-size: 0.72rem; font-weight: 600; color: {DIDI_ORANGE};
+    letter-spacing: .12em; text-transform: uppercase; margin: 0;
+}}
+section.main [class*="st-key-didi_head"] {{
+    background: {_GRAD_CARD} !important;
+    background-color: {DIDI_CARD} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 20px rgba(26,26,26,.06);
+    padding: 1.15rem 1.35rem 1.1rem !important;
+    margin: 0;
+}}
+section.main [class*="st-key-didi_head"] > div,
+section.main [class*="st-key-didi_head"] > div > div,
+section.main [class*="st-key-didi_head"] [data-testid="stVerticalBlock"],
+section.main [class*="st-key-didi_head"] [data-testid="stElementContainer"] {{
+    background: transparent !important;
+    background-color: transparent !important;
+}}
+.didi-kpi-banner-wrap {{
+    display: flex; justify-content: center; width: 100%;
+    margin: 0.35rem 0 0.1rem;
+}}
+.didi-kpi-banner {{
+    display: inline-block;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 10px;
+    padding: 8px 22px;
+    color: {DIDI_WHITE};
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-align: center;
+    line-height: 1.25;
+    box-shadow: 0 8px 18px rgba(0,0,0,.28);
+}}
+.didi-section {{
+    margin: 1.45rem 0 0.7rem; padding-bottom: 0;
+    border-bottom: none;
+}}
+.didi-section-box,
+.didi-section-box--01,
+.didi-section-box--02,
+.didi-section-box--03,
+.didi-section-box--04,
+.didi-section-box--05,
+.didi-section-box--06,
+.didi-section-box--07 {{
+    border-radius: 12px;
+    padding: 13px 16px 14px;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid {DIDI_DARK};
+    background: {DIDI_DARK};
+    box-shadow: 0 8px 22px rgba(0,0,0,.28);
+    border-bottom: 3px solid {DIDI_ORANGE};
+}}
+.didi-section-kicker,
+.didi-section-box--01 .didi-section-kicker,
+.didi-section-box--02 .didi-section-kicker,
+.didi-section-box--03 .didi-section-kicker,
+.didi-section-box--05 .didi-section-kicker,
+.didi-section-box--06 .didi-section-kicker {{
+    color: rgba(255,255,255,.88); font-size: 10px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; margin: 0;
+    text-align: center; width: 100%;
+}}
+.didi-section-title {{
+    color: #FFFFFF; font-size: 1.12rem; font-weight: 700;
+    letter-spacing: -0.02em; margin: 3px 0 0;
+    text-align: center; width: 100%;
+}}
+.didi-section-hint {{
+    color: rgba(255,255,255,.84); font-size: 0.78rem; margin: 5px 0 0;
+    text-align: center; width: 100%; line-height: 1.35;
+}}
+.didi-insight {{
+    border-left: 4px solid {DIDI_ORANGE};
+    padding: 2px 2px 2px 12px;
+}}
+.didi-insight--ok {{ border-left-color: #3DDC82; }}
+.didi-insight--warn {{ border-left-color: #F2A900; }}
+.didi-insight--off {{ border-left-color: #F07167; }}
+.didi-insight-kicker {{
+    color: #F07167; font-size: 11px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; margin: 0 0 8px;
+}}
+.didi-insight--ok .didi-insight-kicker {{ color: #3DDC82; }}
+.didi-insight--warn .didi-insight-kicker {{ color: #F2A900; }}
+.didi-insight--off .didi-insight-kicker {{ color: #F07167; }}
+.didi-insight-body {{
+    color: {DIDI_TEXT}; font-size: 0.95rem; line-height: 1.45; margin: 0 0 10px; font-weight: 500;
+}}
+.didi-insight-hyp {{
+    color: {DIDI_MUTED}; font-size: 0.78rem; margin: 8px 0 0; line-height: 1.4;
+}}
+.didi-flag {{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    padding: 4px 8px; border-radius: 999px; margin: 0 6px 6px 0;
+    background: rgba(255,255,255,.06); color: {DIDI_TEXT};
+}}
+
+.didi-side-banner {{
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 12px;
+    padding: 14px 14px 13px;
+    text-align: center;
+    margin: 0.1rem 0 0.85rem;
+    box-shadow: 0 8px 18px rgba(0,0,0,.28);
+    width: 100%;
+    box-sizing: border-box;
+}}
+.didi-side-banner .didi-wordmark {{
+    margin: 0 0 10px; font-size: 0.78rem; padding: 0.32rem 0.62rem; letter-spacing: .12em;
+    display: inline-flex;
+    background: {DIDI_ORANGE}; color: {DIDI_WHITE}; box-shadow: none;
+}}
+.didi-side-banner-title {{
+    color: {DIDI_WHITE}; font-size: 1.05rem; font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1.25;
+}}
+.didi-side-banner-sub {{
+    color: rgba(255,255,255,.82); font-size: 0.75rem; font-weight: 500;
+    margin: 6px 0 0; letter-spacing: .01em;
+}}
+.didi-corr-notes {{
+    color: {DIDI_MUTED}; font-size: 0.82rem; line-height: 1.5;
+    margin: 0.45rem 0 0; padding-left: 1.15rem;
+}}
+.didi-corr-notes li {{ margin: 0.22rem 0; }}
+.didi-notes-kicker {{
+    color: {DIDI_ORANGE}; font-size: 11px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; margin: 0.7rem 0 0.15rem;
+}}
+.didi-notes {{
+    color: {DIDI_TEXT}; font-size: 0.86rem; line-height: 1.48;
+    margin: 0 0 0.15rem; padding-left: 1.15rem;
+}}
+.didi-notes li {{ margin: 0.28rem 0; }}
+.didi-panel-title {{
+    text-align: center; font-weight: 700; font-size: 0.95rem;
+    color: {DIDI_WHITE}; margin: 0 0 0.55rem;
+    width: 100%; display: block;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 8px;
+    padding: 0.42rem 0.7rem;
+    box-shadow: 0 6px 14px rgba(0,0,0,.22);
+}}
+.didi-panel-sub {{
+    text-align: center; width: 100%; display: block;
+    color: {DIDI_MUTED}; font-size: 0.78rem; margin: 0 0 0.55rem;
+}}
+section.main [class*="st-key-didi_panel"] p.didi-panel-title,
+section.main [class*="st-key-didi_panel"] p.didi-panel-sub {{
+    text-align: center !important;
+}}
+[class*="st-key-didi_tile"] p.didi-panel-title,
+section.main [class*="st-key-didi_tile"] p.didi-panel-title,
+section[data-testid="stMain"] [class*="st-key-didi_tile"] p.didi-panel-title {{
+    text-align: center !important;
+    color: {DIDI_WHITE} !important;
+}}
+[class*="st-key-didi_tile"] p.didi-panel-title,
+section.main [class*="st-key-didi_tile"] p.didi-panel-title,
+section[data-testid="stMain"] [class*="st-key-didi_tile"] p.didi-panel-title {{
+    margin: 0 0 0.45rem !important;
+    white-space: normal;
+    line-height: 1.25;
+    box-sizing: border-box;
+    font-weight: 700 !important;
+}}
+[class*="st-key-didi_tile"] [data-testid="stMarkdownContainer"]:has(p.didi-panel-title),
+section.main [class*="st-key-didi_tile"] [data-testid="stMarkdownContainer"]:has(p.didi-panel-title),
+section[data-testid="stMain"] [class*="st-key-didi_tile"] [data-testid="stMarkdownContainer"]:has(p.didi-panel-title) {{
+    width: 100% !important;
+    text-align: center !important;
+}}
+[class*="st-key-didi_tile_sm"] p.didi-panel-title,
+section.main [class*="st-key-didi_tile_sm"] p.didi-panel-title,
+section[data-testid="stMain"] [class*="st-key-didi_tile_sm"] p.didi-panel-title {{
+    font-size: 0.82rem;
+    padding: 0.34rem 0.55rem;
+}}
+.didi-tile-help {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.05em;
+    height: 1.05em;
+    margin-left: 0.4rem;
+    border: 1.5px solid rgba(255,255,255,.55);
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: 0.08em;
+    cursor: help;
+    color: {DIDI_WHITE};
+}}
+[class*="st-key-didi_tile"] [data-testid="stMetricLabel"],
+section.main [class*="st-key-didi_tile"] [data-testid="stMetricLabel"],
+section[data-testid="stMain"] [class*="st-key-didi_tile"] [data-testid="stMetricLabel"] {{
+    display: none !important;
+}}
+.didi-mkt-stack {{
+    display: flex; flex-direction: column; gap: 0.55rem;
+}}
+.didi-mkt-box {{
+    background: {DIDI_CARD};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    overflow: hidden;
+}}
+.didi-mkt-box-title {{
+    background: {DIDI_DARK};
+    color: {DIDI_WHITE};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 0.38rem 0.6rem;
+    margin: 0;
+}}
+.didi-mkt-row {{
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto auto;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.32rem 0.7rem;
+    border-top: 1px solid {DIDI_CARD_BORDER};
+    font-size: 0.82rem;
+}}
+.didi-mkt-row.is-on {{
+    background: rgba(255,102,0,0.10);
+}}
+.didi-mkt-dot {{
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}}
+.didi-mkt-name {{
+    color: {DIDI_TEXT}; font-weight: 650; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+}}
+.didi-mkt-n {{ color: {DIDI_MUTED}; font-size: 0.72rem; }}
+.didi-mkt-val {{
+    color: {DIDI_TEXT}; font-weight: 700;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}}
+.didi-mkt-foot {{
+    color: {DIDI_MUTED};
+    font-size: 0.72rem;
+    padding: 0.35rem 0.7rem 0.5rem;
+    line-height: 1.35;
+    margin: 0;
+    border-top: 1px solid {DIDI_CARD_BORDER};
+}}
+.didi-action {{
+    border-left: 4px solid {DIDI_ORANGE};
+    padding: 2px 2px 2px 12px;
+}}
+.didi-action-kicker {{
+    color: {DIDI_WHITE}; font-size: 0.82rem; font-weight: 700;
+    letter-spacing: .04em; text-transform: none; margin: 0 0 10px;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 8px;
+    padding: 0.42rem 0.7rem;
+    text-align: center;
+}}
+
+section[data-testid="stSidebar"] [class*="st-key-flt_period"],
+section[data-testid="stSidebar"] [class*="st-key-flt_filters"],
+section[data-testid="stSidebar"] [class*="st-key-flt_qa"],
+section[data-testid="stSidebar"] [class*="st-key-flt_csat"] {{
+    background: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 12px !important;
+    padding: 0.2rem 0.4rem 0.45rem;
+    margin-bottom: 0.5rem;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    transition: background .15s ease, border-color .15s ease, filter .15s ease;
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_period"] {{
+    border-left: 3px solid #3D7AB5 !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_filters"] {{
+    border-left: 3px solid {DIDI_ORANGE} !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_qa"] {{
+    border-left: 3px solid #2E9B57 !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_csat"] {{
+    border-left: 3px solid #8B7CF6 !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_period"]:hover,
+section[data-testid="stSidebar"] [class*="st-key-flt_filters"]:hover,
+section[data-testid="stSidebar"] [class*="st-key-flt_qa"]:hover,
+section[data-testid="stSidebar"] [class*="st-key-flt_csat"]:hover {{
+    background: {DIDI_GRAY} !important;
+    border-color: rgba({_ORANGE_RGB},.35) !important;
+    filter: brightness(0.94);
+}}
+section[data-testid="stSidebar"] [class*="st-key-flt_period"] [data-testid="stExpander"],
+section[data-testid="stSidebar"] [class*="st-key-flt_filters"] [data-testid="stExpander"],
+section[data-testid="stSidebar"] [class*="st-key-flt_qa"] [data-testid="stExpander"],
+section[data-testid="stSidebar"] [class*="st-key-flt_csat"] [data-testid="stExpander"] {{
+    background: transparent !important;
+    border: none !important;
+    margin-bottom: 0;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{
+    border-radius: 8px;
+    transition: background .15s ease;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {{
+    background: rgba(0,0,0,.22) !important;
+}}
+section[data-testid="stSidebar"] [data-baseweb="select"] {{
+    transition: background .15s ease, border-color .15s ease !important;
+}}
+section[data-testid="stSidebar"] [data-baseweb="select"]:hover {{
+    border-color: rgba({_ORANGE_RGB},.45) !important;
+    background: {DIDI_GRAY} !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stCheckbox"] label:hover,
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"]:hover {{
+    filter: brightness(0.92);
+}}
+section[data-testid="stSidebar"] [class*="st-key-reset_"] button {{
+    background: {DIDI_ORANGE} !important;
+    color: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_ORANGE} !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    transition: background .15s ease, filter .15s ease !important;
+}}
+section[data-testid="stSidebar"] [class*="st-key-reset_"] button:hover {{
+    background: #E85A00 !important;
+    filter: brightness(0.96);
+    color: {DIDI_WHITE} !important;
+}}
+section.main [class*="st-key-didi_action"] {{
+    background: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-left: 4px solid {DIDI_ORANGE} !important;
+    border-radius: 12px !important;
+    padding: 0.85rem 1rem 0.95rem;
+    margin-bottom: 0;
+}}
+section.main [class*="st-key-didi_tile"] {{
+    text-align: center;
+}}
+section.main [class*="st-key-didi_tile"] [data-testid="stMetric"],
+section.main [class*="st-key-didi_tile"] [data-testid="stMetric"] > div {{
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}}
+[data-testid="stMetricValue"],
+[data-testid="stMetricLabel"],
+[data-testid="stMetricDelta"] {{
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100%;
+}}
+section.main [class*="st-key-didi_tile"] [data-testid="stCaptionContainer"] {{
+    text-align: center;
+}}
+section.main [class*="st-key-didi_panel"] [data-testid="stCaptionContainer"] {{
+    text-align: center;
+}}
+.didi-side-pages-head {{
+    text-align: left;
+    width: 100%;
+    margin: 0.2rem 0 0.55rem;
+    padding: 0.1rem 2px 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+}}
+.didi-side-kicker {{
+    color: {DIDI_TEXT} !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .16em !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+    text-align: left !important;
+    line-height: 1.2 !important;
+}}
+
+header[data-testid="stHeader"] {{
+    visibility: visible !important;
+    background: transparent !important;
+    height: 3rem;
+}}
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {{
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    z-index: 1000000 !important;
+    background: {DIDI_CARD} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 8px !important;
+    color: {DIDI_TEXT} !important;
+}}
+#MainMenu, footer {{ visibility: hidden; }}
+.didi-chip {{
+    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 210px;
+    background: {_TILE}; border: 1px solid {DIDI_CARD_BORDER}; border-radius: 10px;
+    padding: 10px 12px;
+}}
+.didi-chip-dot {{
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: currentColor;
+}}
+.didi-chip-name {{
+    color: {DIDI_MUTED}; font-size: 10px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+}}
+.didi-chip-val {{
+    color: {DIDI_TEXT}; font-size: 1.05rem; font-weight: 600;
+    letter-spacing: -0.02em; margin-left: auto;
+}}
+.didi-chip-vs {{ color: {DIDI_MUTED}; font-size: 11px; }}
+.didi-chip-state {{ font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }}
+.didi-chip--ok {{ color: #3DDC82; border-color: rgba(61,220,130,.28); }}
+.didi-chip--warn {{ color: #F2A900; border-color: rgba(242,169,0,.32); }}
+.didi-chip--off {{ color: #F07167; border-color: rgba(240,113,103,.38); }}
+.didi-chip--neutral {{ color: {DIDI_MUTED}; }}
+.didi-light-legend {{
+    display: flex; flex-wrap: wrap; gap: 14px 22px;
+    margin: 0; padding: 0;
+}}
+.didi-light-item {{
+    display: inline-flex; align-items: center; gap: 7px;
+    color: {DIDI_MUTED}; font-size: 0.78rem; font-weight: 550;
+}}
+.didi-light-dot {{
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}}
+.didi-light-tag {{
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 0.05rem 0 0.1rem; font-size: 0.72rem; font-weight: 650;
+    letter-spacing: .04em; text-transform: uppercase;
+}}
+.didi-light-tag span {{
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}}
+.didi-light-tag--green {{ color: {STATUS_COLORS["green"]}; }}
+.didi-light-tag--green span {{ background: {STATUS_COLORS["green"]}; }}
+.didi-light-tag--amber {{ color: {STATUS_COLORS["amber"]}; }}
+.didi-light-tag--amber span {{ background: {STATUS_COLORS["amber"]}; }}
+.didi-light-tag--red {{ color: {STATUS_COLORS["red"]}; }}
+.didi-light-tag--red span {{ background: {STATUS_COLORS["red"]}; }}
+.didi-note {{
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.80rem;
+    line-height: 1.28;
+    font-weight: 550;
+    padding: 0.42rem 0.65rem;
+    border-radius: 8px;
+    margin: 0;
+    max-width: 100%;
+}}
+.didi-note--off {{
+    background: rgba(240,113,103,.12);
+    color: #9F1239;
+    border: 1px solid rgba(240,113,103,.28);
+}}
+.didi-note--ok {{
+    background: rgba(46,155,87,.12);
+    color: #166534;
+    border: 1px solid rgba(46,155,87,.28);
+}}
+.didi-note--info {{
+    background: rgba(46,111,190,.10);
+    color: #1E4E8C;
+    border: 1px solid rgba(46,111,190,.28);
+}}
+.didi-rbox {{
+    text-align: left;
+    background: {DIDI_GRAY};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    margin: 0.2rem 0 0;
+}}
+.didi-rbox strong {{
+    display: block;
+    font-weight: 700;
+    color: {DIDI_TEXT};
+    font-size: 0.82rem;
+    margin: 0 0 0.28rem;
+}}
+.didi-rbox p {{
+    margin: 0;
+    color: {DIDI_MUTED};
+    font-size: 0.80rem;
+    line-height: 1.35;
+}}
+.didi-qpill {{
+    display: flex; width: 100%; height: 10px; border-radius: 99px;
+    overflow: hidden; background: {DIDI_GRAY}; margin: 6px 0 4px;
+    border: 1px solid {DIDI_CARD_BORDER};
+}}
+.didi-qpill > span {{ display: block; height: 100%; min-width: 0; }}
+.didi-qpill-legend {{
+    display: flex; flex-wrap: wrap; gap: 8px;
+    color: {DIDI_MUTED}; font-size: 0.64rem; font-weight: 650;
+    margin: 0 0 0.35rem;
+}}
+.didi-qbadge {{
+    display: inline-flex; align-items: center;
+    border-radius: 99px; padding: 2px 8px;
+    font-size: 0.64rem; font-weight: 800; letter-spacing: .06em;
+}}
+.didi-qbadge--Q1 {{ background: rgba(46,155,87,.14); color: #166534; }}
+.didi-qbadge--Q2 {{ background: rgba(46,111,190,.14); color: #1E4E8C; }}
+.didi-qbadge--Q3 {{ background: rgba(242,169,0,.16); color: #8A6200; }}
+.didi-qbadge--Q4 {{ background: rgba(214,69,69,.14); color: #9F1239; }}
+.didi-qcol {{
+    background: {DIDI_WHITE};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-height: 120px;
+}}
+.didi-qcol-h {{
+    margin: 0 0 6px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+}}
+.didi-qcol--Q1 {{ border-top: 3px solid {STATUS_COLORS["green"]}; }}
+.didi-qcol--Q2 {{ border-top: 3px solid {STATUS_COLORS["blue"]}; }}
+.didi-qcol--Q3 {{ border-top: 3px solid {STATUS_COLORS["amber"]}; }}
+.didi-qcol--Q4 {{ border-top: 3px solid {STATUS_COLORS["red"]}; }}
+.didi-qcol ul {{
+    margin: 0; padding: 0; list-style: none;
+    color: {DIDI_TEXT}; font-size: 0.72rem; line-height: 1.4;
+}}
+.didi-qcol li {{ margin: 0 0 2px; overflow-wrap: anywhere; }}
+.didi-qcol-more {{ color: {DIDI_MUTED}; font-weight: 650; }}
+.didi-coach-copy {{
+    color: {DIDI_TEXT}; font-size: 0.86rem; font-weight: 600;
+    line-height: 1.4; margin: 0 0 8px;
+}}
+.didi-rcard-flag {{ display: none; }}
+.didi-hub-flag {{
+    background: rgba(214,69,69,.10);
+    border: 1px solid rgba(214,69,69,.35);
+    border-radius: 8px;
+    color: #9F1239;
+    font-size: 0.74rem;
+    font-weight: 650;
+    line-height: 1.35;
+    padding: 6px 8px;
+    margin: 0 0 0.45rem;
+}}
+.didi-hub-muted {{
+    color: {DIDI_MUTED}; font-size: 0.74rem; line-height: 1.35; margin: 0 0 0.35rem;
+}}
+.didi-alert-title {{
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: {DIDI_WHITE};
+    margin: 0 0 0.45rem;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 8px;
+    padding: 0.42rem 0.7rem;
+    text-align: center;
+}}
+.didi-alert-finding {{
+    color: {DIDI_TEXT};
+    font-size: 0.86rem;
+    line-height: 1.4;
+    margin: 0 0 0.45rem;
+}}
+.didi-alert-meta {{
+    color: {DIDI_MUTED};
+    font-size: 0.80rem;
+    line-height: 1.4;
+    margin: 0 0 0.2rem;
+}}
+section.main [class*="st-key-didi_alert_red"] {{
+    border-left: 4px solid #F07167 !important;
+}}
+section.main [class*="st-key-didi_alert_amber"] {{
+    border-left: 4px solid #F2A900 !important;
+}}
+.didi-ops-strip {{
+    display: flex; align-items: stretch; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; width: 100%;
+    margin: 0 0 0.85rem;
+}}
+.didi-ops-pill {{
+    flex: 1 1 180px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    background: {DIDI_WHITE};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-height: 44px;
+}}
+.didi-ops-pill strong {{
+    color: {DIDI_TEXT}; font-size: 0.92rem; font-weight: 700;
+}}
+.didi-ops-pill span {{
+    color: {DIDI_MUTED}; font-size: 0.72rem; font-weight: 600;
+}}
+.didi-ops-dot {{
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}}
+.didi-watch-group {{
+    display: flex; align-items: center; gap: 8px;
+    margin: 0.55rem 0 0.35rem; padding: 0 2px;
+}}
+.didi-watch-group:first-child {{ margin-top: 0.1rem; }}
+.didi-watch-group-dot {{
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}}
+.didi-watch-group-name {{
+    color: {DIDI_TEXT}; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: .08em; text-transform: uppercase;
+}}
+.didi-watch-group-n {{
+    color: {DIDI_MUTED}; font-size: 0.72rem; font-weight: 600; margin-left: auto;
+}}
+.didi-watch-top {{
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; margin: 0 0 6px;
+}}
+.didi-watch-what {{
+    color: {DIDI_TEXT}; font-size: 0.86rem; font-weight: 650;
+    line-height: 1.4; margin: 0; white-space: normal; overflow-wrap: anywhere;
+}}
+.didi-watch-vol {{
+    color: {DIDI_ORANGE}; font-size: 1.05rem; font-weight: 800;
+    line-height: 1.2; flex-shrink: 0; white-space: nowrap;
+}}
+.didi-watch-who {{
+    color: {DIDI_MUTED}; font-size: 0.75rem; font-weight: 500;
+    margin: 0 0 8px; line-height: 1.35;
+}}
+.didi-watch-flags {{
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px;
+}}
+.didi-watch-badge {{
+    display: inline-flex; align-items: center;
+    border-radius: 99px; padding: 2px 8px;
+    font-size: 0.64rem; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase;
+}}
+.didi-watch-badge--top {{
+    background: rgba(214,69,69,.12); color: #9F1239;
+    border: 1px solid rgba(214,69,69,.35);
+}}
+.didi-watch-badge--linked {{
+    background: rgba(242,169,0,.14); color: #8A6200;
+    border: 1px solid rgba(242,169,0,.35);
+}}
+.didi-watch-badge--green {{
+    background: rgba(46,155,87,.12); color: #166534;
+    border: 1px solid rgba(46,155,87,.35);
+}}
+.didi-watch-badge--amber {{
+    background: rgba(242,169,0,.14); color: #8A6200;
+    border: 1px solid rgba(242,169,0,.35);
+}}
+.didi-watch-badge--red {{
+    background: rgba(214,69,69,.12); color: #9F1239;
+    border: 1px solid rgba(214,69,69,.35);
+}}
+.didi-watch-meta {{
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin: 2px 0 8px;
+    color: {DIDI_MUTED}; font-size: 0.72rem;
+}}
+.didi-vol {{
+    position: relative; flex: 1; height: 8px; border-radius: 99px;
+    background: {DIDI_GRAY}; overflow: hidden; min-width: 48px;
+}}
+.didi-vol > span {{
+    display: block; height: 100%; border-radius: 99px;
+    background: {STATUS_COLORS["red"]};
+}}
+.didi-vol--qa > span {{ background: {CHART_COLORS["qa"]}; }}
+.didi-vol--csat > span {{ background: {CHART_COLORS["csat"]}; }}
+.didi-vol--recontact > span {{ background: {CHART_COLORS["recontact"]}; }}
+.didi-sup-head {{
+    font-weight: 700; font-size: 0.86rem; color: #FFFFFF;
+    margin: 0 0 0.4rem; border-radius: 8px; padding: 0.38rem 0.6rem;
+    text-align: center;
+}}
+.didi-sup-head--red {{
+    background: linear-gradient(180deg, #C23B3B 0%, #8E1F1F 100%);
+    border: 1px solid rgba(255,140,140,.35);
+}}
+.didi-sup-head--amber {{
+    background: linear-gradient(180deg, #D4A017 0%, #9A6B00 100%);
+    border: 1px solid rgba(255,210,120,.35);
+}}
+.didi-sup-head--green, .didi-sup-head--ok {{
+    background: linear-gradient(180deg, #2E9B57 0%, #1B6B3A 100%);
+    border: 1px solid rgba(134,239,172,.35);
+}}
+.didi-sup-find {{
+    color: {DIDI_TEXT}; font-size: 0.78rem; margin: 0 0 0.4rem; line-height: 1.35;
+    text-align: center;
+}}
+.didi-agent-wrap {{
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    margin: 0 0 0.45rem;
+}}
+.didi-agent-chip {{
+    display: inline-flex; align-items: center;
+    background: {DIDI_GRAY}; border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 99px; padding: 3px 8px;
+    color: {DIDI_TEXT}; font-size: 0.72rem; font-weight: 650;
+}}
+.didi-flow {{
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; flex-wrap: wrap; width: 100%;
+    margin: 0 0 0.7rem;
+}}
+.didi-flow-step {{
+    background: {DIDI_WHITE};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px; padding: 8px 12px;
+    color: {DIDI_TEXT}; font-size: 0.78rem; font-weight: 650;
+    text-align: center;
+}}
+.didi-flow-arrow {{
+    color: {DIDI_ORANGE}; font-size: 1rem; font-weight: 800;
+}}
+section.main [class*="st-key-didi_watch"] {{
+    height: auto !important;
+    overflow: visible !important;
+}}
+section.main [class*="st-key-didi_watch"] button {{
+    text-align: left !important; justify-content: flex-start !important;
+    white-space: normal !important; min-height: 32px !important;
+    padding: 4px 10px !important; font-size: 12px !important;
+}}
+section.main [class*="st-key-didi_watch_on"] {{
+    border-color: {STATUS_COLORS["amber"]} !important;
+    box-shadow: 0 0 0 1px {STATUS_COLORS["amber"]};
+}}
+section.main [class*="st-key-didi_sup_"] button,
+section.main [class*="st-key-didi_sup_"] [data-testid="stDownloadButton"] button {{
+    min-height: 32px !important; padding: 4px 8px !important; font-size: 12px !important;
+}}
+section.main [class*="st-key-didi_sup_on"] {{
+    border-color: {STATUS_COLORS["amber"]} !important;
+    box-shadow: 0 0 0 1px {STATUS_COLORS["amber"]};
+}}
+section.main [class*="st-key-didi_sup_red"],
+section.main [class*="st-key-didi_sup_on_red"] {{
+    border-left: 4px solid {STATUS_COLORS["red"]} !important;
+}}
+section.main [class*="st-key-didi_sup_amber"],
+section.main [class*="st-key-didi_sup_on_amber"] {{
+    border-left: 4px solid {STATUS_COLORS["amber"]} !important;
+}}
+section.main [class*="st-key-didi_sup_green"],
+section.main [class*="st-key-didi_sup_on_green"],
+section.main [class*="st-key-didi_sup_ok"],
+section.main [class*="st-key-didi_sup_on_ok"] {{
+    border-left: 4px solid {STATUS_COLORS["green"]} !important;
+}}
+section.main [class*="st-key-didi_flow"] button {{
+    width: 100% !important; min-height: 40px !important;
+    white-space: normal !important; font-size: 0.78rem !important;
+    font-weight: 650 !important;
+}}
+.didi-rbox {{
+    text-align: left;
+    background: {DIDI_GRAY};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    margin: 0.2rem 0 0;
+}}
+.didi-rbox strong {{
+    display: block;
+    font-weight: 700;
+    color: {DIDI_TEXT};
+    font-size: 0.82rem;
+    margin: 0 0 0.28rem;
+}}
+.didi-rbox p {{
+    margin: 0;
+    color: {DIDI_MUTED};
+    font-size: 0.80rem;
+    line-height: 1.35;
+}}
+.didi-alert-title {{
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #FFFFFF;
+    margin: 0 0 0.45rem;
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
+    border-radius: 8px;
+    padding: 0.42rem 0.7rem;
+    text-align: center;
+}}
+.didi-alert-finding {{
+    color: {DIDI_TEXT};
+    font-size: 0.86rem;
+    line-height: 1.4;
+    margin: 0 0 0.45rem;
+}}
+.didi-alert-meta {{
+    color: {DIDI_MUTED};
+    font-size: 0.80rem;
+    line-height: 1.4;
+    margin: 0 0 0.2rem;
+}}
+section.main [class*="st-key-didi_alert_red"] {{
+    border-left: 4px solid #F07167 !important;
+}}
+section.main [class*="st-key-didi_alert_amber"] {{
+    border-left: 4px solid #F2A900 !important;
+}}
+
+.didi-side-brand .didi-wordmark {{
+    font-size: 0.78rem; padding: 0.32rem 0.55rem; letter-spacing: .06em;
+}}
+
+div[data-testid="stPlotlyChart"] {{ margin: 0; background: transparent !important; }}
+div[data-testid="stPlotlyChart"] > div {{ background: transparent !important; }}
+#didi-theme-sync {{ display: none !important; height: 0 !important; }}
+div[data-testid="stHtml"]:has(#didi-theme-sync) {{
+    height: 0 !important; min-height: 0 !important; margin: 0 !important;
+    padding: 0 !important; overflow: hidden !important;
+}}
+"""
+st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
+st.html(
+    f"<style>{_CSS}</style><div id='didi-theme-sync'></div>",
+    unsafe_allow_javascript=True,
+)
+
+
+@st.cache_data(show_spinner=False)
+def get_data():
+    """Cached once per app process — packaged snapshot is static."""
+    return load_all_data()
+
+
+def filter_opts(s: pd.Series) -> list[str]:
+    return sorted(s.dropna().astype(str).str.strip().replace("", pd.NA).dropna().unique().tolist())
+
+
+def _country_opts() -> list[str]:
+    qa = filter_opts(audits_all["Country"]) if audits_all is not None and "Country" in audits_all.columns else []
+    cs = (
+        filter_opts(csat_all["Country Code"])
+        if csat_all is not None and "Country Code" in csat_all.columns
+        else []
+    )
+    preferred = ["MX", "CO", "CR", "PE", "DO", "PA"]
+    seen = set(qa) | set(cs)
+    return [c for c in preferred if c in seen] + sorted(c for c in seen if c not in preferred)
+
+
+def _country_label(code: str) -> str:
+    if code == "All":
+        return "All"
+    name = COUNTRY_NAMES.get(code, code)
+    return f"{name} ({code})" if name != code else code
+
+
+def apply_filters(audits, errors, csat, recontact, f, audits_all):
+    a, e = audits.copy(), errors.copy()
+    c, r = csat.copy(), recontact.copy()
+
+    weeks_sel = f.get("weeks")
+    if not weeks_sel:
+        return a.iloc[0:0].copy(), e.iloc[0:0].copy(), c.iloc[0:0].copy(), r.iloc[0:0].copy()
+
+    a, e = a[a["Week"].isin(weeks_sel)], e[e["Week"].isin(weeks_sel)]
+    all_week_labels = audits_all["Week"].dropna().astype(str).unique().tolist() if "Week" in audits_all.columns else []
+    c, r = cut_csat_recontact_for_weeks(c, r, weeks_sel, all_week_labels)
+
+    day = f.get("day") or "All"
+    if day != "All":
+        a = filter_by_calendar_day(a, day)
+        e = filter_by_calendar_day(e, day)
+        c = filter_by_calendar_day(c, day)
+        r = filter_by_calendar_day(r, day)
+
+    if f["lob"] != "All":
+        a, e = a[a["LOB"] == f["lob"]], e[e["LOB"] == f["lob"]]
+
+    if f["channel"] != "All":
+        if "Channel" in a.columns:
+            a = a[channel_match(a["Channel"], f["channel"])]
+        if "Channel" in e.columns:
+            e = e[channel_match(e["Channel"], f["channel"])]
+        if "Channel" in c.columns:
+            c = c[channel_match(c["Channel"], f["channel"])]
+        if "standard_channel_name" in r.columns:
+            r = r[channel_match(r["standard_channel_name"], f["channel"])]
+        elif "Channel" in r.columns:
+            r = r[channel_match(r["Channel"], f["channel"])]
+
+    if f["country"] != "All":
+        a = a[a["Country"] == f["country"]]
+        if "Country Code" in c.columns:
+            c = c[c["Country Code"] == f["country"]]
+        # Recontact region_name is always SSL — market is not a real cut there.
+
+    if f.get("cr_lv1", "All") != "All":
+        lookup = f.get("cr_lookup") or {}
+
+        def _in_group(s: pd.Series) -> pd.Series:
+            return map_cr_group(s, lookup) == f["cr_lv1"]
+
+        if "CR_Lv4" in a.columns:
+            a = a[_in_group(a["CR_Lv4"])]
+        if "CR_Lv4" in c.columns:
+            c = c[_in_group(c["CR_Lv4"])]
+        if "CR_Lv4" in r.columns:
+            r = r[_in_group(r["CR_Lv4"])]
+
+    if f["cr"] != "All":
+        if "CR_Lv4" in a.columns:
+            a = a[cr_match(a["CR_Lv4"], f["cr"])]
+        if "CR_Lv4" in e.columns:
+            e = e[cr_match(e["CR_Lv4"], f["cr"])]
+        if "CR_Lv4" in c.columns:
+            c = c[cr_match(c["CR_Lv4"], f["cr"])]
+        if "CR_Lv4" in r.columns:
+            r = r[cr_match(r["CR_Lv4"], f["cr"])]
+
+    if f.get("audit_type", "All") != "All" and "Type_of_audit" in a.columns:
+        a = a[a["Type_of_audit"] == f["audit_type"]]
+
+    if f.get("special_project", "All") != "All" and "Special_project" in a.columns:
+        a = a[a["Special_project"] == f["special_project"]]
+
+    if f.get("business_type", "All") != "All" and "Business_Type" in c.columns:
+        c = c[c["Business_Type"] == f["business_type"]]
+
+    if f.get("requester", "All") != "All" and "Requester" in a.columns:
+        a, e = a[a["Requester"] == f["requester"]], e[e["Requester"] == f["requester"]]
+
+    if f.get("tenure", "All") != "All" and "Tenure_Cohort" in a.columns:
+        a = a[a["Tenure_Cohort"] == f["tenure"]]
+
+    if f.get("supervisor", "All") != "All":
+        if "Supervisor_ID" in a.columns:
+            a = a[a["Supervisor_ID"] == f["supervisor"]]
+        c = filter_csat_by_supervisor(c, audits_all, f["supervisor"])
+
+    if f.get("agent", "All") != "All":
+        want = str(f["agent"]).strip()
+        if "Agent_ID" in a.columns:
+            a = a[a["Agent_ID"].astype(str).str.strip() == want]
+        c = filter_csat_by_agent(c, want)
+
+    if "Audit_ID" in e.columns:
+        e = e[e["Audit_ID"].isin(a["Audit_ID"])]
+
+    return a, e, c, r
+
+
+def _wow(delta, arrow):
+    if delta is None:
+        return "—", "off"
+    if arrow == "▲":
+        return f"{arrow} {abs(delta):.1f}%", "normal"
+    if arrow == "▼":
+        return f"{arrow} {abs(delta):.1f}%", "inverse"
+    return f"{arrow} {abs(delta):.1f}%", "off"
+
+
+def _fmt(v, digits: int = 1, suffix: str = "") -> str:
+    if v is None:
+        return "—"
+    try:
+        if pd.isna(v):
+            return "—"
+    except (TypeError, ValueError):
+        pass
+    try:
+        return f"{float(v):.{digits}f}{suffix}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _cell_str(value, default: str = "") -> str:
+    if value is None:
+        return default
+    try:
+        if pd.isna(value):
+            return default
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    if text.casefold() in {"", "nan", "none", "<na>", "nat"}:
+        return default
+    return text
+
+
+def _as_bool(value) -> bool:
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(value)
+
+
+def _spark_series(daily: pd.DataFrame, col: str) -> tuple[list, list]:
+    if daily.empty or col not in daily.columns:
+        return [], []
+    sub = daily.dropna(subset=[col]).copy()
+    if sub.empty:
+        return [], []
+    vals = sub[col].astype(float).tolist()
+    labels = pd.to_datetime(sub["Date"]).dt.strftime("%b %d").tolist() if "Date" in sub.columns else []
+    return vals, labels
+
+
+def _vs(v, digits: int = 1) -> str:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    arrow = "▲" if v > 0.05 else ("▼" if v < -0.05 else "→")
+    return f"{arrow} {v:+.{digits}f}"
+
+
+def _goal_delta(value, goal, *, lower_better: bool = False, digits: int = 1):
+    """Signed gap vs goal. Streamlit arrows follow the sign; color flips when lower is better."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None, "off"
+    gap = float(value) - float(goal)
+    return f"{gap:+.{digits}f} vs {goal:g} goal", ("inverse" if lower_better else "normal")
+
+
+def _n_delta(row, *cols: str, unit: str = "audits") -> str | None:
+    if row is None:
+        return None
+    for col in cols:
+        if col == "Gap_Impact":
+            continue
+        if col in row.index and pd.notna(row[col]):
+            return f"{int(row[col]):,} {unit}"
+    return None
+
+
+def _n_supervisor_teams_under_min(audits: pd.DataFrame, min_n: int = 5) -> int:
+    if audits is None or audits.empty or "Supervisor_ID" not in audits.columns:
+        return 0
+    return int((audits.groupby("Supervisor_ID").size() < min_n).sum())
+
+
+def _supervisor_n_caption(
+    n_bar: int,
+    n_filter: int,
+    n_teams_under_min: int,
+    *,
+    lowest_first: bool = False,
+    min_n: int = 5,
+) -> str:
+    leftover = max(int(n_filter) - int(n_bar), 0)
+    floor = max(int(min_n), 1)
+    lead = f"Every supervisor with ≥ {floor} audit{'s' if floor != 1 else ''}"
+    if lowest_first:
+        lead += ", lowest QA first"
+    if floor > 1:
+        lead += ". The cutoff is for score reliability, not a lost sample. "
+    else:
+        lead += ". See all is on — small samples are included. "
+    body = (
+        f"N on the chart is the {int(n_bar):,} audits on these bars · "
+        f"{int(n_filter):,} in this filter"
+    )
+    if leftover <= 0:
+        return lead + body + "."
+    audit_word = "audit" if leftover == 1 else "audits"
+    if n_teams_under_min > 0:
+        team_word = "team" if n_teams_under_min == 1 else "teams"
+        extra = (
+            f". {leftover:,} {audit_word} sit with "
+            f"{n_teams_under_min} {team_word} under {floor} audits."
+        )
+    else:
+        extra = f". {leftover:,} {audit_word} sit with teams under {floor} audits."
+    return lead + body + extra
+
+
+def _last_spc(df: pd.DataFrame):
+    if df is None or df.empty or "Value" not in df.columns:
+        return None
+    s = df["Value"].dropna()
+    return float(s.iloc[-1]) if not s.empty else None
+
+
+_didi_box_n = 0
+
+
+def _next_didi_key(prefix: str) -> str:
+    """Stable-per-run key so Streamlit 1.61 emits class st-key-{prefix}_N for CSS fill."""
+    global _didi_box_n
+    _didi_box_n += 1
+    return f"{prefix}_{_didi_box_n}"
+
+
+def panel(title: str | None = None, subtitle: str | None = None):
+    box = st.container(border=True, key=_next_didi_key("didi_panel"))
+    if title:
+        box.markdown(f"<p class='didi-panel-title'>{html_escape(title)}</p>", unsafe_allow_html=True)
+    return box
+
+
+def _fmt_kpi_pct(value, digits: int = 2) -> str:
+    if value is None:
+        return "—"
+    try:
+        if pd.isna(value):
+            return "—"
+    except Exception:
+        return "—"
+    return f"{float(value):.{digits}f}%"
+
+
+def _market_box_html(
+    title: str,
+    rows: list[dict],
+    footnote: str | None = None,
+    selected: str | None = None,
+) -> str:
+    parts = [f'<div class="didi-mkt-box"><p class="didi-mkt-box-title">{html_escape(title)}</p>']
+    if not rows:
+        parts.append('<p class="didi-mkt-foot">No market in the current filter.</p></div>')
+        return "".join(parts)
+    for row in rows:
+        code = str(row.get("code") or "")
+        on = " is-on" if selected and code == selected else ""
+        color = row.get("color") or STATUS_COLORS["neutral"]
+        parts.append(
+            f'<div class="didi-mkt-row{on}">'
+            f'<span class="didi-mkt-dot" style="background:{html_escape(str(color))}"></span>'
+            f'<span class="didi-mkt-name">{html_escape(str(row.get("name") or code))}</span>'
+            f'<span class="didi-mkt-n">{html_escape(str(row.get("n") or ""))}</span>'
+            f'<span class="didi-mkt-val">{html_escape(str(row.get("value") or "—"))}</span>'
+            f"</div>"
+        )
+    if footnote:
+        parts.append(f'<p class="didi-mkt-foot">{html_escape(footnote)}</p>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def render_chip(item: dict | str | None, *, tone: str = "info", icon: str = "") -> None:
+    if not item:
+        return
+    if isinstance(item, dict):
+        text = str(item.get("text") or "").strip()
+        tone = item.get("tone") or tone
+        icon = item.get("icon") or icon
+    else:
+        text = str(item).strip()
+    if not text:
+        return
+    words = text.split()
+    if len(words) > 15:
+        text = " ".join(words[:15])
+    if tone == "risk" and not text.startswith("×"):
+        text = "× " + text
+    cls = {"risk": "off", "ok": "ok", "info": "info"}.get(tone, "info")
+    st.markdown(
+        f'<div class="didi-note didi-note--{cls}">{html_escape(text)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_notes(items) -> None:
+    if items is None:
+        return
+    if isinstance(items, (dict, str)):
+        render_chip(items)
+        return
+    for item in items:
+        if item:
+            render_chip(item)
+            return
+
+
+def render_r_box(r, n, pair: str, *, surveys: int | None = None, audits: int | None = None) -> None:
+    info = r_explain(r, n, pair, surveys=surveys, audits=audits)
+    st.markdown(
+        f'<div class="didi-rbox"><strong>{html_escape(info["title"])}</strong>'
+        f'<p>{html_escape(info["body"])}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_quartile_pill(q1: float, q2: float, q3: float, q4: float) -> None:
+    def _pct(value) -> float:
+        try:
+            if value is None or pd.isna(value):
+                return 0.0
+            return max(0.0, float(value))
+        except (TypeError, ValueError):
+            return 0.0
+
+    parts = [
+        (_pct(q1), STATUS_COLORS["green"], "Q1"),
+        (_pct(q2), STATUS_COLORS["blue"], "Q2"),
+        (_pct(q3), STATUS_COLORS["amber"], "Q3"),
+        (_pct(q4), STATUS_COLORS["red"], "Q4"),
+    ]
+    total = sum(p[0] for p in parts) or 1.0
+    bars = "".join(
+        f'<span style="width:{max(0.0, v / total * 100):.1f}%;background:{color}" title="{lab} {v:.0f}%"></span>'
+        for v, color, lab in parts
+    )
+    legend = " ".join(
+        f'<span><span class="didi-qbadge didi-qbadge--{lab}">{lab}</span> {v:.0f}%</span>'
+        for v, _c, lab in parts
+    )
+    st.markdown(
+        f'<div class="didi-qpill">{bars}</div><div class="didi-qpill-legend">{legend}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_quartile_bands(summary: dict) -> None:
+    bands = (summary or {}).get("bands") or {}
+    cols = st.columns(4)
+    for col, q in zip(cols, ("Q1", "Q2", "Q3", "Q4")):
+        info = bands.get(q) or {"n": 0, "names": []}
+        n = int(info.get("n") or 0)
+        names = list(info.get("names") or [])
+        items = "".join(f"<li>{html_escape(str(name))}</li>" for name in names)
+        extra = n - len(names)
+        more = f'<li class="didi-qcol-more">+{extra} more</li>' if extra > 0 else ""
+        empty = "<li>—</li>" if n == 0 else ""
+        with col:
+            st.markdown(
+                f'<div class="didi-qcol didi-qcol--{q}"><p class="didi-qcol-h">{q} · {n}</p>'
+                f"<ul>{items}{more}{empty}</ul></div>",
+                unsafe_allow_html=True,
+            )
+
+
+def render_corr_scatter(
+    title: str,
+    fig,
+    *,
+    key: str,
+    drill: str = "cr",
+    caption: str | None = None,
+    r_args: tuple | None = None,
+    r_kwargs: dict | None = None,
+) -> None:
+    with panel(title):
+        _plotly_chart(fig, key=key, drill=drill)
+        if caption:
+            st.caption(caption)
+        elif drill:
+            st.caption("Click a point to filter to that contact reason Lv4 (detail).")
+        if r_args:
+            render_r_box(*r_args, **(r_kwargs or {}))
+
+
+def _agent_initials(name: object) -> str:
+    parts = str(name or "").strip().split()
+    if not parts:
+        return "?"
+    if len(parts) >= 2:
+        return (parts[0][:1] + parts[-1][:3]).upper()
+    return parts[0][:3].upper()
+
+
+def _sup_tone(team_qa, n_agents: int) -> str:
+    n = int(n_agents or 0)
+    qa = float(team_qa) if team_qa is not None and pd.notna(team_qa) else None
+    if n >= 3 or (qa is not None and qa < QA_GOAL - 5):
+        return "red"
+    if n >= 1 or (qa is not None and qa < QA_GOAL):
+        return "amber"
+    return "green"
+
+
+def render_ticket_card(ticket, tickets_key: str) -> None:
+    with st.container(border=True, key=_next_didi_key("didi_alert_amber")):
+        st.markdown(f'<p class="didi-alert-title">{html_escape(ticket.id)} · {html_escape(ticket.title)}</p>', unsafe_allow_html=True)
+        st.markdown(
+            f'<p class="didi-alert-finding">{html_escape(ticket.desk)} · Owner: {html_escape(ticket.owner)} · '
+            f'Due {html_escape(ticket.due)} · {html_escape(ticket.volume)}</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p class="didi-alert-meta"><strong>Follow-up:</strong> {html_escape(ticket.follow_up)}</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p class="didi-alert-meta"><strong>Status:</strong> {html_escape(ticket.status)}</p>',
+            unsafe_allow_html=True,
+        )
+        statuses = ["Open", "Coaching booked", "Waiting on supervisor", "Closed"]
+        new_status = st.selectbox(
+            "Update status",
+            statuses,
+            index=statuses.index(ticket.status) if ticket.status in statuses else 0,
+            key=f"st_{ticket.id}_{_fn}",
+            label_visibility="collapsed",
+        )
+        if new_status != ticket.status:
+            ticket.status = new_status
+        st.download_button(
+            "Email draft",
+            data=ticket.email_body,
+            file_name=f"{ticket.id}_email.txt",
+            mime="text/plain",
+            key=f"em_{ticket.id}_{_fn}",
+        )
+
+
+def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spark=None, spark_key=None, caption=None, size="primary", traffic=None):
+    prefix = "didi_tile" if size == "primary" else "didi_tile_sm"
+    tone = traffic if traffic in {"green", "amber", "red"} else "neutral"
+    tile_key = f"{prefix}_{tone}_{spark_key}" if spark_key else _next_didi_key(f"{prefix}_{tone}")
+    with st.container(border=True, key=tile_key):
+        help_mark = (
+            f'<span class="didi-tile-help" title="{html_escape(help_text)}">?</span>'
+            if help_text else ""
+        )
+        st.markdown(
+            f"<p class='didi-panel-title'>{html_escape(label)}{help_mark}</p>",
+            unsafe_allow_html=True,
+        )
+        st.metric(
+            label, value, delta=delta, delta_color=delta_color,
+            help=help_text, label_visibility="collapsed",
+        )
+        if tone in {"green", "amber", "red"}:
+            tag = {"green": "On goal", "amber": "Within 5 points", "red": "More than 5 points off"}[tone]
+            st.markdown(
+                f'<p class="didi-light-tag didi-light-tag--{tone}"><span></span>{html_escape(tag)}</p>',
+                unsafe_allow_html=True,
+            )
+        if caption:
+            st.caption(caption)
+        if spark is not None:
+            st.plotly_chart(spark, width="stretch", config=CHART_CFG, key=spark_key)
+
+
+def show_df(df: pd.DataFrame) -> None:
+    if df is None or df.empty:
+        return
+    try:
+        st.dataframe(_status_style(df), hide_index=True, width="stretch")
+    except Exception:
+        st.dataframe(df, hide_index=True, width="stretch")
+
+
+def channel_mix_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
         return pd.DataFrame()
-    return pd.read_csv(path)
-
-
-@st.cache_data(ttl=300)
-def load_metadata() -> dict:
-    path = DATA_DIR / "metadata.json"
-    if path.exists():
-        return json.loads(path.read_text())
-    return {}
-
-
-def status_emoji(status: str) -> str:
-    return {"green": "🟢", "amber": "🟡", "red": "🔴"}.get(status, "⚪")
-
-
-def kpi_card(label: str, value: float, goal: float, status: str, unit: str = ""):
-    color = STATUS_COLORS.get(status, DIDI_DARK)
-    suffix = unit if unit != "score" else ""
-    st.markdown(
-        f"""
-        <div style="
-            background: linear-gradient(135deg, {DIDI_DARK} 0%, #2d2d2d 100%);
-            border-left: 5px solid {DIDI_ORANGE};
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin-bottom: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        ">
-            <div style="color: #aaa; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">
-                {label}
-            </div>
-            <div style="color: {DIDI_WHITE}; font-size: 36px; font-weight: 700; margin: 8px 0;">
-                {value:.2f}{suffix}
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #888; font-size: 13px;">Goal: {goal}{suffix}</span>
-                <span style="
-                    background: {color}; color: white;
-                    padding: 3px 12px; border-radius: 20px;
-                    font-size: 12px; font-weight: 600;
-                ">{status.upper()}</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def apply_plotly_theme(fig: go.Figure) -> go.Figure:
-    fig.update_layout(
-        font=dict(family="Segoe UI, Arial", color=DIDI_DARK),
-        plot_bgcolor=DIDI_WHITE,
-        paper_bgcolor=DIDI_WHITE,
-        colorway=[DIDI_ORANGE, DIDI_DARK, "#FF8533", "#666666", "#FFB380"],
-        margin=dict(l=40, r=40, t=60, b=40),
-    )
-    return fig
-
-
-def goal_line(value: float, label: str = "Goal") -> dict:
-    return dict(
-        type="line",
-        yref="y",
-        y0=value,
-        y1=value,
-        line=dict(color=STATUS_COLORS["green"], width=2, dash="dash"),
-        annotation_text=f"{label}: {value}",
-        annotation_position="right",
-    )
-
-
-# ── Sidebar ────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown(
-        f"""
-        <div style="text-align:center; padding: 16px 0;">
-            <span style="font-size: 28px; font-weight: 800; color: {DIDI_ORANGE};">DiDi</span>
-            <div style="font-size: 11px; color: #888; margin-top: 4px;">CX Performance Dashboard</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.divider()
-
-    page = st.radio(
-        "Navigation",
-        [
-            "Overview",
-            "QA Analysis",
-            "CSAT / VOC",
-            "Recontact",
-            "Combined Insights",
-        ],
-        label_visibility="collapsed",
-    )
-
-    st.divider()
-    st.markdown("**Filters**")
-
-    qa_detail = load_table("qa_detail")
-    csat_cr = load_table("csat_by_cr")
-
-    channels = ["All"] + sorted(qa_detail["Channel"].dropna().unique().tolist()) if len(qa_detail) else ["All"]
-    countries = ["All"] + sorted(qa_detail["Country"].dropna().unique().tolist()) if len(qa_detail) else ["All"]
-    crs = (
-        ["All"]
-        + sorted(qa_detail["CR_Lv4"].dropna().unique().tolist())[:50]
-        if len(qa_detail)
-        else ["All"]
-    )
-
-    sel_channel = st.selectbox("Channel", channels)
-    sel_country = st.selectbox("Country", countries)
-    sel_cr = st.selectbox("Contact Reason (CR Lv4)", crs)
-
-    st.divider()
-    st.caption("Data source: Business Case.xlsx · Week W19")
-    if st.button("🔄 Refresh Data", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-
-def filter_qa(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return df
     out = df.copy()
-    if sel_channel != "All":
-        out = out[out["Channel"] == sel_channel]
-    if sel_country != "All":
-        out = out[out["Country"] == sel_country]
-    if sel_cr != "All":
-        out = out[out["CR_Lv4"] == sel_cr]
+    for col in ("Contacts", "Repeats"):
+        if col in out.columns:
+            out[col] = out[col].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—")
+    if "Rate %" in out.columns:
+        out["Rate %"] = out["Rate %"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—")
+    for col in ("Share of contacts %", "Share of repeats %"):
+        if col in out.columns:
+            out[col] = out[col].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—")
+    if "vs 5.44" in out.columns:
+        out["vs 5.44"] = out["vs 5.44"].map(lambda v: f"{v:+.2f}" if pd.notna(v) else "—")
     return out
 
 
-# ── Load data ──────────────────────────────────────────────────────────────
-kpi = load_table("kpi_summary")
-qa_by_channel = load_table("qa_by_channel")
-qa_by_cr = load_table("qa_by_cr")
-qa_attrs = load_table("qa_attributes")
-csat_by_channel = load_table("csat_by_channel")
-csat_by_cr = load_table("csat_by_cr")
-csat_by_bt = load_table("csat_by_business_type")
-rc_by_cr = load_table("recontact_by_cr")
-rc_by_channel = load_table("recontact_by_channel")
-combined = load_table("combined_analysis")
-voc = load_table("voc_sample")
-qa_detail_f = filter_qa(qa_detail)
-meta = load_metadata()
+GOOD_HEX = "#3DDC82"
+BAD_HEX = "#F07167"
+WARN_HEX = "#F2A900"
+MUTE_HEX = "#5C6570"
 
-# ── Header ─────────────────────────────────────────────────────────────────
-st.markdown(
-    f"""
-    <div style="
-        background: {DIDI_DARK}; color: white;
-        padding: 20px 28px; border-radius: 12px;
-        margin-bottom: 24px;
-        border-bottom: 4px solid {DIDI_ORANGE};
-    ">
-        <h1 style="margin:0; font-size: 24px; color: white;">
-            CX Service Operations — Weekly Performance
-        </h1>
-        <p style="margin: 6px 0 0; color: #aaa; font-size: 14px;">
-            Delivery · Food · Week W19 · Phone & Live Chat
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
+_HIGHER_RATE = {
+    "qa", "qa score", "csat", "csat score", "fcr", "fcr",
+}
+_LOWER_RATE = {
+    "recontact", "rc", "rate", "rate %", "critical %",
+}
+_VS_HIGHER = {
+    "qa vs goal", "qa vs 85", "vs 85", "csat vs 85", "csat vs goal", "vs goal", "qa wow", "csat wow",
+}
+_VS_LOWER = {
+    "rc vs goal", "vs 5.44", "rc wow",
+}
+
+
+def _parse_num(value) -> float | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    text = str(value).replace(",", "").replace("%", "").replace("pp", "").replace("points", "")
+    text = text.replace("▲", "").replace("▼", "").replace("→", "").strip()
+    if not text or text == "—":
+        return None
+    token = text.split()[-1]
+    try:
+        return float(token.replace("+", ""))
+    except ValueError:
+        return None
+
+
+def _status_style(df: pd.DataFrame):
+    good, bad, warn, mute = GOOD_HEX, BAD_HEX, WARN_HEX, MUTE_HEX
+
+    def paint(col: str, val):
+        key = col.strip().lower()
+        n = _parse_num(val)
+        raw = str(val).strip().lower() if val is not None else ""
+        if key == "priority":
+            if raw in {"high", "alta"}:
+                return f"color: {bad}; font-weight: 600"
+            if raw in {"medium", "media"}:
+                return f"color: {warn}; font-weight: 600"
+            if raw in {"low", "baja"}:
+                return f"color: {good}; font-weight: 600"
+            return ""
+        if key == "severity":
+            if "critical" in raw and "non" not in raw:
+                return f"color: {bad}; font-weight: 600"
+            return f"color: {mute}"
+        if n is None:
+            return ""
+        if key in _VS_HIGHER:
+            if n >= 0:
+                return f"color: {good}; font-weight: 600"
+            if n >= -5:
+                return f"color: {warn}; font-weight: 600"
+            return f"color: {bad}; font-weight: 600"
+        if key in _VS_LOWER:
+            if n <= 0:
+                return f"color: {good}; font-weight: 600"
+            if n <= 5:
+                return f"color: {warn}; font-weight: 600"
+            return f"color: {bad}; font-weight: 600"
+        if key in _HIGHER_RATE:
+            if n >= 85:
+                return f"color: {good}; font-weight: 600"
+            if n >= 80:
+                return f"color: {warn}; font-weight: 600"
+            return f"color: {bad}; font-weight: 600"
+        if key in _LOWER_RATE:
+            goal = 5.0 if key == "critical %" else 5.44
+            if n <= goal:
+                return f"color: {good}; font-weight: 600"
+            if n <= goal + 5:
+                return f"color: {warn}; font-weight: 600"
+            return f"color: {bad}; font-weight: 600"
+        return ""
+
+    styler = df.style
+    styler = styler.set_table_styles(
+        [
+            {
+                "selector": "th.col_heading",
+                "props": [
+                    ("background-color", DIDI_DARK),
+                    ("color", DIDI_WHITE),
+                    ("font-weight", "700"),
+                    ("border-bottom", f"2px solid {DIDI_ORANGE}"),
+                ],
+            },
+            {
+                "selector": "th.row_heading, th.blank",
+                "props": [
+                    ("background-color", DIDI_DARK),
+                    ("color", DIDI_WHITE),
+                ],
+            },
+        ],
+        overwrite=False,
+    )
+    for col in df.columns:
+        styler = styler.map(lambda v, c=col: paint(c, v), subset=[col])
+    return styler
+
+
+with st.spinner("Loading Business Case data…"):
+    try:
+        data = get_data()
+    except Exception as exc:
+        st.error(
+            "Business Case data could not be loaded. Expected the packaged snapshot "
+            "in `data/packaged/` or the source workbook in `data/`.\n\n"
+            f"Details: {exc}"
+        )
+        st.stop()
+
+audits_all = data["fact_audits"]
+errors_all = data["fact_errors"]
+csat_all = data["fact_csat"]
+rc_all = data["fact_recontact"]
+
+if "fn" not in st.session_state:
+    st.session_state.fn = 0
+_fn = st.session_state.fn
+
+cr_lookup = cr_group_lookup(csat_all)
+cr_lv1_opts = sorted({v for v in cr_lookup.values() if v and str(v).strip()} | {CR_UNMAPPED})
+
+
+def _cr_detail_opts(lv1: str) -> list[str]:
+    parts = [df["CR_Lv4"] for df in (audits_all, csat_all, rc_all) if "CR_Lv4" in df.columns]
+    if not parts:
+        return []
+    s = pd.concat(parts, ignore_index=True)
+    if lv1 != "All":
+        s = s[map_cr_group(s, cr_lookup) == lv1]
+    return filter_opts(s)
+
+
+weeks = sorted(audits_all["Week"].dropna().astype(str).unique())
+page_preview = st.session_state.get(f"page_{_fn}", "Overview")
+NAV_KEYS = ["Overview", "QA Score", "CSAT", "Recontact", "Alerts"]
+NAV_LABELS = {
+    "Overview": L("page_overview"),
+    "QA Score": L("page_qa"),
+    "CSAT": L("page_csat"),
+    "Recontact": L("page_recontact"),
+    "Alerts": L("page_alerts"),
+}
+if len(weeks) >= 2:
+    week_span = f"{weeks[0]}–{weeks[-1]}"
+elif weeks:
+    week_span = str(weeks[0])
+else:
+    week_span = "—"
+
+with st.sidebar:
+    st.markdown(
+        '<div class="didi-side-banner">'
+        '<span class="didi-wordmark">DiDi</span>'
+        '<div class="didi-side-banner-title">CX Quality Dashboard</div>'
+        f'<p class="didi-side-banner-sub">{html_escape(NAV_LABELS.get(str(page_preview), str(page_preview)))} · {html_escape(week_span)}</p>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="didi-side-pages-head"><p class="didi-side-kicker">Pages</p></div>',
+        unsafe_allow_html=True,
+    )
+    with st.container(key="didi_nav"):
+        page = st.radio(
+            "Pages",
+            NAV_KEYS,
+            format_func=lambda p: NAV_LABELS.get(p, p),
+            label_visibility="collapsed",
+            key=f"page_{_fn}",
+        )
+        see_all = st.toggle(
+            "See all slices",
+            key="see_all_slices",
+            help="Show every category, including small samples. Off = reliable slices (min n / lowest scores). Does not change the headline KPI cards.",
+        )
+    present = set(audits_all["Tenure_Cohort"].dropna().astype(str)) if "Tenure_Cohort" in audits_all.columns else set()
+    tenure_opts = [t for t in TENURE_SOURCE_ORDER if t in present]
+    extra = sorted(x for x in present if x not in set(tenure_opts) and x != "Unknown")
+    tenure_opts = tenure_opts + extra + (["Unknown"] if "Unknown" in present else [])
+    with st.container(border=True, key="flt_period"):
+        with st.expander("Period & channel", expanded=True):
+            sel_weeks = st.multiselect(
+                "Week",
+                weeks,
+                default=weeks,
+                key=f"flt_weeks_{_fn}",
+                help="ISO week. All weeks on = official May snapshot. CSAT and recontact use their own calendar, not QA audit weekdays.",
+            )
+            day_opts = calendar_days_in_scope(audits_all, csat_all, rc_all, sel_weeks, weeks)
+            sel_day = st.selectbox(
+                "Day",
+                ["All"] + day_opts,
+                format_func=lambda v: "All days" if v == "All" else pd.Timestamp(v).strftime("%b %d"),
+                key=f"flt_day_{_fn}",
+                help="Cuts QA, CSAT and recontact to this calendar date on each source’s own Fecha. Leave All days for the week selection only.",
+            )
+            sel_channel = st.selectbox(
+                "Channel",
+                ["All"] + filter_opts(audits_all["Channel"]),
+                key=f"flt_ch_{_fn}",
+                help="Phone and Live Chat — the QA/CSAT channels. Recontact’s 12-channel mix is the table on the Recontact page.",
+            )
+    with st.container(border=True, key="flt_filters"):
+        with st.expander("Filters", expanded=False):
+            sel_country = st.selectbox(
+                "Market / Country",
+                ["All"] + _country_opts(),
+                format_func=_country_label,
+                key=f"flt_cty_{_fn}",
+                help="Cuts QA and CSAT. Recontact has no market (region is always SSL).",
+            )
+            sel_lob = st.selectbox("LOB", ["All"] + filter_opts(audits_all["LOB"]), key=f"flt_lob_{_fn}")
+            sel_cr_lv1 = st.selectbox(
+                L("filter_cr_lv1"),
+                ["All"] + cr_lv1_opts,
+                key=f"flt_cr1_{_fn}",
+                help="Contact reason Lv1 (group) comes from the CSAT hierarchy. QA and Recontact inherit it via the contact reason Lv4 (detail) name.",
+            )
+            sel_cr = st.selectbox(
+                L("filter_cr"),
+                ["All"] + _cr_detail_opts(sel_cr_lv1),
+                key=f"flt_cr_{_fn}_{sel_cr_lv1}",
+                help="Contact reason Lv4 (detail) is the most specific reason name.",
+            )
+            sel_requester = st.selectbox(
+                "Requester Type", ["All"] + filter_opts(audits_all["Requester"]), key=f"flt_req_{_fn}",
+            )
+            sel_tenure = st.selectbox(
+                "Agent tenure (QA only)",
+                ["All"] + tenure_opts,
+                key=f"flt_ten_{_fn}",
+                help="Cuts QA audits only. CSAT and Recontact have no matching agent-tenure field.",
+            )
+            sel_supervisor = st.selectbox(
+                "Supervisor",
+                ["All"] + filter_opts(audits_all["Supervisor_ID"])[:80],
+                key=f"flt_sup_{_fn}",
+                help="Cuts QA by Supervisor_ID. Cuts CSAT to that supervisor’s agents (CSAT agent name matched to QA). Recontact has no supervisor.",
+            )
+            agent_pre = dict(
+                weeks=sel_weeks, day=sel_day, channel=sel_channel, lob=sel_lob,
+                cr=sel_cr, cr_lv1=sel_cr_lv1, requester=sel_requester,
+                country=sel_country, tenure=sel_tenure, supervisor=sel_supervisor,
+                audit_type="All", special_project="All", business_type="All",
+                agent="All", cr_lookup=cr_lookup,
+            )
+            agent_src, _, _, _ = apply_filters(
+                audits_all, errors_all, csat_all, rc_all, agent_pre, audits_all,
+            )
+            agent_opts = (
+                ["All"] + filter_opts(agent_src["Agent_ID"])
+                if agent_src is not None and not agent_src.empty and "Agent_ID" in agent_src.columns
+                else ["All"]
+            )
+            sel_agent = st.selectbox(
+                "Agent",
+                agent_opts,
+                key=f"flt_agent_{_fn}",
+                help="Cuts QA by Agent_ID. Cuts CSAT to surveys whose agent name matches that QA Agent_ID. Recontact has no agent field.",
+            )
+            st.caption("Click a bar or point on an open chart to set that filter. Reset filters clears it.")
+    with st.container(border=True, key="flt_qa"):
+        with st.expander("QA filters", expanded=False):
+            audit_opts = filter_opts(audits_all["Type_of_audit"]) if "Type_of_audit" in audits_all.columns else []
+            sel_audit_type = st.selectbox(
+                "Type of audit", ["All"] + audit_opts, key=f"flt_audt_{_fn}",
+                help="Cuts QA audits only.",
+            )
+            special_opts = filter_opts(audits_all["Special_project"]) if "Special_project" in audits_all.columns else []
+            sel_special = st.selectbox(
+                "Special project", ["All"] + special_opts, key=f"flt_sp_{_fn}",
+                help="Cuts QA audits only.",
+            )
+    with st.container(border=True, key="flt_csat"):
+        with st.expander("CSAT filters", expanded=False):
+            bt_opts = filter_opts(csat_all["Business_Type"]) if "Business_Type" in csat_all.columns else []
+            sel_business = st.selectbox(
+                "Business type", ["All"] + bt_opts, key=f"flt_bt_{_fn}",
+                help="Cuts CSAT only. QA and Recontact have no Business Type field.",
+            )
+
+    if st.button("Reset filters", type="primary", key=f"reset_{_fn}", width="stretch"):
+        st.session_state.fn += 1
+        st.rerun()
+    st.toggle(
+        "Edit labels",
+        key="edit_labels",
+        help="Change titles, notes, and theme colors. Click Save to keep them after refresh.",
+    )
+
+filters = dict(
+    weeks=sel_weeks, day=sel_day, channel=sel_channel, lob=sel_lob, cr=sel_cr, cr_lv1=sel_cr_lv1,
+    requester=sel_requester, country=sel_country,
+    tenure=sel_tenure, supervisor=sel_supervisor, agent=sel_agent,
+    audit_type=sel_audit_type, special_project=sel_special, business_type=sel_business,
+    cr_lookup=cr_lookup,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PAGE: OVERVIEW
-# ═══════════════════════════════════════════════════════════════════════════
-if page == "Overview":
-    st.subheader("Executive KPIs vs. Goals")
+audits, errors, csat, recontact = apply_filters(
+    audits_all, errors_all, csat_all, rc_all, filters, audits_all,
+)
+scope_filters = {**filters, "channel": "All"}
+_, _, _, rc_scope_src = apply_filters(audits_all, errors_all, csat_all, rc_all, scope_filters, audits_all)
 
-    if len(kpi):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            row = kpi[kpi["Metric"] == "QA Score"].iloc[0]
-            kpi_card("QA Score", row["Value"], row["Goal"], row["Status"], row["Unit"])
-        with c2:
-            row = kpi[kpi["Metric"] == "CSAT"].iloc[0]
-            kpi_card("CSAT", row["Value"], row["Goal"], row["Status"], "%")
-        with c3:
-            row = kpi[kpi["Metric"] == "Recontact Rate"].iloc[0]
-            kpi_card("Recontact Rate", row["Value"], row["Goal"], row["Status"], "%")
+# See all: drop reliability floors and "lowest N" caps on score-by-category charts.
+# Headline KPIs (QA mean, CSAT 4★+5★ / surveys, recontact ratio of sums) stay official.
+_slice_qa_n = 1 if see_all else 5
+_slice_csat_n = 1 if see_all else 20
+_slice_qa_cr_n = 1 if see_all else 3
+_slice_top = None if see_all else 12
 
-    st.divider()
+summary = kpi_summary(audits, csat, recontact)
+trends = weekly_trends(audits)
+daily = daily_metrics_trend(audits, csat, recontact)
+volumes = volume_totals(audits, csat, recontact)
+vol_delta = period_volume_delta(audits, csat, recontact, sel_weeks)
+rc_rate = recontact_rate(recontact) if not recontact.empty else 0.0
+vol_series = daily_volume_series(audits, csat, recontact)
+disp = qa_channel_dispersion(audits)
+rc_scope = recontact_by_scope(rc_scope_src)
+dilution = recontact_dilution_stats(rc_scope_src)
+score_method = scoring_method_stats(audits_all)
+crit = critical_fail_stats(audits, errors)
 
-    col_l, col_r = st.columns(2)
-
-    with col_l:
-        st.markdown("#### QA Score by Channel")
-        if len(qa_by_channel):
-            fig = px.bar(
-                qa_by_channel,
-                x="Channel",
-                y="QA_Score",
-                color="Status",
-                color_discrete_map=STATUS_COLORS,
-                text="QA_Score",
-            )
-            fig.add_hline(y=QA_GOAL, line_dash="dash", line_color="green",
-                          annotation_text=f"Goal: {QA_GOAL}")
-            fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
-            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    with col_r:
-        st.markdown("#### CSAT by Channel")
-        if len(csat_by_channel):
-            fig = px.bar(
-                csat_by_channel,
-                x="Channel",
-                y="CSAT_Pct",
-                color="Status",
-                color_discrete_map=STATUS_COLORS,
-                text="CSAT_Pct",
-            )
-            fig.add_hline(y=CSAT_GOAL, line_dash="dash", line_color="green",
-                          annotation_text=f"Goal: {CSAT_GOAL}%")
-            fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    col_l2, col_r2 = st.columns(2)
-
-    with col_l2:
-        st.markdown("#### Top 10 CRs — Lowest QA Score")
-        cr_filtered = qa_by_cr.copy()
-        if sel_channel != "All":
-            cr_filtered = cr_filtered[cr_filtered["Channel"] == sel_channel]
-        top_bad = cr_filtered.nsmallest(10, "QA_Score")
-        st.dataframe(
-            top_bad[["CR_Lv4", "Channel", "QA_Score", "Audits", "Status"]],
-            hide_index=True,
-            use_container_width=True,
-        )
-
-    with col_r2:
-        st.markdown("#### Top 10 CRs — Highest Recontact Rate")
-        rc_top = rc_by_cr.nlargest(10, "Recontact_Rate")
-        st.dataframe(
-            rc_top[["CR Lv4", "Recontact_Rate", "Recontact_Volume", "Contacts", "Status"]],
-            hide_index=True,
-            use_container_width=True,
-        )
-
-    st.info(
-        "**Key finding:** CSAT is below goal (79.95% vs 85%) while QA score exceeds goal. "
-        "This gap suggests quality audits may not fully capture drivers of customer dissatisfaction — "
-        "see Combined Insights for CRs where all three metrics underperform."
+ch_perf = channel_performance(audits, csat, recontact)
+tenure_qa = qa_by_tenure(audits)
+qa_special = qa_by_special_project(audits)
+qa_audit_type = qa_by_audit_type(audits)
+qa_aht = qa_aht_by_channel(audits)
+aht_points = qa_aht_by_cr(audits)
+aht_joined = aht_joined_outcomes(audits, csat, recontact)
+aht_corr = aht_correlation_summary(aht_joined)
+csat_unsat = csat_unsatisfied_by_cr(csat)
+csat_scr_lv1 = csat_score_by_cr(
+    csat, level="lv1", lookup=cr_lookup, min_n=_slice_csat_n, top_n=_slice_top,
+)
+csat_scr_lv4 = csat_score_by_cr(csat, level="lv4", min_n=_slice_csat_n, top_n=_slice_top)
+csat_scr_sup = csat_by_supervisor(csat, audits, min_n=_slice_csat_n, top_n=_slice_top)
+rc_vol_lv1 = contact_volume_by_cr(recontact, level="lv1", lookup=cr_lookup, top_n=8)
+rc_vol_lv4 = contact_volume_by_cr(recontact, level="lv4", top_n=8)
+csat_bt = csat_by_business_type(csat)
+agents = agent_scores(audits)
+csat_ten = csat_by_user_tenure(csat)
+slices = kpi_by_channel(audits, csat, recontact)
+coverage = slice_coverage_table()
+req_perf = requester_performance(audits, csat, recontact)
+ov_sup = supervisor_overview(audits, csat, min_n=_slice_qa_n)
+ov_ten_qa = tenure_qa_overview(audits)
+ov_ten_csat = tenure_csat_overview(audits, csat)
+ov_agents_gap = agents_below_qa_goal(
+    audits, min_n=_slice_qa_n, below_goal_only=not see_all,
+)
+rank_filters = {**filters, "supervisor": "All", "agent": "All"}
+if sel_supervisor == "All" and sel_agent == "All":
+    audits_rank, csat_rank = audits, csat
+else:
+    audits_rank, _, csat_rank, _ = apply_filters(
+        audits_all, errors_all, csat_all, rc_all, rank_filters, audits_all,
     )
+qa_q_agents = qa_agent_quartiles(audits_rank, min_n=_slice_qa_n)
+csat_q_agents = csat_agent_quartiles(csat_rank, audits_rank, min_n=_slice_csat_n)
+_sup_kpis = ov_sup if sel_supervisor == "All" else supervisor_overview(audits_rank, csat_rank)
+qa_mix = supervisor_quartile_mix(qa_q_agents, _sup_kpis)
+csat_mix = supervisor_quartile_mix(csat_q_agents, _sup_kpis)
+qa_q_sum = quartile_band_summary(qa_q_agents)
+csat_q_sum = quartile_band_summary(csat_q_agents)
+sup_qa_gap = gap_pareto_frame(ov_sup, "Supervisor_ID", "QA_Score", "n", QA_GOAL)
+sup_csat_gap = gap_pareto_frame(ov_sup, "Supervisor_ID", "CSAT_Score", "Feedback", CSAT_GOAL)
+ten_qa_gap = gap_pareto_frame(ov_ten_qa, "Tenure_Cohort", "QA_Score", "n", QA_GOAL)
+ten_csat_gap = gap_pareto_frame(ov_ten_csat, "Tenure_Cohort", "CSAT_Score", "Feedback", CSAT_GOAL)
+combined = combined_operational_analysis(audits, csat, recontact)
+ch_qa = qa_channel_breakdown(audits, errors)
+top_attr = top_failing_attributes(errors, audits, top_n=12)
+crit_errors = (
+    errors[errors["Is_Critical"].astype(bool)]
+    if not errors.empty and "Is_Critical" in errors.columns
+    else pd.DataFrame()
+)
+crit_attr = (
+    top_failing_attributes(crit_errors, audits, top_n=10)
+    if not crit_errors.empty else pd.DataFrame()
+)
+qa_cr = qa_score_by_cr(audits, top_n=_slice_top, min_n=_slice_qa_cr_n)
+rc_cr = recontact_by_cr(recontact, top_n=12)
+rc_ch_vol = recontact_by_std_channel(recontact)
+if not rc_ch_vol.empty:
+    rc_ch_vol = rc_ch_vol.copy()
+    rc_ch_vol["Cat"] = rc_ch_vol["Cat"].map(normalize_channel_label)
+rc_ch_tbl = recontact_channel_table(recontact)
+qa_cr_fails = qa_fails_by_cr(errors, top_n=12)
+qa_cr_groups = qa_fails_by_cr_group(errors, cr_lookup)
+rc_cr_groups = recontact_by_cr_group(recontact, cr_lookup)
+qa_cr_pair = attach_cr_group(qa_cr_fails, cr_lookup)
+rc_cr_pair = attach_cr_group(rc_cr, cr_lookup)
+stars = csat_by_star_rating(csat)
+_STAR_HI = ("5 Stars", "4 Stars")
+_STAR_LO = ("3 Stars", "2 Stars", "1 Star")
+_stars_hi = stars[stars["Rating"].astype(str).isin(_STAR_HI)].copy() if not stars.empty else stars
+_stars_lo = stars[stars["Rating"].astype(str).isin(_STAR_LO)].copy() if not stars.empty else stars
+_star_hi = int(pd.to_numeric(_stars_hi["Count"], errors="coerce").fillna(0).sum()) if not _stars_hi.empty else 0
+_star_lo = int(pd.to_numeric(_stars_lo["Count"], errors="coerce").fillna(0).sum()) if not _stars_lo.empty else 0
+_star_n = int(pd.to_numeric(stars["Count"], errors="coerce").fillna(0).sum()) if not stars.empty else 0
+voc = voc_themes_negative(csat)
+comments = voc_all_comments(csat)
+csat_seg = csat_segmentation(csat, top_n=_slice_top, min_n=_slice_csat_n)
+scatter_df = cr_level_metrics(audits, csat, recontact)
+weekly = weekly_kpi_table(audits, csat, recontact)
+qa_spc = qa_control_daily(audits)
+csat_spc = csat_control_daily(csat)
+rc_spc = recontact_control_daily(recontact)
+hist_qa = qa_score_histogram(audits)
+hist_csat = csat_score_histogram(csat)
+corr_tbl = cr_correlation_summary(scatter_df)
+corr_cov = cr_join_coverage(audits, csat, recontact)
+actions = generate_action_plan(combined, ch_perf, top_attr, rc_cr, summary, rc_rate, channel=sel_channel)
+brief = build_executive_brief(
+    summary, rc_rate, audits, errors, csat, recontact,
+    combined, ch_perf, top_attr, rc_cr, voc, actions,
+    channel=sel_channel,
+)
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PAGE: QA ANALYSIS
-# ═══════════════════════════════════════════════════════════════════════════
-elif page == "QA Analysis":
-    st.subheader("Quality Assurance Analysis")
+start_d, end_d = analysis_date_span(
+    [audits_all, csat_all, rc_all], sel_weeks, weeks,
+)
+if sel_day != "All":
+    day_ts = pd.Timestamp(sel_day)
+    start_d, end_d = day_ts, day_ts
+    date_label = day_ts.strftime("%b %d, %Y")
+elif not audits.empty or not csat.empty or not recontact.empty:
+    date_label = f"{start_d.strftime('%b %d')} – {end_d.strftime('%b %d, %Y')}"
+else:
+    date_label = "—"
+n_weeks = len(sel_weeks) if sel_weeks else 0
+week_phrase = (
+    "1-Day Analysis" if sel_day != "All"
+    else (f"{n_weeks} Week Analysis" if n_weeks != 1 else "1 Week Analysis")
+)
 
-    tab1, tab2, tab3 = st.tabs(["By Channel", "Attribute Defects", "By Contact Reason"])
 
-    with tab1:
-        c1, c2 = st.columns(2)
-        with c1:
-            if len(qa_by_channel):
-                for _, row in qa_by_channel.iterrows():
-                    kpi_card(
-                        f"QA — {row['Channel']}",
-                        row["QA_Score"],
-                        QA_GOAL,
-                        row["Status"],
-                        "score",
+def _active_filters_label(f: dict) -> str:
+    skip = {"cr_lookup"}
+    names = {
+        "weeks": "Weeks",
+        "day": "Day",
+        "channel": "Channel",
+        "lob": "LOB",
+        "cr": L("filter_cr"),
+        "cr_lv1": L("filter_cr_lv1"),
+        "requester": "Requester",
+        "country": "Market",
+        "tenure": "Tenure",
+        "supervisor": "Supervisor",
+        "agent": "Agent",
+        "audit_type": "Type of audit",
+        "special_project": "Special project",
+        "business_type": "Business type",
+    }
+    parts: list[str] = []
+    all_weeks = set(audits_all["Week"].dropna().astype(str).unique()) if "Week" in audits_all.columns else set()
+    for k, v in f.items():
+        if k in skip or isinstance(v, dict):
+            continue
+        if k == "weeks":
+            selected = [str(x) for x in (v or [])]
+            if not selected or set(selected) == all_weeks:
+                continue
+            parts.append(f"{names[k]}: {', '.join(selected)}")
+            continue
+        if v in ("All", [], None, "") or v is False:
+            continue
+        if isinstance(v, list):
+            parts.append(f"{names.get(k, k)}: {', '.join(str(x) for x in v)}")
+        else:
+            parts.append(f"{names.get(k, k)}: {v}")
+    return ", ".join(parts) or "All data"
+
+
+active_label = _active_filters_label(filters)
+slice_lead = (
+    "On the selected period:"
+    if active_label == "All data"
+    else f"On this slice ({active_label}):"
+)
+
+qa_vs = f"{summary['qa_score'] - QA_GOAL:+.2f} points vs goal"
+cs_vs = f"{summary['csat'] - CSAT_GOAL:+.2f} points vs goal"
+rc_vs = f"{rc_rate - RECONTACT_GOAL:+.2f} points vs goal"
+qa_day = _last_spc(qa_spc)
+csat_day = _last_spc(csat_spc)
+rc_day = _last_spc(rc_spc)
+qa_day_delta, qa_day_color = _goal_delta(qa_day, QA_GOAL, digits=1)
+csat_day_delta, csat_day_color = _goal_delta(csat_day, CSAT_GOAL, digits=1)
+rc_day_delta, rc_day_color = _goal_delta(rc_day, RECONTACT_GOAL, lower_better=True, digits=2)
+qa_light = _vs_goal_status(summary["qa_score"], QA_GOAL, True)
+cs_light = _vs_goal_status(summary["csat"], CSAT_GOAL, True)
+rc_light = _vs_goal_status(rc_rate, RECONTACT_GOAL, False)
+fcr_rate = 100.0 - rc_rate
+fcr_vs = "No business-case target"
+_aud = rc_scope[rc_scope["Scope_Key"] == "audited"] if not rc_scope.empty and "Scope_Key" in rc_scope.columns else pd.DataFrame()
+fcr_audited = (100.0 - float(_aud.iloc[0]["Rate"])) if not _aud.empty and pd.notna(_aud.iloc[0].get("Rate")) else None
+sh_share = dilution.get("share") if isinstance(dilution, dict) else None
+rc_repeats = int(recontact["Recontact Volume"].sum()) if not recontact.empty and "Recontact Volume" in recontact.columns else None
+
+qa_spark_vals, qa_spark_lbl = _spark_series(daily, "QA_Score")
+if not qa_spark_vals and not trends.empty:
+    qa_spark_vals, qa_spark_lbl = trends["QA_Score"].tolist(), trends.get("Week", pd.Series(dtype=str)).astype(str).tolist()
+csat_spark_vals, csat_spark_lbl = _spark_series(daily, "CSAT_Score")
+rc_spark_vals, rc_spark_lbl = _spark_series(daily, "Recontact_Rate")
+fcr_spark_vals = [None if v is None or pd.isna(v) else 100 - float(v) for v in (rc_spark_vals or [])]
+c_txt, c_dcol = _wow(vol_delta.get("contacts_delta"), vol_delta.get("contacts_arrow", "→"))
+r_txt, r_dcol = _wow(vol_delta.get("recontacts_delta"), vol_delta.get("recontacts_arrow", "→"))
+s_txt, s_dcol = _wow(vol_delta.get("surveys_delta"), vol_delta.get("surveys_arrow", "→"))
+e_txt, e_dcol = _wow(vol_delta.get("evals_delta"), vol_delta.get("evals_arrow", "→"))
+qa_disp = disp["alert"] if disp["alert"] else None
+
+
+def qa_story_text() -> str:
+    override = L("qa_story").strip()
+    if override:
+        return override
+    score = summary["qa_score"]
+    gap = score - QA_GOAL
+    if gap >= 0:
+        status = f"QA score is {score:.1f}%, {gap:+.1f} points vs the 85 goal."
+    else:
+        status = f"QA score is {score:.1f}%, {abs(gap):.1f} points below the 85 goal."
+    move = ""
+    if not weekly.empty and "QA_WoW_pp" in weekly.columns:
+        last = weekly.dropna(subset=["QA_Score"]).tail(1)
+        if not last.empty and pd.notna(last.iloc[0].get("QA_WoW_pp")):
+            w = float(last.iloc[0]["QA_WoW_pp"])
+            move = f" Last week vs the week before: {w:+.1f} points."
+    where = ""
+    if not top_attr.empty:
+        row = top_attr.iloc[0]
+        where = (
+            f" Defects concentrate in '{row['Error_Category']}' "
+            f"({row['Pct_Of_Fails']:.1f}% of attribute fails)."
+        )
+    return f"{slice_lead} {status}{move}{where}".strip()
+
+
+def pair_display(df: pd.DataFrame, count_col: str, count_label: str, extra: dict | None = None) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = {
+        L("col_cr_detail"): df["CR_Lv4"].astype(str),
+        L("col_cr_group"): df["CR_Lv1"].astype(str) if "CR_Lv1" in df.columns else "—",
+        count_label: df[count_col].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—"),
+    }
+    if "Pct" in df.columns:
+        out["Share"] = df["Pct"].map(lambda v: f"{v:.1f}%")
+    if extra:
+        out.update(extra)
+    return pd.DataFrame(out)
+
+PAGE_TITLES = {
+    "Overview": L("page_overview"),
+    "QA Score": L("page_qa"),
+    "CSAT": L("page_csat"),
+    "Recontact": L("page_recontact"),
+    "Alerts": L("page_alerts"),
+}
+
+if st.session_state.get("edit_labels"):
+    with st.sidebar:
+        st.divider()
+        st.caption("EDIT LABELS — Save to keep after refresh")
+        if st.session_state.pop("_ui_saved", False):
+            st.success("Saved. Titles and colors stay after you refresh the page.")
+        for group, keys in LABEL_GROUPS.items():
+            with st.expander(group, expanded=False):
+                for key in keys:
+                    st.text_input(key.replace("_", " "), key=f"lbl_{key}")
+        st.text_area("Overview insight (blank = generated)", key="lbl_overview_insight")
+        st.text_area("Overview action (blank = generated)", key="lbl_overview_action")
+        st.text_area("Overview hypothesis (blank = generated)", key="lbl_overview_hypothesis")
+        with st.expander("Theme colors", expanded=False):
+            for key, caption in THEME_PICKERS:
+                pk = f"pick_{key}"
+                if pk not in st.session_state or _is_broken_theme(st.session_state.get(pk)):
+                    current = st.session_state.get(f"theme_{key}", THEME_DEFAULTS[key])
+                    st.session_state[pk] = (
+                        THEME_DEFAULTS[key] if _is_broken_theme(current) else current
                     )
-        with c2:
-            if len(qa_detail_f):
-                fig = px.histogram(
-                    qa_detail_f,
-                    x="QA_Score",
-                    color="Channel",
-                    nbins=20,
-                    barmode="overlay",
-                    opacity=0.75,
-                )
-                fig.add_vline(x=QA_GOAL, line_dash="dash", line_color="green")
-                st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
+                chosen = st.color_picker(caption, key=pk)
+                if not _is_broken_theme(chosen):
+                    st.session_state[f"theme_{key}"] = chosen
+        st.caption("Titles, notes, and colors persist. Chart size and position cannot be dragged (Streamlit is not Power BI).")
+        save_col, reset_col = st.columns(2)
+        with save_col:
+            if st.button("Save", type="primary", width="stretch"):
+                labels = {
+                    key: str(st.session_state.get(f"lbl_{key}", LABELS[key]))
+                    for key in LABELS
+                }
+                theme = {
+                    key: (
+                        THEME_DEFAULTS[key]
+                        if _is_broken_theme(st.session_state.get(f"theme_{key}"))
+                        else str(st.session_state.get(f"theme_{key}", THEME_DEFAULTS[key]))
+                    )
+                    for key in THEME_DEFAULTS
+                }
+                save_ui_overrides(labels, theme)
+                st.session_state["_ui_saved"] = True
+                st.rerun()
+        with reset_col:
+            if st.button("Reset to defaults", width="stretch"):
+                clear_ui_overrides()
+                for key in list(st.session_state.keys()):
+                    if key.startswith("lbl_") or key.startswith("theme_") or key.startswith("pick_"):
+                        del st.session_state[key]
+                st.rerun()
 
-    with tab2:
-        st.markdown("#### Defect Concentration by QA Attribute")
-        st.caption("Identifies which attributes drive the greatest impact on QA score")
 
-        attr_filtered = qa_attrs.copy()
-        if sel_channel != "All":
-            attr_filtered = attr_filtered[attr_filtered["Channel"] == sel_channel]
+def _traffic(value, goal: float, lower_better: bool = False) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "neutral"
+    status = _vs_goal_status(value, goal, higher_is_better=not lower_better)
+    return {"green": "ok", "amber": "warn", "red": "off"}.get(status, "neutral")
 
-        c1, c2 = st.columns(2)
-        for channel in attr_filtered["Channel"].unique():
-            subset = attr_filtered[attr_filtered["Channel"] == channel].head(8)
-            with c1 if channel == "Phone" else c2:
-                st.markdown(f"**{channel}** — Top Failing Attributes")
-                fig = px.bar(
-                    subset.sort_values("Fail_Rate_Pct"),
-                    x="Fail_Rate_Pct",
-                    y="Attribute",
-                    orientation="h",
-                    color="Is_Critical",
-                    color_discrete_map={True: STATUS_COLORS["red"], False: DIDI_ORANGE},
-                    text="Fail_Rate_Pct",
-                )
-                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-                fig.update_layout(showlegend=True, height=400)
-                st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
-        st.markdown("#### Full Attribute Fail Table")
-        st.dataframe(
-            attr_filtered.sort_values("Fail_Rate_Pct", ascending=False),
-            hide_index=True,
-            use_container_width=True,
-        )
-
-    with tab3:
-        st.markdown("#### QA Performance by Contact Reason (CR Lv4)")
-        cr_data = qa_by_cr.copy()
-        if sel_channel != "All":
-            cr_data = cr_data[cr_data["Channel"] == sel_channel]
-        cr_data = cr_data.sort_values("QA_Score")
-
-        fig = px.bar(
-            cr_data.head(20),
-            x="QA_Score",
-            y="CR_Lv4",
-            orientation="h",
-            color="Status",
-            color_discrete_map=STATUS_COLORS,
-            hover_data=["Audits", "Critical_Fails"],
-        )
-        fig.add_vline(x=QA_GOAL, line_dash="dash", line_color="green")
-        fig.update_layout(height=600, yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-        st.dataframe(
-            cr_data[["CR_Lv4", "Channel", "QA_Score", "Audits", "Critical_Fails", "Status", "Gap_vs_Goal"]],
-            hide_index=True,
-            use_container_width=True,
-        )
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PAGE: CSAT / VOC
-# ═══════════════════════════════════════════════════════════════════════════
-elif page == "CSAT / VOC":
-    st.subheader("Customer Satisfaction & Voice of Customer")
-
-    if len(csat_by_channel):
-        overall_csat = (
-            csat_by_channel["Satisfied_CNT"].sum()
-            / csat_by_channel["Feedback_CNT"].sum()
-            * 100
-        )
-        status = "green" if overall_csat >= CSAT_GOAL else ("amber" if overall_csat >= CSAT_GOAL - 5 else "red")
-        kpi_card("Overall CSAT", overall_csat, CSAT_GOAL, status, "%")
-
-    tab1, tab2, tab3 = st.tabs(["By Dimension", "By CR Lv4", "Voice of Customer"])
-
-    with tab1:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**CSAT by Channel**")
-            if len(csat_by_channel):
-                fig = px.bar(
-                    csat_by_channel, x="Channel", y="CSAT_Pct",
-                    color="Status", color_discrete_map=STATUS_COLORS, text="CSAT_Pct",
-                )
-                fig.add_hline(y=CSAT_GOAL, line_dash="dash", line_color="green")
-                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-                st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-        with c2:
-            st.markdown("**CSAT by Business Type**")
-            if len(csat_by_bt):
-                fig = px.bar(
-                    csat_by_bt, x="Business Type Name", y="CSAT_Pct",
-                    color="Status", color_discrete_map=STATUS_COLORS, text="CSAT_Pct",
-                )
-                fig.add_hline(y=CSAT_GOAL, line_dash="dash", line_color="green")
-                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-                st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    with tab2:
-        st.markdown("#### CSAT by Contact Reason — Bottom 20")
-        csat_cr_sorted = csat_by_cr.sort_values("CSAT_Pct")
-        fig = px.bar(
-            csat_cr_sorted.head(20),
-            x="CSAT_Pct",
-            y="CR Lv4",
-            orientation="h",
-            color="Status",
-            color_discrete_map=STATUS_COLORS,
-            hover_data=["Feedback_CNT"],
-        )
-        fig.add_vline(x=CSAT_GOAL, line_dash="dash", line_color="green")
-        fig.update_layout(height=600, yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    with tab3:
-        st.markdown("#### Voice of Customer — Dissatisfaction Comments")
-        st.caption("Sample of open-text feedback from unsatisfied customers")
-
-        voc_display = voc.copy()
-        if sel_cr != "All":
-            voc_display = voc_display[voc_display["CR Lv4"] == sel_cr]
-
-        for _, row in voc_display.head(15).iterrows():
-            st.markdown(
-                f"""
-                <div style="
-                    border-left: 3px solid {DIDI_ORANGE};
-                    padding: 10px 16px; margin-bottom: 10px;
-                    background: #fafafa; border-radius: 0 8px 8px 0;
-                ">
-                    <div style="font-size: 12px; color: #888;">
-                        {row.get('CR Lv4', 'N/A')} · {row.get('Channel', '')} · {row.get('Country Code', '')}
-                    </div>
-                    <div style="font-size: 14px; margin-top: 4px;">"{row.get('open_question', '')}"</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PAGE: RECONTACT
-# ═══════════════════════════════════════════════════════════════════════════
-elif page == "Recontact":
-    st.subheader("Recontact Analysis — First Contact Resolution")
-
-    if len(kpi):
-        row = kpi[kpi["Metric"] == "Recontact Rate"].iloc[0]
-        kpi_card("Overall Recontact Rate", row["Value"], row["Goal"], row["Status"], "%")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown("#### Recontact Rate by Channel")
-        if len(rc_by_channel):
-            fig = px.bar(
-                rc_by_channel,
-                x=rc_by_channel.columns[0],
-                y="Recontact_Rate",
-                color="Status",
-                color_discrete_map=STATUS_COLORS,
-                text="Recontact_Rate",
-            )
-            fig.add_hline(y=RECONTACT_GOAL, line_dash="dash", line_color="green",
-                          annotation_text=f"Goal: {RECONTACT_GOAL}%")
-            fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
-            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    with c2:
-        st.markdown("#### Volume: Contacts vs Recontacts (Top 10 CRs)")
-        rc_top = rc_by_cr.nlargest(10, "Recontact_Volume")
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            name="Contacts", x=rc_top["CR Lv4"], y=rc_top["Contacts"],
-            marker_color=DIDI_DARK,
-        ))
-        fig.add_trace(go.Bar(
-            name="Recontacts", x=rc_top["CR Lv4"], y=rc_top["Recontact_Volume"],
-            marker_color=DIDI_ORANGE,
-        ))
-        fig.update_layout(barmode="group", xaxis_tickangle=-45, height=400)
-        st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    st.markdown("#### All Contact Reasons — Recontact Rate")
-    rc_sorted = rc_by_cr.sort_values("Recontact_Rate", ascending=False)
-    fig = px.scatter(
-        rc_sorted,
-        x="Contacts",
-        y="Recontact_Rate",
-        size="Recontact_Volume",
-        color="Status",
-        color_discrete_map=STATUS_COLORS,
-        hover_name="CR Lv4",
-        size_max=40,
-    )
-    fig.add_hline(y=RECONTACT_GOAL, line_dash="dash", line_color="green")
-    fig.update_layout(height=500)
-    st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
-
-    st.dataframe(
-        rc_sorted[["CR Lv4", "Recontact_Rate", "Recontact_Volume", "Contacts", "Status", "Gap_vs_Goal"]],
-        hide_index=True,
-        use_container_width=True,
+def _svg_icon(name: str) -> str:
+    paths = {
+        "calendar": (
+            '<rect x="3" y="5" width="18" height="16" rx="2"/>'
+            '<path d="M8 3v4M16 3v4M3 11h18"/>'
+        ),
+        "clock": (
+            '<circle cx="12" cy="12" r="9"/>'
+            '<path d="M12 7v6l4 2"/>'
+        ),
+        "trend": '<path d="M4 16l5-5 4 4 7-8M15 7h5v5"/>',
+        "frown": (
+            '<circle cx="12" cy="12" r="9"/>'
+            '<path d="M8 10h.01M16 10h.01M8 16c1.2-1.3 2.6-2 4-2s2.8.7 4 2"/>'
+        ),
+        "users": (
+            '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/>'
+            '<circle cx="9.5" cy="7.5" r="3"/>'
+            '<path d="M20 19v-1.2a3 3 0 0 0-2.2-2.9"/>'
+            '<circle cx="16.5" cy="8" r="2.2"/>'
+        ),
+    }
+    return (
+        f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+        f'{paths[name]}</svg>'
     )
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PAGE: COMBINED INSIGHTS
-# ═══════════════════════════════════════════════════════════════════════════
-elif page == "Combined Insights":
-    st.subheader("Cross-Metric Analysis")
-    st.caption("Contact reasons where QA, CSAT, and Recontact signals converge")
 
-    high_risk = combined[combined["Risk_Flags"] >= 2].sort_values("Risk_Flags", ascending=False)
+def _target_item(label: str, icon: str) -> str:
+    return (
+        f'<div class="didi-tgt">'
+        f'<span class="didi-tgt-ico">{_svg_icon(icon)}</span>'
+        f"<span>{html_escape(label)}</span></div>"
+    )
 
-    st.markdown(f"#### 🔴 High-Risk CRs — {len(high_risk)} contact reasons flagged on 2+ metrics")
 
-    if len(high_risk):
-        for _, row in high_risk.head(8).iterrows():
-            qa_val = f"{row['QA_Score']:.1f}" if pd.notna(row.get("QA_Score")) else "N/A"
-            csat_val = f"{row['CSAT_Pct']:.1f}%" if pd.notna(row.get("CSAT_Pct")) else "N/A"
-            rc_val = f"{row['Recontact_Rate']:.2f}%" if pd.notna(row.get("Recontact_Rate")) else "N/A"
+def _light_legend_html() -> str:
+    return (
+        '<div class="didi-targets-legend">'
+        f'<span class="didi-light-item"><span class="didi-light-dot" style="background:{STATUS_COLORS["green"]}"></span>On goal</span>'
+        f'<span class="didi-light-item"><span class="didi-light-dot" style="background:{STATUS_COLORS["amber"]}"></span>Within 5 points</span>'
+        f'<span class="didi-light-item"><span class="didi-light-dot" style="background:{STATUS_COLORS["red"]}"></span>More than 5 points off</span>'
+        "</div>"
+    )
 
-            st.markdown(
-                f"""
-                <div style="
-                    border: 1px solid #eee; border-radius: 10px;
-                    padding: 16px 20px; margin-bottom: 12px;
-                    border-left: 5px solid {DIDI_ORANGE};
-                ">
-                    <div style="font-weight: 700; font-size: 16px; color: {DIDI_DARK};">
-                        {row.get('CR_Lv4_Name', 'Unknown CR')}
-                    </div>
-                    <div style="display: flex; gap: 24px; margin-top: 10px; font-size: 14px;">
-                        <span>{status_emoji(row.get('QA_Status','na'))} QA: <b>{qa_val}</b></span>
-                        <span>{status_emoji(row.get('CSAT_Status','na'))} CSAT: <b>{csat_val}</b></span>
-                        <span>{status_emoji(row.get('RC_Status','na'))} Recontact: <b>{rc_val}</b></span>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
-    st.divider()
+def render_header(title: str) -> None:
+    as_of = end_d.strftime("%b %d, %Y") if not audits.empty else "—"
+    n = n_weeks if n_weeks else 0
+    week_txt = f"{n}-Week Performance Analysis" if n != 1 else "1-Week Performance Analysis"
+    top = (
+        '<div class="didi-head-top">'
+        '<div class="didi-head-titlebox">'
+        '<span class="didi-wordmark">DiDi</span>'
+        '<div class="didi-head-title">CX Quality Dashboard</div>'
+        '<p class="didi-head-sub">Customer Experience Quality · Service Operations</p>'
+        '</div>'
+        '<div class="didi-head-right">'
+        f'<div class="didi-head-updated">{_svg_icon("clock")}'
+        f"<span>Last updated: {html_escape(as_of)}</span></div>"
+        '<div class="didi-targets-box">'
+        '<div class="didi-targets-kicker">Targets</div>'
+        '<div class="didi-targets">'
+        + _target_item(f"QA Score ≥ {QA_GOAL:g}%", "trend")
+        + _target_item(f"CSAT ≥ {CSAT_GOAL:g}%", "frown")
+        + _target_item(f"Recontact ≤ {RECONTACT_GOAL:g}%", "users")
+        + "</div>"
+        + _light_legend_html()
+        + "</div></div></div>"
+        f'<div class="didi-head-meta"><div class="didi-page">{html_escape(title)}</div>'
+        f'{_svg_icon("calendar")}<span>{html_escape(date_label)}</span>'
+        '<span class="didi-head-meta-split"></span>'
+        f"<span>{html_escape(week_txt)}</span></div>"
+    )
+    with st.container(key=_next_didi_key("didi_head")):
+        st.markdown(top, unsafe_allow_html=True)
 
-    st.markdown("#### Correlation Matrix — QA vs CSAT vs Recontact (by CR Lv4)")
-    corr_data = combined.dropna(subset=["QA_Score", "CSAT_Pct", "Recontact_Rate"])
-    if len(corr_data) > 5:
-        corr = corr_data[["QA_Score", "CSAT_Pct", "Recontact_Rate"]].corr()
-        fig = px.imshow(
-            corr,
-            text_auto=".2f",
-            color_continuous_scale=[[0, DIDI_DARK], [0.5, DIDI_WHITE], [1, DIDI_ORANGE]],
-            zmin=-1,
-            zmax=1,
+
+def render_banner(title: str) -> None:
+    st.markdown(
+        f'<div class="didi-kpi-banner-wrap"><div class="didi-kpi-banner">{html_escape(title)}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_section(kicker: str, title: str, hint: str | None = None) -> None:
+    render_banner(title)
+
+
+def drill(title: str, *, expanded: bool = False):
+    return st.expander(title, expanded=expanded)
+
+
+def _filter_widget_key(dim: str) -> str:
+    keys = {
+        "channel": f"flt_ch_{_fn}",
+        "country": f"flt_cty_{_fn}",
+        "lob": f"flt_lob_{_fn}",
+        "cr_lv1": f"flt_cr1_{_fn}",
+        "requester": f"flt_req_{_fn}",
+        "tenure": f"flt_ten_{_fn}",
+        "supervisor": f"flt_sup_{_fn}",
+        "agent": f"flt_agent_{_fn}",
+        "audit_type": f"flt_audt_{_fn}",
+        "special_project": f"flt_sp_{_fn}",
+        "business_type": f"flt_bt_{_fn}",
+        "weeks": f"flt_weeks_{_fn}",
+        "day": f"flt_day_{_fn}",
+    }
+    if dim == "cr":
+        lv1 = st.session_state.get(f"flt_cr1_{_fn}", "All")
+        return f"flt_cr_{_fn}_{lv1}"
+    return keys[dim]
+
+
+def _filter_allowed(dim: str) -> set[str] | None:
+    if dim == "channel":
+        return set(filter_opts(audits_all["Channel"]))
+    if dim == "supervisor":
+        return set(filter_opts(audits_all["Supervisor_ID"]))
+    if dim == "agent":
+        return {str(x) for x in agent_opts if str(x) != "All"}
+    if dim == "cr_lv1":
+        return set(cr_lv1_opts)
+    if dim == "cr":
+        return set(_cr_detail_opts("All"))
+    if dim == "requester":
+        return set(filter_opts(audits_all["Requester"])) if "Requester" in audits_all.columns else set()
+    if dim == "tenure":
+        return set(tenure_opts)
+    if dim == "audit_type":
+        return set(filter_opts(audits_all["Type_of_audit"])) if "Type_of_audit" in audits_all.columns else set()
+    if dim == "special_project":
+        return set(filter_opts(audits_all["Special_project"])) if "Special_project" in audits_all.columns else set()
+    if dim == "business_type":
+        return set(filter_opts(csat_all["Business_Type"])) if "Business_Type" in csat_all.columns else set()
+    if dim == "weeks":
+        return {str(w) for w in weeks}
+    if dim == "day":
+        return set(day_opts)
+    if dim == "country":
+        return set(_country_opts())
+    if dim == "lob":
+        return set(filter_opts(audits_all["LOB"]))
+    return None
+
+
+def _canonical_filter_value(raw: str, allowed: set[str] | None) -> str | None:
+    text = " ".join(str(raw).replace("\n", " ").split()).strip()
+    if not text or text.lower() in {"nan", "none", "null"}:
+        return None
+    candidates = [text]
+    for prefix in ("Agent ", "Supervisor "):
+        if text.startswith(prefix):
+            stripped = text[len(prefix):].strip()
+            if stripped:
+                candidates.append(stripped)
+            break
+
+    def _match(value: str) -> str | None:
+        if allowed is None:
+            return value
+        if value in allowed:
+            return value
+        iso = COUNTRY_FROM_ISO3.get(value.upper())
+        if iso and iso in allowed:
+            return iso
+        name_fold = {n.casefold(): code for code, n in COUNTRY_NAMES.items()}
+        named = name_fold.get(value.casefold())
+        if named and named in allowed:
+            return named
+        fold = {a.casefold(): a for a in allowed}
+        hit = fold.get(value.casefold())
+        if hit:
+            return hit
+        if allowed:
+            norm = normalize_channel_label(value)
+            hit = fold.get(norm.casefold())
+            if hit:
+                return hit
+        return None
+
+    for candidate in candidates:
+        hit = _match(candidate)
+        if hit:
+            return hit
+    return None
+
+
+def _click_category(event) -> str | None:
+    try:
+        points = list(event.selection.points or [])
+    except Exception:
+        return None
+    if not points:
+        return None
+    pt = points[0]
+    if not isinstance(pt, dict):
+        try:
+            pt = dict(pt)
+        except Exception:
+            return None
+    skip_names = {
+        "CRITICAL", "Non-critical", "Cumulative %", "QA", "CSAT", "Recontact",
+        "Average", "Upper usual range", "Lower usual range",
+        "Goal 5.44", "Rate %", "Repeats", "Contacts",
+        "Trend", "Contact reasons",
+    }
+
+    def _as_label(value, *, allow_int: bool = False) -> str | None:
+        if value is None or isinstance(value, (bool, dict)):
+            return None
+        if isinstance(value, (int, float)) or type(value).__name__ in {"int64", "int32", "float64"}:
+            if not allow_int:
+                return None
+            try:
+                num = float(value)
+            except Exception:
+                return None
+            if not num.is_integer():
+                return None
+            return str(int(num))
+        try:
+            if pd.isna(value):
+                return None
+        except Exception:
+            pass
+        text = str(value).strip()
+        if not text or "<br>" in text or text.startswith("<"):
+            return None
+        if text in skip_names:
+            return None
+        return " ".join(text.replace("\n", " ").split()) or None
+
+    cd = pt.get("customdata")
+    if isinstance(cd, (list, tuple)):
+        label = _as_label(cd[0] if cd else None)
+        if label:
+            return label
+    else:
+        label = _as_label(cd)
+        if label:
+            return label
+    for key in ("location", "hovertext", "label", "legendgroup"):
+        label = _as_label(pt.get(key))
+        if label:
+            return label
+    for key in ("x", "y"):
+        label = _as_label(pt.get(key))
+        if label:
+            return label
+    x = pt.get("x")
+    ts = pd.to_datetime(x, errors="coerce")
+    if pd.notna(ts):
+        return ts.strftime("%Y-%m-%d")
+    return None
+
+
+def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
+    try:
+        points = list(event.selection.points or [])
+    except Exception:
+        points = []
+    sig = repr(points)
+    prev_key = f"{chart_key}_drill_sig"
+    if sig == st.session_state.get(prev_key):
+        return
+    st.session_state[prev_key] = sig
+    if not points:
+        return
+    raw = _click_category(event)
+    if not raw:
+        return
+    allowed = _filter_allowed(dim)
+    value = _canonical_filter_value(raw, allowed)
+    if not value:
+        return
+    if dim == "weeks":
+        week_key = _filter_widget_key("weeks")
+        current = [str(x) for x in (st.session_state.get(week_key) or [])]
+        if current == [value]:
+            st.session_state[week_key] = list(weeks)
+        else:
+            st.session_state[week_key] = [value]
+        st.rerun()
+        return
+    if dim == "cr":
+        cr_all_key = f"flt_cr_{_fn}_All"
+        current = str(st.session_state.get(cr_all_key) or st.session_state.get(_filter_widget_key("cr")) or "All")
+        st.session_state[f"flt_cr1_{_fn}"] = "All"
+        st.session_state[cr_all_key] = "All" if current == value else value
+        st.rerun()
+        return
+    widget_key = _filter_widget_key(dim)
+    current = st.session_state.get(widget_key, "All")
+    if dim == "channel":
+        current = normalize_channel_label(current) if current not in (None, "All") else current
+        value = normalize_channel_label(value)
+    if str(current) == str(value):
+        if dim == "country":
+            st.session_state[widget_key] = "All"
+            st.rerun()
+        return
+    st.session_state[widget_key] = value
+    st.rerun()
+
+
+def _set_people_filter(dim: str, value: str | None) -> None:
+    widget_key = _filter_widget_key(dim)
+    if not value or str(value) == "All":
+        st.session_state[widget_key] = "All"
+        st.rerun()
+        return
+    current = str(st.session_state.get(widget_key) or "All")
+    st.session_state[widget_key] = "All" if current == str(value) else str(value)
+    if dim == "supervisor":
+        st.session_state[_filter_widget_key("agent")] = "All"
+    st.rerun()
+
+
+def _plotly_chart(fig, *, key: str, drill: str | None = None, **kwargs):
+    """Plotly chart; when `drill` is set, a click writes that sidebar filter and reruns."""
+    if fig is not None and drill:
+        try:
+            fig.update_layout(clickmode="event+select")
+        except Exception:
+            pass
+    plot_kwargs = dict(width="stretch", config=CHART_CFG, key=key, theme=None)
+    plot_kwargs.update(kwargs)
+    if drill:
+        plot_kwargs["on_select"] = "rerun"
+        plot_kwargs["selection_mode"] = "points"
+    event = st.plotly_chart(fig, **plot_kwargs)
+    if drill:
+        _apply_chart_filter(event, chart_key=key, dim=drill)
+    return event
+
+
+def render_preview_board(items: list[dict], *, state_key: str, columns: int = 2) -> None:
+    """KPI-style cards in pairs. Title button is source of truth; empty Plotly selects are no-ops."""
+    if state_key not in st.session_state:
+        st.session_state[state_key] = None
+    for i in range(0, len(items), columns):
+        chunk = items[i:i + columns]
+        cols = st.columns(columns)
+        for col, item in zip(cols, chunk):
+            item_id = item["id"]
+            open_id = st.session_state.get(state_key)
+            is_on = open_id == item_id
+            btn = item.get("btn") or "def"
+            with col:
+                with st.container(border=True, key=f"didi_rcard_{btn}_{item_id}"):
+                    st.markdown(
+                        f'<span class="didi-rcard-flag didi-rcard-flag--{"on" if is_on else "off"}"></span>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(item["title"], key=f"pvbtn_{item_id}", width="stretch"):
+                        st.session_state[state_key] = None if is_on else item_id
+                        st.rerun()
+                    st.metric(
+                        item["title"],
+                        item.get("value") or "—",
+                        delta=item.get("delta"),
+                        delta_color=item.get("delta_color") or "off",
+                        label_visibility="collapsed",
+                    )
+                    spark = item.get("spark")
+                    if spark is not None:
+                        event = st.plotly_chart(
+                            spark, width="stretch", config=CHART_CFG,
+                            key=f"{item_id}_mini", theme=None,
+                            on_select="rerun", selection_mode="points",
+                        )
+                        points = []
+                        try:
+                            points = list(event.selection.points or [])
+                        except Exception:
+                            points = []
+                        sig_key = f"{item_id}_minisel"
+                        sig = repr(points)
+                        prev = st.session_state.get(sig_key)
+                        if not points:
+                            st.session_state[sig_key] = sig
+                        elif sig != prev:
+                            st.session_state[sig_key] = sig
+                            if st.session_state.get(state_key) != item_id:
+                                st.session_state[state_key] = item_id
+                                st.rerun()
+        open_id = st.session_state.get(state_key)
+        chosen = next((item for item in chunk if item["id"] == open_id), None)
+        if chosen is None:
+            continue
+        extra = chosen.get("extra")
+        fig = chosen["fig"]
+        drill_dim = chosen.get("drill")
+        if chosen.get("kind") == "pie":
+            _gutter, mid, _right = st.columns([1, 1.15, 1])
+            with mid:
+                with panel(chosen["title"]):
+                    _plotly_chart(
+                        square_pie_fig(fig),
+                        key=f"{chosen['id']}_full",
+                        drill=drill_dim,
+                    )
+                    if drill_dim:
+                        st.caption("Click a slice to apply that filter.")
+                    if callable(extra):
+                        extra()
+            continue
+        with panel(chosen["title"]):
+            _plotly_chart(fig, key=f"{chosen['id']}_full", drill=drill_dim)
+            if drill_dim:
+                st.caption("Click a bar or point to apply that filter.")
+            if callable(extra):
+                extra()
+
+
+def aht_corr_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    return pd.DataFrame({
+        "Pair": df["Pair"],
+        "Slice": df["Slice"],
+        "r": df["Pearson_r"].map(lambda v: "—" if pd.isna(v) else f"{float(v):+.2f}"),
+        "N (shared contact reason Lv4 (detail))": df["N_CR"].astype(int),
+    })
+
+
+def render_aht_quality_block(chart_prefix: str, *, include_qa_scatter: bool = True) -> None:
+    """Handle-time scatters + Pearson r. Association only."""
+    n_surveys = volumes.get("surveys")
+    n_audits = volumes.get("evaluations")
+    qa_r, qa_n = _pair_r(aht_corr, "AHT vs QA", "All")
+    cs_r, cs_n = _pair_r(aht_corr, "AHT vs CSAT", "All")
+    rc_r, rc_n = _pair_r(aht_corr, "AHT vs Recontact", "All")
+
+    def _aht_scatter_row(title: str, fig, key: str, r_args, r_kwargs=None):
+        with panel():
+            st.markdown(f"**{title}**")
+            _plotly_chart(fig, key=key, drill="cr")
+            st.caption("Click a point to filter to that contact reason Lv4 (detail).")
+            render_r_box(*r_args, **(r_kwargs or {}))
+
+    if include_qa_scatter:
+        _aht_scatter_row(
+            "QA vs AHT",
+            qa_aht_scatter(aht_points),
+            f"{chart_prefix}_qa",
+            (qa_r, qa_n, "QA vs handle time"),
+            {"audits": n_audits},
         )
-        st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
+        with panel():
+            st.markdown("**AHT correlations**")
+            st.plotly_chart(corr_r_bars(aht_corr), width="stretch", config=CHART_CFG, key=f"{chart_prefix}_r")
+            render_notes(aht_outcome_notes(aht_corr, scope=slice_lead, channel=sel_channel))
+    _aht_scatter_row(
+        "CSAT vs AHT",
+        aht_metric_scatter(
+            aht_joined, "CSAT_Pct",
+            y_title="CSAT %",
+            title="CSAT vs AHT",
+            y_goal=CSAT_GOAL,
+            empty_text=aht_overlap_empty_text(
+                cs_n, "CSAT", surveys=n_surveys, audits=n_audits,
+                min_audits=AHT_CR_MIN_AUDITS,
+            ),
+        ),
+        f"{chart_prefix}_csat",
+        (cs_r, cs_n, "CSAT vs handle time"),
+        {"surveys": n_surveys, "audits": n_audits},
+    )
+    _aht_scatter_row(
+        "Recontact vs AHT",
+        aht_metric_scatter(
+            aht_joined, "Recontact_Rate",
+            y_title="Recontact rate %",
+            title="Recontact vs AHT",
+            y_goal=RECONTACT_GOAL,
+            lower_better=True,
+            empty_text=aht_overlap_empty_text(
+                rc_n, "recontact", audits=n_audits, min_audits=AHT_CR_MIN_AUDITS,
+            ),
+        ),
+        f"{chart_prefix}_rc",
+        (rc_r, rc_n, "Recontact vs handle time"),
+        {"audits": n_audits},
+    )
+    if not include_qa_scatter:
+        with panel():
+            st.plotly_chart(corr_r_bars(aht_corr), width="stretch", config=CHART_CFG, key=f"{chart_prefix}_r")
+            render_notes(aht_outcome_notes(aht_corr, scope=slice_lead, channel=sel_channel))
 
+
+_TOAST_HOLD_S = 8.0
+
+
+def render_filter_effects() -> None:
+    msgs: list[str] = []
+    if sel_day != "All":
+        day_lbl = pd.Timestamp(sel_day).strftime("%b %d")
+        msgs.append(
+            f"Day = {day_lbl}. QA, CSAT and recontact are all cut to this calendar date "
+            "on each source’s own Fecha. QA may have no audits that day."
+        )
+    if sel_channel != "All":
+        msgs.append(
+            f"Channel = {sel_channel}. QA, CSAT and recontact are all cut to this channel. "
+            "Recontact is this channel's rate, not the official 12-channel mix."
+        )
+    if sel_country != "All":
+        msgs.append(
+            f"Market = {sel_country} cuts QA and CSAT. Recontact has no country field "
+            "(region is always SSL), so the recontact KPI is not cut by market."
+        )
+    if sel_lob != "All":
+        msgs.append(f"LOB = {sel_lob} cuts QA only. CSAT and recontact have no LOB field.")
+    if sel_tenure != "All":
+        msgs.append(f"Agent tenure = {sel_tenure} cuts QA only. CSAT and recontact stay on the other active filters.")
+    if sel_supervisor != "All":
+        msgs.append(
+            "Supervisor cuts QA and CSAT. CSAT keeps surveys whose agent name matches that supervisor’s QA agents. Recontact is not cut."
+        )
+    if sel_agent != "All":
+        msgs.append(
+            f"Agent = {sel_agent} cuts QA and CSAT. CSAT keeps surveys whose agent name matches this QA Agent_ID. Recontact is not cut."
+        )
+    if sel_audit_type != "All":
+        msgs.append("Type of audit cuts QA only.")
+    if sel_special != "All":
+        msgs.append("Special project cuts QA only.")
+    if sel_business != "All":
+        msgs.append("Business type cuts CSAT only.")
+    if sel_cr_lv1 != "All":
+        msgs.append(
+            f"Contact reason Lv1 (group) = {sel_cr_lv1}. QA and recontact inherit the group via the contact reason Lv4 (detail) name."
+        )
+    if sel_cr != "All":
+        msgs.append(f"Contact reason Lv4 (detail) = {sel_cr}. All three sources are cut to this name.")
+    sig = tuple(msgs)
+    if sig != st.session_state.get("filter_fx_sig"):
+        st.session_state["filter_fx_sig"] = sig
+        st.session_state["filter_fx_shown_at"] = time.monotonic()
+    if not msgs:
+        return
+    started = float(st.session_state.get("filter_fx_shown_at") or 0)
+    if started and (time.monotonic() - started) >= _TOAST_HOLD_S:
+        return
+    st.markdown(
+        f'<span class="didi-toast-sr">{html_escape(" ".join(msgs))}</span>',
+        unsafe_allow_html=True,
+    )
+    sig_key = html_escape("|".join(msgs))
+    cards = []
+    for msg in msgs:
+        cards.append(
+            '<div class="didi-toast-card">'
+            '<button type="button" class="didi-toast-x" aria-label="Close">×</button>'
+            '<div class="didi-toast-kicker">Filter</div>'
+            f'<div class="didi-toast-body">{html_escape(msg)}</div>'
+            "</div>"
+        )
+    st.html(
+        f'<div id="didi-toast-live" data-sig="{sig_key}">'
+        + "".join(cards)
+        + "</div>"
+        "<script>"
+        "(function(){"
+        "var el=document.getElementById('didi-toast-live');"
+        "if(!el)return;"
+        "var sig=el.getAttribute('data-sig')||'';"
+        "var key='didi_toast_dismissed';"
+        "if(sessionStorage.getItem(key)===sig){el.remove();return;}"
+        "var hide=function(){try{sessionStorage.setItem(key,sig);}catch(e){}"
+        "if(el&&el.parentNode)el.remove();};"
+        "el.querySelectorAll('.didi-toast-x').forEach(function(b){b.addEventListener('click',hide);});"
+        "setTimeout(hide,8000);"
+        "})();"
+        "</script>",
+        unsafe_allow_javascript=True,
+    )
+
+
+def render_insight_bar() -> None:
+    render_notes(qa_chip(summary["qa_score"]))
+    render_notes(csat_chip(summary["csat"]))
+    if brief.worst_cr and brief.worst_cr != "—":
+        render_notes({"text": f"Focus contact reason Lv4 (detail): {str(brief.worst_cr)[:28]}.", "tone": "risk"})
+
+
+def render_action_panel() -> None:
+    with st.container(border=True, key=_next_didi_key("didi_action")):
+        st.markdown(
+            f'<div class="didi-action">'
+            f'<div class="didi-action-kicker">{html_escape(L("panel_actions"))}</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        acts = action_display(actions)
+        if acts.empty:
+            st.caption("No actions generated.")
+        else:
+            show_df(acts)
+
+
+def corr_findings(tbl: pd.DataFrame) -> pd.DataFrame:
+    if tbl.empty:
+        return tbl
+    rows = []
+    for _, row in tbl.iterrows():
+        pair = str(row.get("Pair", ""))
+        r = row.get("Pearson_r")
+        n = row.get("N_CR")
+        n_txt = int(n) if pd.notna(n) else "—"
+        if pd.isna(r):
+            n_val = int(n) if pd.notna(n) else 0
+            meaning = (
+                f"Need at least 5 shared contact reason Lv4 (detail) names to compute r. "
+                f"This pair currently has {n_val} in the active filter."
+            )
+            finding = (
+                "Not shown. The two sources do not share enough contact reason Lv4 (detail) names after the current filter. "
+                "The KPI cards still use this filter; this row is only the association test."
+            )
+        else:
+            mag = abs(float(r))
+            if mag < 0.20:
+                strength = "Very weak"
+            elif mag < 0.40:
+                strength = "Weak"
+            elif mag < 0.60:
+                strength = "Moderate"
+            else:
+                strength = "Strong"
+            direction = "positive" if r > 0 else "negative"
+            meaning = (
+                f"{strength} {direction} link (r={float(r):.2f}). "
+                f"N={n_txt} contact reason Lv4 (detail) values appear in both series. "
+                "N is not surveys and not audits."
+            )
+            if pair == "QA vs CSAT":
+                if mag < 0.30:
+                    finding = "QA and CSAT barely move together at reason level. Raising the audit score may not lift CSAT."
+                elif r > 0:
+                    finding = "Reasons with higher QA tend to have higher CSAT."
+                else:
+                    finding = "Reasons with higher QA tend to have lower CSAT — quality vs experience are splitting."
+            elif pair == "QA vs Recontact":
+                if r < -0.20:
+                    finding = "Lower-QA reasons tend to come back more. Defects and repeats share drivers."
+                elif mag < 0.20:
+                    finding = "QA and recontact are not tightly linked at reason level."
+                else:
+                    finding = (
+                        "Higher QA with higher recontact — on Channel = All this is often a mix effect "
+                        "(Self Help vs Phone/Chat). On a single channel it is a real reason-level pattern."
+                    )
+            else:
+                if r < -0.20:
+                    finding = "Lower CSAT reasons tend to recontact more."
+                elif mag < 0.20:
+                    finding = "CSAT and recontact are only loosely related at reason level."
+                else:
+                    finding = "Higher CSAT with higher recontact — likely a mix/volume effect, not a simple quality story."
+        rows.append({
+            "Pair": pair,
+            "r": f"{float(r):.3f}" if pd.notna(r) else "—",
+            "N": n_txt,
+            "What r and N mean": meaning,
+            "Finding": finding,
+        })
+    return pd.DataFrame(rows)
+
+
+def weekly_display() -> pd.DataFrame:
+    if weekly.empty:
+        return weekly
+    out = pd.DataFrame({
+        "Week": weekly.get("Week"),
+        "QA": weekly["QA_Score"].map(lambda v: _fmt(v, 1)) if "QA_Score" in weekly else None,
+        "vs 85": weekly["QA_vs_Goal"].map(lambda v: _vs(v, 1)) if "QA_vs_Goal" in weekly else None,
+        "QA WoW": weekly["QA_WoW_pp"].map(lambda v: _vs(v, 1)) if "QA_WoW_pp" in weekly else None,
+        "CSAT": weekly["CSAT_Score"].map(lambda v: _fmt(v, 1)) if "CSAT_Score" in weekly else None,
+        "CSAT vs 85": weekly["CSAT_vs_Goal"].map(lambda v: _vs(v, 1)) if "CSAT_vs_Goal" in weekly else None,
+        "CSAT WoW": weekly["CSAT_WoW_pp"].map(lambda v: _vs(v, 1)) if "CSAT_WoW_pp" in weekly else None,
+        "RC": weekly["Recontact_Rate"].map(lambda v: _fmt(v, 2)) if "Recontact_Rate" in weekly else None,
+        "vs 5.44": weekly["Recontact_vs_Goal"].map(lambda v: _vs(v, 2)) if "Recontact_vs_Goal" in weekly else None,
+        "RC WoW": weekly["Recontact_WoW_pp"].map(lambda v: _vs(v, 2)) if "Recontact_WoW_pp" in weekly else None,
+    })
+    return out
+
+
+def perf_display(df: pd.DataFrame, segment_col: str = "Segment") -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = {
+        segment_col: df["Segment"],
+        "QA Score": df["QA_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "QA vs goal": df["QA_Score_vs"].map(lambda v: _vs(v)),
+        "CSAT": df["CSAT_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "CSAT vs goal": df["CSAT_Score_vs"].map(lambda v: _vs(v)),
+        "Recontact": df["Recontact_Rate"].map(lambda v: _fmt(v, 2, "%")),
+        "RC vs goal": df["Recontact_Rate_vs"].map(lambda v: _vs(v, 2)),
+    }
+    if "QA_N" in df.columns:
+        out["n"] = df["QA_N"].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—")
+    if "QA_Share" in df.columns:
+        out["Share"] = df["QA_Share"].map(lambda v: _fmt(v, 1, "%"))
+    return pd.DataFrame(out)
+
+
+def ov_supervisor_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    top = df if see_all else df.head(10)
+
+    def _fb(v):
+        return f"{int(v):,}" if pd.notna(v) else "—"
+
+    return pd.DataFrame({
+        "Supervisor": top["Supervisor_ID"],
+        "QA Score": top["QA_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "QA vs 85": top["QA_Score"].map(lambda v: _vs(v - QA_GOAL) if pd.notna(v) else "—"),
+        "AHT min": top["AHT_min"].map(lambda v: _fmt(v, 1)),
+        "CSAT": top["CSAT_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "CSAT vs 85": top["CSAT_Score"].map(lambda v: _vs(v - CSAT_GOAL) if pd.notna(v) else "—"),
+        "Recontact": "—",
+        "Agents": top["Agents"].map(lambda v: int(v) if pd.notna(v) else 0),
+        "Audits": top["n"].map(lambda v: int(v) if pd.notna(v) else 0),
+        "Surveys": top["Feedback"].map(_fb) if "Feedback" in top.columns else "—",
+    })
+
+
+def agents_tenure_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    top = df if see_all else df.head(12)
+    tenure = top["Tenure_Cohort"] if "Tenure_Cohort" in top.columns else "—"
+    supervisor = top["Supervisor_ID"] if "Supervisor_ID" in top.columns else "—"
+    return pd.DataFrame({
+        "Agent": top["Agent_ID"],
+        "Tenure": tenure,
+        "Supervisor": supervisor,
+        "QA": top["QA_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "vs 85": top["QA_Score"].map(lambda v: _vs(v - QA_GOAL) if pd.notna(v) else "—"),
+        "n": top["n"].map(lambda v: int(v) if pd.notna(v) else 0),
+    })
+
+
+def qa_agent_roster_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    tenure = df["Tenure_Cohort"] if "Tenure_Cohort" in df.columns else "—"
+    return pd.DataFrame({
+        "Supervisor": df["Supervisor_ID"],
+        "Agent": df["Agent_ID"],
+        "QA": df["QA_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "vs 85": df["QA_Score"].map(lambda v: _vs(v - QA_GOAL) if pd.notna(v) else "—"),
+        "Attribute fails": df["Fail_Count"].map(lambda v: int(v) if pd.notna(v) else 0),
+        "Fail share": df["Fail_Share"].map(lambda v: _fmt(v, 1, "%") if pd.notna(v) else "—"),
+        "Critical %": df["Fatal_Rate"].map(lambda v: _fmt(v, 1, "%") if pd.notna(v) else "—"),
+        "Audits": df["Audit_Count"].map(lambda v: int(v) if pd.notna(v) else 0),
+        "Tenure": tenure,
+    })
+
+
+def csat_agent_roster_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    return pd.DataFrame({
+        "Supervisor": df["Supervisor_ID"],
+        "Agent": df["Agent"],
+        "CSAT": df["CSAT_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "vs 85": df["CSAT_Score"].map(lambda v: _vs(v - CSAT_GOAL) if pd.notna(v) else "—"),
+        "Unsatisfied": df["Unsatisfied"].map(lambda v: int(v) if pd.notna(v) else 0),
+        "Unsat share": df["Unsat_Share"].map(lambda v: _fmt(v, 1, "%") if pd.notna(v) else "—"),
+        "Surveys": df["Feedback"].map(lambda v: int(v) if pd.notna(v) else 0),
+    })
+
+
+def _gap_fig(
+    frame: pd.DataFrame,
+    title: str,
+    value_title: str,
+    sample_unit: str = "audits",
+    universe_n: int | None = None,
+):
+    if frame is None or frame.empty:
+        src = pd.DataFrame()
+    else:
+        keep = [
+            c for c in ("Cat", "Gap_Impact", "n", "N", "Feedback", "Audits",
+                        "Audit_Count", "QA_Evaluations", "Contacts")
+            if c in frame.columns
+        ]
+        src = frame[keep].head(10)
+    return pareto_dual_axis(
+        src if not src.empty else pd.DataFrame(),
+        "Cat", "Gap_Impact",
+        title=title, value_title=value_title,
+        sample_unit=sample_unit,
+        universe_n=universe_n,
+    )
+
+
+def _gap_spark(frame: pd.DataFrame):
+    if frame is None or frame.empty:
+        return None
+    top = frame.head(5)
+    return spark_hbar_fig(top["Cat"].astype(str).tolist(), top["Gap_Impact"].fillna(0).tolist())
+
+
+def _gap_card_delta(frame: pd.DataFrame, unit: str) -> str:
+    """Card delta: top name + real volume, never Gap_Impact labeled as audits."""
+    if frame is None or frame.empty:
+        return "All ≥ 85"
+    top = frame.iloc[0]
+    name = str(top["Cat"])[:36]
+    vol_col = next(
+        (c for c in ("n", "Feedback", "Audits", "Audit_Count", "QA_Evaluations", "Contacts")
+         if c in frame.columns),
+        None,
+    )
+    if vol_col and pd.notna(top[vol_col]):
+        return f"{name} · {int(top[vol_col]):,} {unit}"
+    return name
+
+
+def _pair_r(tbl: pd.DataFrame, pair: str, slice_name: str | None = None):
+    if tbl is None or tbl.empty or "Pair" not in tbl.columns:
+        return None, 0
+    sub = tbl[tbl["Pair"] == pair]
+    if slice_name and "Slice" in sub.columns:
+        hit = sub[sub["Slice"] == slice_name]
+        if not hit.empty:
+            sub = hit
+    if sub.empty:
+        return None, 0
+    row = sub.iloc[0]
+    n = int(row["N_CR"]) if "N_CR" in row and pd.notna(row["N_CR"]) else 0
+    r = row["Pearson_r"] if "Pearson_r" in row else None
+    return (float(r) if pd.notna(r) else None), n
+
+
+def combo_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    rows = df.head(8)
+    return pd.DataFrame({
+        L("col_cr_detail"): rows["CR_Lv4"].astype(str),
+        "Pattern": rows["Pattern"],
+        "QA": rows["QA_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "QA vs goal": rows["QA_vs"].map(lambda v: _vs(v)),
+        "Audits": rows["QA_N"].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—"),
+        "CSAT": rows["CSAT_Score"].map(lambda v: _fmt(v, 1, "%")),
+        "Surveys": rows["Feedback"].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—"),
+        "Recontact": rows["Recontact_Rate"].map(lambda v: _fmt(v, 2, "%")),
+        "Contacts": rows["Contacts"].map(lambda v: f"{int(v):,}" if pd.notna(v) else "—"),
+    })
+
+
+def action_display(items) -> pd.DataFrame:
+    if not items:
+        return pd.DataFrame()
+    return pd.DataFrame([
+        {
+            "Finding": it.finding,
+            "Action": it.action,
+            "Owner": it.owner,
+            "Priority": it.priority,
+            "Timeline": it.timeline,
+        }
+        for it in items
+    ])
+
+
+def attr_display(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = df.copy()
+    out["Severity"] = out["Is_Critical"].map(lambda v: "CRITICAL" if v else "Non-critical")
+    out["Attribute"] = out["Error_Category"].astype(str).str[:36]
+    out["Fails"] = out["Fail_Count"].astype(int)
+    out["% of fails"] = out["Pct_Of_Fails"].map(lambda v: f"{v:.1f}%")
+    out["Impact on QA (points)"] = out["Impact_pp"].map(lambda v: f"{v:.2f}")
+    return out[["Attribute", "Severity", "Fails", "% of fails", "Impact on QA (points)"]]
+
+
+def render_methodology() -> None:
+    official = score_method["official"] if score_method else summary["qa_score"]
+    source = score_method["source"] if score_method else 86.90
+    gap = score_method["gap"] if score_method else round(official - source, 2)
+    agree = score_method["agreement"] if score_method else None
+    agree_txt = f"{agree:.2f}%" if agree is not None else "not available in this snapshot"
+    with st.expander("Notes on methodology — scoring, typing, and recontact rate"):
         st.markdown(
             f"""
-            **Interpretation:** QA Score and CSAT show a correlation of
-            **{corr.loc['QA_Score', 'CSAT_Pct']:.2f}** —
-            {"confirming that audit quality aligns with customer satisfaction."
-             if corr.loc['QA_Score', 'CSAT_Pct'] > 0.3
-             else "suggesting a disconnect between audit scores and customer perception."}
-            Recontact Rate vs CSAT: **{corr.loc['CSAT_Pct', 'Recontact_Rate']:.2f}**.
-            """
+The **official QA Score on this dashboard is {official:.2f}%**, calculated from the
+business-case rule: start at 100, any **critical** fail scores **0**, each non-critical fail
+deducts 10 points. Phone attributes are columns W–AH; Live Chat are AI–AP. They are
+never mixed in one score. N/A (value 2) is excluded. That is the number in the KPI card.
+
+The Excel QA tab also carries `Score_end_user`, a **source rubric** that weights
+attributes and penalizes process adherence. Its average is **{source:.2f}%**
+({gap:+.2f} points vs the official score). The two series coincide on {agree_txt} of
+audits. Both beat the 85% goal; this dashboard reports the business-case score.
+
+**Incorrect contact-reason typing is 9.72%**, not 47.20%. Comparing `CR_registrada`
+and `CR_correcta` as raw text inflates the figure: 37.48 pp of that gap is only a
+difference in capitalization.
+
+**Recontact rate is always a ratio of sums** (Σ Recontact Volume / Σ Contacts), never
+an average of row-level rates.
+"""
         )
 
-    st.markdown("#### Full Combined Analysis Table")
-    st.dataframe(
-        combined.sort_values("Risk_Flags", ascending=False),
-        hide_index=True,
-        use_container_width=True,
+
+def render_channel_qa(ch: str, data: dict) -> None:
+    st.markdown(f"**{ch}**")
+    if not data or data.get("qa_score") is None:
+        st.caption(
+            "No audits in the current filter. Phone (W–AH) and Live Chat (AI–AP) are scored separately."
+        )
+        return
+    ch_aud = audits[audits["Channel"] == ch] if "Channel" in audits.columns else audits
+    ch_err = errors[errors["Channel"] == ch] if "Channel" in errors.columns else errors
+    ch_crit = critical_fail_stats(ch_aud, ch_err)
+    st.metric("QA Score", f"{data['qa_score']:.1f}%", delta=f"{data['qa_vs']:+.1f} points vs goal")
+    st.caption(
+        f"{ch_crit['pct_fatal']:.1f}% of {ch} audits have a CRITICAL fail (scored 0). "
+        f"{ch_crit['n_crit_fails']:,} CRITICAL fails · {ch_crit['n_noncrit_fails']:,} Non-critical fails."
+    )
+    top_attrs = data.get("top_attrs", pd.DataFrame())
+    if not getattr(top_attrs, "empty", True):
+        show_df(attr_display(top_attrs))
+    worst_cr = data.get("worst_cr", pd.DataFrame())
+    if not getattr(worst_cr, "empty", True):
+        st.caption("Lowest-scoring contact reason Lv4 (detail) names")
+        show_df(pd.DataFrame({
+            L("col_cr_detail"): worst_cr["CR_Lv4"].astype(str).str[:40],
+            "QA": worst_cr["QA_Score"].map(lambda v: f"{v:.1f}%"),
+        }))
+
+
+render_header(PAGE_TITLES.get(page, page))
+render_filter_effects()
+
+if page == "Overview":
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        render_kpi(
+            L("kpi_qa"), f"{summary['qa_score']:.2f}%", qa_vs, "normal",
+            spark=sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
+            spark_key="ov_spark_qa",
+            caption=qa_disp,
+            traffic=qa_light,
+        )
+    with k2:
+        render_kpi(
+            L("kpi_csat"), f"{summary['csat']:.2f}%", cs_vs, "normal",
+            spark=sparkline_fig(csat_spark_vals, CHART_COLORS["csat"], csat_spark_lbl, "%", "CSAT %"),
+            spark_key="ov_spark_csat",
+            traffic=cs_light,
+        )
+    with k3:
+        render_kpi(
+            L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
+            spark=sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
+            spark_key="ov_spark_rc",
+            traffic=rc_light,
+        )
+    with k4:
+        render_kpi(
+            L("kpi_fcr"), f"{fcr_rate:.2f}%",
+            fcr_vs,
+            "off",
+            spark=sparkline_fig(fcr_spark_vals, CHART_COLORS["qa"], rc_spark_lbl, "%", "FCR %"),
+            spark_key="ov_spark_fcr",
+            help_text="FCR is 100 minus this page’s recontact rate. The business case scores recontact (≤5.44%), not FCR.",
+            caption="Companion to recontact. No CX Quality target.",
+        )
+    v1, v2, v3 = st.columns(3)
+    with v1:
+        render_kpi(
+            L("kpi_contacts"), f"{volumes['contacts']:,}", c_txt, c_dcol,
+            spark=sparkbar_fig(vol_series["contacts"] or [volumes["contacts"]], CHART_COLORS["blue"],
+                               vol_series.get("contacts_labels") or None, "", "Contacts"),
+            spark_key="ov_spark_contacts",
+            size="secondary",
+        )
+    with v2:
+        render_kpi(
+            L("kpi_surveys"), f"{volumes['surveys']:,}", s_txt, s_dcol,
+            spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["csat"],
+                               vol_series.get("surveys_labels") or None, "", "Surveys"),
+            spark_key="ov_spark_surveys",
+            size="secondary",
+        )
+    with v3:
+        render_kpi(
+            L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
+            spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
+                               vol_series.get("evals_labels") or None, "", "Audits"),
+            spark_key="ov_spark_evals",
+            size="secondary",
+        )
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        top1 = rc_vol_lv1.iloc[0] if not rc_vol_lv1.empty else None
+        render_kpi(
+            "Contact reason Lv1",
+            f"{int(top1['Contacts']):,}" if top1 is not None else "—",
+            (
+                f"{str(top1['CR_Lv1'])[:36]} · {float(top1['Pct']):.1f}% of contacts"
+                if top1 is not None else None
+            ),
+            "off",
+            spark=spark_hbar_fig(
+                rc_vol_lv1.head(5)["CR_Lv1"].astype(str).tolist(),
+                rc_vol_lv1.head(5)["Contacts"].fillna(0).tolist(),
+            ) if not rc_vol_lv1.empty else None,
+            spark_key="ov_spark_cr1",
+            size="secondary",
+        )
+    with c2:
+        top4 = rc_vol_lv4.iloc[0] if not rc_vol_lv4.empty else None
+        render_kpi(
+            "Contact reason Lv4",
+            f"{int(top4['Contacts']):,}" if top4 is not None else "—",
+            (
+                f"{str(top4['CR_Lv4'])[:36]} · {float(top4['Pct']):.1f}% of contacts"
+                if top4 is not None else None
+            ),
+            "off",
+            spark=spark_hbar_fig(
+                rc_vol_lv4.head(5)["CR_Lv4"].astype(str).tolist(),
+                rc_vol_lv4.head(5)["Contacts"].fillna(0).tolist(),
+            ) if not rc_vol_lv4.empty else None,
+            spark_key="ov_spark_cr4",
+            size="secondary",
+        )
+    with c3:
+        render_kpi(
+            "4–5 star surveys",
+            f"{_star_hi:,}",
+            (
+                f"{(_star_hi / _star_n * 100):.1f}% of surveys"
+                if _star_n else "% of surveys rated 4 or 5 stars"
+            ),
+            "off",
+            spark=spark_donut_fig(
+                _stars_hi["Rating"].astype(str).tolist(),
+                _stars_hi["Count"].fillna(0).tolist(),
+            ) if not _stars_hi.empty else None,
+            spark_key="ov_spark_stars_hi",
+            size="secondary",
+        )
+    with c4:
+        render_kpi(
+            "1–3 star surveys",
+            f"{_star_lo:,}",
+            (
+                f"{(_star_lo / _star_n * 100):.1f}% of surveys"
+                if _star_n else "surveys rated 1 to 3 stars"
+            ),
+            "off",
+            spark=spark_donut_fig(
+                _stars_lo["Rating"].astype(str).tolist(),
+                _stars_lo["Count"].fillna(0).tolist(),
+            ) if not _stars_lo.empty else None,
+            spark_key="ov_spark_stars_lo",
+            size="secondary",
+        )
+    ic1, ic2, ic3 = st.columns(3)
+    with ic1:
+        render_notes(qa_chip(summary["qa_score"]))
+    with ic2:
+        render_notes(csat_chip(summary["csat"]))
+    with ic3:
+        render_notes(rate_chip("Recontact", rc_rate, RECONTACT_GOAL, True))
+
+    n_filter_audits = int(len(audits)) if audits is not None else 0
+    n_filter_surveys = (
+        int(pd.to_numeric(csat["Feedback CNT"], errors="coerce").fillna(0).sum())
+        if csat is not None and not csat.empty and "Feedback CNT" in csat.columns
+        else 0
+    )
+    fig_ov_sup = grouped_qa_csat_chart(
+        ov_sup if not ov_sup.empty else ov_sup,
+        "Supervisor_ID", n_col="n", title="Supervisor QA vs CSAT",
+        top_n=None,
+        universe_n=n_filter_audits or None,
+    )
+    fig_ov_sup_qa = _gap_fig(
+        sup_qa_gap, "Supervisor QA gap", "Weighted deficit (gap × audits)", "audits",
+        universe_n=n_filter_audits or None,
+    )
+    fig_ov_sup_cs = _gap_fig(
+        sup_csat_gap, "Supervisor CSAT gap", "Weighted deficit (gap × surveys)", "surveys",
+        universe_n=n_filter_surveys or None,
+    )
+    fig_ov_ten_qa = score_volume_combo(
+        ov_ten_qa if not ov_ten_qa.empty else pd.DataFrame(columns=["Tenure_Cohort", "QA_Score", "n"]),
+        "Tenure_Cohort", "QA_Score", "n",
+        goal=QA_GOAL, title="QA by agent tenure",
+        score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+    )
+    fig_ov_ten_cs = score_volume_combo(
+        ov_ten_csat if not ov_ten_csat.empty else pd.DataFrame(columns=["Tenure_Cohort", "CSAT_Score", "Feedback"]),
+        "Tenure_Cohort", "CSAT_Score", "Feedback",
+        goal=CSAT_GOAL, title="CSAT by agent tenure",
+        score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+    )
+    fig_ov_agents = hbar_score_chart(
+        ov_agents_gap if see_all or ov_agents_gap.empty else ov_agents_gap.head(12),
+        "Agent_ID", "QA_Score", "n",
+        title="QA by agent" if see_all else "Agents below QA 85",
+        extra_col="Tenure_Cohort" if not ov_agents_gap.empty and "Tenure_Cohort" in ov_agents_gap.columns else None,
+        universe_n=n_filter_audits or None,
+    )
+    fig_ov_weekly = weekly_kpi_chart(weekly)
+    fig_ov_ch = channel_kpi_combo(ch_perf)
+    fig_ov_combo = multimetric_risk_chart(combined)
+    fig_ov_qacs = qa_csat_scatter(scatter_df)
+    fig_ov_qarc = qa_recontact_scatter(scatter_df)
+    corr_plot = corr_tbl.copy()
+    if not corr_plot.empty and "Slice" not in corr_plot.columns:
+        corr_plot["Slice"] = "Lv4"
+    fig_ov_corr = corr_r_bars(corr_plot)
+    qa_cs_r, qa_cs_n = _pair_r(corr_tbl, "QA vs CSAT")
+    qa_rc_r, qa_rc_n = _pair_r(corr_tbl, "QA vs Recontact")
+    csat_rc_r, csat_rc_n = _pair_r(corr_tbl, "CSAT vs Recontact")
+    aht_r_ov, aht_n_ov = _pair_r(aht_corr, "AHT vs Recontact", "All")
+    fig_ov_csrc = csat_recontact_scatter(scatter_df)
+
+    def extra_ov_sup() -> None:
+        n_bar = int(ov_sup["n"].sum()) if not ov_sup.empty and "n" in ov_sup.columns else 0
+        st.caption(_supervisor_n_caption(
+            n_bar, n_filter_audits, _n_supervisor_teams_under_min(audits, _slice_qa_n),
+            min_n=_slice_qa_n,
+        ))
+        render_notes(gap_chip(sup_qa_gap, "supervisor QA"))
+        if not ov_sup.empty:
+            with st.expander("Supervisor names and volumes"):
+                show_df(ov_supervisor_display(ov_sup))
+
+    def extra_ov_agents() -> None:
+        empty_txt = (
+            "No agent in this filter."
+            if see_all else "No agent with ≥ 5 audits is below QA 85."
+        )
+        render_notes(gap_chip(
+            ov_agents_gap.rename(columns={"Agent_ID": "Cat"}) if not ov_agents_gap.empty and "Cat" not in ov_agents_gap.columns else ov_agents_gap,
+            "agent QA",
+        ) if not ov_agents_gap.empty else {"text": empty_txt, "tone": "ok"})
+        if see_all:
+            st.caption("See all is on — every agent with ≥1 audit is shown. Official QA is still the mean of Score_Pct.")
+        if not ov_agents_gap.empty:
+            with st.expander("Agent names"):
+                show_df(agents_tenure_display(ov_agents_gap))
+
+    def extra_ov_weekly() -> None:
+        render_notes(weekly_chip(weekly))
+        if not weekly.empty:
+            with st.expander("Week-over-week numbers"):
+                show_df(weekly_display())
+
+    def extra_ov_ch() -> None:
+        render_notes(channel_chip(ch_perf))
+        if len(req_perf) > 1:
+            _plotly_chart(channel_kpi_combo(req_perf), key="ov_req_combo", drill="requester")
+            st.caption("Click a requester bar to apply that filter.")
+
+    def extra_ov_aht() -> None:
+        render_aht_quality_block("ov_aht")
+
+    if sel_country == "All":
+        mkt_audits, mkt_csat = audits, csat
+    else:
+        mkt_audits, _, mkt_csat, _ = apply_filters(
+            audits_all, errors_all, csat_all, rc_all,
+            {**filters, "country": "All"}, audits_all,
+        )
+    mkt = market_performance(mkt_audits, mkt_csat, recontact)
+    sel_mkt = None if sel_country == "All" else str(sel_country)
+
+    def _mkt_rows(score_col: str, n_col: str, status_col: str, unit: str) -> list[dict]:
+        rows: list[dict] = []
+        if mkt.empty:
+            return rows
+        for _, row in mkt.iterrows():
+            score = row.get(score_col)
+            if pd.isna(score):
+                continue
+            n_val = int(row[n_col]) if n_col in mkt.columns and pd.notna(row.get(n_col)) else 0
+            status = str(row.get(status_col) or "neutral")
+            rows.append({
+                "code": str(row.get("Country") or ""),
+                "name": str(row.get("Country_Name") or row.get("Country") or ""),
+                "n": f"{n_val:,} {unit}" if n_val else "",
+                "value": _fmt_kpi_pct(score),
+                "color": STATUS_COLORS.get(status, STATUS_COLORS["neutral"]),
+            })
+        return rows
+
+    qa_rows = _mkt_rows("QA_Score", "QA_N", "QA_Score_status", "audits")
+    cs_rows = _mkt_rows("CSAT_Score", "CSAT_N", "CSAT_Score_status", "surveys")
+    rc_rows = [{
+        "code": "SSL",
+        "name": "SSL (all markets)",
+        "n": "",
+        "value": _fmt_kpi_pct(rc_rate),
+        "color": STATUS_COLORS.get(rc_light, STATUS_COLORS["neutral"]),
+    }]
+    mkt_html = (
+        '<div class="didi-mkt-stack">'
+        + _market_box_html(
+            "QA by market", qa_rows,
+            footnote="Official QA · mean of audit scores. Goal ≥ 85. DO and PA have no QA.",
+            selected=sel_mkt,
+        )
+        + _market_box_html(
+            "CSAT by market", cs_rows,
+            footnote="% of surveys rated 4 or 5 stars. Goal ≥ 85%.",
+            selected=sel_mkt,
+        )
+        + _market_box_html(
+            "Recontact (SSL)", rc_rows,
+            footnote="No country field — region is always SSL. This is the official mix, not a by-market rate.",
+        )
+        + "</div>"
     )
 
-# ── Footer ─────────────────────────────────────────────────────────────────
-st.divider()
-st.caption(
-    "DiDi CX Quality Analyst Business Case · Confidential · "
-    f"QA Audits: {meta.get('total_qa_audits', '—'):,} · "
-    f"CSAT Responses: {meta.get('total_csat_feedback', '—'):,} · "
-    f"Contacts: {meta.get('total_contacts', '—'):,}"
-)
+    render_banner(L("section_market"))
+    map_col, box_col = st.columns([1.35, 1], gap="medium")
+    with map_col:
+        with panel("Americas"):
+            _plotly_chart(
+                americas_map_chart(mkt, selected=sel_mkt),
+                key="ov_americas",
+                drill="country",
+            )
+            st.caption(
+                "Fill is QA where the market is audited, CSAT for CSAT-only markets (DO, PA). "
+                "Click a country to filter. Click again to clear."
+            )
+    with box_col:
+        st.markdown(mkt_html, unsafe_allow_html=True)
+
+    render_banner(L("section_combined"))
+    render_corr_scatter(
+        "QA vs CSAT", fig_ov_qacs,
+        key="ov_qacs_full",
+        r_args=(qa_cs_r, qa_cs_n, "QA vs CSAT"),
+        r_kwargs={"surveys": volumes.get("surveys"), "audits": volumes.get("evaluations")},
+    )
+    render_corr_scatter(
+        "QA vs recontact", fig_ov_qarc,
+        key="ov_qarc_full",
+        r_args=(qa_rc_r, qa_rc_n, "QA vs recontact"),
+        r_kwargs={"audits": volumes.get("evaluations")},
+    )
+    render_corr_scatter(
+        "CSAT vs recontact", fig_ov_csrc,
+        key="ov_csrc_full",
+        r_args=(csat_rc_r, csat_rc_n, "CSAT vs recontact"),
+        r_kwargs={"surveys": volumes.get("surveys")},
+    )
+    with panel("Contact reason Lv4 (detail) failing more than one KPI"):
+        st.plotly_chart(fig_ov_combo, width="stretch", config=CHART_CFG, key="ov_combo_full", theme=None)
+        render_notes(combined_chip(combined))
+        if not combined.empty:
+            show_df(combo_display(combined))
+    with st.expander("What r and N mean"):
+        st.plotly_chart(fig_ov_corr, width="stretch", config=CHART_CFG, key="ov_corr_full", theme=None)
+        cov = pd.DataFrame({
+            "Source in this filter": [
+                f"QA (contact reason Lv4 (detail) with ≥ {corr_cov['min_qa']} audits)",
+                "CSAT",
+                "Recontact",
+            ],
+            "Distinct contact reason Lv4 (detail)": [corr_cov["qa_n"], corr_cov["csat_n"], corr_cov["rc_n"]],
+            "Shared with the other KPIs": [
+                f"QA and CSAT {corr_cov['qa_csat']} · QA and recontact {corr_cov['qa_rc']}",
+                f"QA and CSAT {corr_cov['qa_csat']} · CSAT and recontact {corr_cov['csat_rc']}",
+                f"QA and recontact {corr_cov['qa_rc']} · CSAT and recontact {corr_cov['csat_rc']}",
+            ],
+        })
+        show_df(cov)
+        show_df(corr_findings(corr_tbl))
+
+    render_preview_board(
+        [
+            {
+                "id": "ov_sup", "btn": "btnch",
+                "title": "Supervisors: QA vs CSAT",
+                "value": f"{ov_sup.iloc[0]['QA_Score']:.1f}%" if not ov_sup.empty else "—",
+                "delta": _n_delta(ov_sup.iloc[0] if not ov_sup.empty else None, "n", unit="audits"),
+                "spark": spark_hbar_fig(
+                    ov_sup.head(5)["Supervisor_ID"].astype(str).tolist(),
+                    ov_sup.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not ov_sup.empty else None,
+                "fig": fig_ov_sup, "extra": extra_ov_sup, "drill": "supervisor",
+            },
+            {
+                "id": "ov_sup_qa", "btn": "btncr",
+                "title": "Supervisors furthest from QA 85",
+                "value": f"{sup_qa_gap.iloc[0]['Gap_Impact']:.0f}" if not sup_qa_gap.empty else "—",
+                "delta": _gap_card_delta(sup_qa_gap, "audits"),
+                "spark": _gap_spark(sup_qa_gap),
+                "fig": fig_ov_sup_qa,
+                "extra": lambda: render_notes(gap_chip(sup_qa_gap, "supervisor QA")),
+                "drill": "supervisor",
+            },
+            {
+                "id": "ov_sup_cs", "btn": "btncr",
+                "title": "Supervisors furthest from CSAT 85",
+                "value": f"{sup_csat_gap.iloc[0]['Gap_Impact']:.0f}" if not sup_csat_gap.empty else "—",
+                "delta": _gap_card_delta(sup_csat_gap, "surveys"),
+                "spark": _gap_spark(sup_csat_gap),
+                "fig": fig_ov_sup_cs,
+                "extra": lambda: render_notes(gap_chip(sup_csat_gap, "supervisor CSAT")),
+                "drill": "supervisor",
+            },
+            {
+                "id": "ov_ten_qa", "btn": "btngroup",
+                "title": "QA by agent tenure",
+                "value": f"{ov_ten_qa.iloc[0]['QA_Score']:.1f}%" if not ov_ten_qa.empty else "—",
+                "delta": _n_delta(ov_ten_qa.iloc[0] if not ov_ten_qa.empty else None, "n", "QA_Evaluations", unit="audits"),
+                "spark": spark_hbar_fig(
+                    ov_ten_qa["Tenure_Cohort"].astype(str).tolist(),
+                    ov_ten_qa["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not ov_ten_qa.empty else None,
+                "fig": fig_ov_ten_qa,
+                "extra": lambda: render_notes(tenure_chip(ov_ten_qa, "QA_Score", "Tenure_Cohort", QA_GOAL)),
+                "drill": "tenure",
+            },
+            {
+                "id": "ov_ten_cs", "btn": "btngroup",
+                "title": "CSAT by agent tenure",
+                "value": f"{ov_ten_csat.iloc[0]['CSAT_Score']:.1f}%" if not ov_ten_csat.empty else "—",
+                "delta": _n_delta(ov_ten_csat.iloc[0] if not ov_ten_csat.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    ov_ten_csat["Tenure_Cohort"].astype(str).tolist(),
+                    ov_ten_csat["CSAT_Score"].fillna(0).tolist(), unit="%",
+                ) if not ov_ten_csat.empty else None,
+                "fig": fig_ov_ten_cs,
+                "extra": lambda: render_notes(tenure_chip(ov_ten_csat, "CSAT_Score", "Tenure_Cohort", CSAT_GOAL)),
+            },
+            {
+                "id": "ov_agents", "btn": "btndaily",
+                "title": "QA by agent" if see_all else "Agents below QA 85",
+                "value": f"{len(ov_agents_gap)}" if not ov_agents_gap.empty else "0",
+                "delta": (
+                    "all agents in this filter (small n included)"
+                    if see_all else "agents < 85 (≥ 5 audits)"
+                ),
+                "spark": spark_hbar_fig(
+                    ov_agents_gap.head(5)["Agent_ID"].astype(str).tolist(),
+                    ov_agents_gap.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not ov_agents_gap.empty else None,
+                "fig": fig_ov_agents, "extra": extra_ov_agents, "drill": "agent",
+            },
+            {
+                "id": "ov_weekly", "btn": "btndaily",
+                "title": "Week by week",
+                "value": f"{weekly.iloc[-1]['QA_Score']:.1f}%" if not weekly.empty and pd.notna(weekly.iloc[-1].get("QA_Score")) else "—",
+                "delta": "latest week QA",
+                "spark": sparkline_fig(
+                    weekly["QA_Score"].tolist() if not weekly.empty and "QA_Score" in weekly.columns else [],
+                    CHART_COLORS["qa"],
+                    weekly["Week"].astype(str).tolist() if not weekly.empty and "Week" in weekly.columns else None,
+                    "%", "QA %",
+                ),
+                "fig": fig_ov_weekly, "extra": extra_ov_weekly, "drill": "weeks",
+            },
+            {
+                "id": "ov_ch", "btn": "btnch",
+                "title": "QA, CSAT and recontact by channel",
+                "value": f"{ch_perf.iloc[0]['Recontact_Rate']:.2f}%" if not ch_perf.empty and pd.notna(ch_perf.iloc[0].get("Recontact_Rate")) else "—",
+                "delta": str(ch_perf.iloc[0]["Segment"])[:42] if not ch_perf.empty else None,
+                "spark": spark_hbar_fig(
+                    ch_perf.head(5)["Segment"].astype(str).tolist(),
+                    ch_perf.head(5)["Recontact_Rate"].fillna(0).tolist(), unit="%",
+                ) if not ch_perf.empty else None,
+                "fig": fig_ov_ch, "extra": extra_ov_ch, "drill": "channel",
+            },
+            {
+                "id": "ov_aht", "btn": "btnscat",
+                "title": "Handle time vs quality",
+                "value": f"{aht_r_ov:+.2f}" if aht_r_ov is not None else "—",
+                "delta": f"N = {aht_n_ov} shared Lv4" if aht_n_ov else None,
+                "spark": spark_r_fig(aht_r_ov),
+                "fig": aht_metric_scatter(
+                    aht_joined, "Recontact_Rate",
+                    y_title="Recontact rate %", title="Recontact vs AHT",
+                    y_goal=RECONTACT_GOAL, lower_better=True,
+                    empty_text=aht_overlap_empty_text(
+                        aht_n_ov, "recontact",
+                        audits=volumes.get("evaluations"),
+                        min_audits=AHT_CR_MIN_AUDITS,
+                    ),
+                ),
+                "extra": extra_ov_aht,
+                "drill": "cr",
+            },
+        ],
+        state_key=f"ov_preview_{_fn}",
+        columns=2,
+    )
+    with st.expander("Week-over-week numbers"):
+        show_df(weekly_display())
+
+    with drill(L("panel_actions")):
+        render_insight_bar()
+        render_action_panel()
+
+    with drill("How the data is sliced"):
+        st.markdown("The three sources are **not a single table**. A filter only applies where the column exists.")
+        show_df(coverage)
+        st.markdown(
+            "**Channel:** QA is Phone + Live Chat. Recontact has 12 channels (Self Help dominates the official 5.83%). "
+            "When Channel = All, QA is the audited mix and recontact is all 12.\n\n"
+            "**Market:** QA and CSAT yes. Recontact region is always SSL — the Market filter does not cut recontact.\n\n"
+            "**Supervisor:** QA and CSAT. CSAT uses agent name matched to QA Agent_ID, then that agent’s supervisor. Recontact has no supervisor.\n\n"
+            "**Agent:** QA and CSAT. CSAT keeps surveys whose agent name matches the QA Agent_ID. Recontact has no agent field.\n\n"
+            "**Contact reason Lv1 (group):** native on CSAT. QA and Recontact inherit it via the contact reason Lv4 (detail) name.\n\n"
+            "**Contact reason Lv4 (detail):** all three sources.\n\n"
+            "**Tenure:** QA uses the Excel `Tenure` field (New hire, 30–90 days, 3–6 months, 6–12 months, More than 1 year). CSAT has a different field `user_tenure`. Recontact has none.\n\n"
+            "**Day:** all three sources, each on its own Fecha. QA may have no audits on a CSAT/recontact calendar day."
+        )
+
+elif page == "QA Score":
+    render_banner(L("section_qa"))
+    qk1, qk_mid, qk4 = st.columns([1, 2, 1])
+    with qk1:
+        render_kpi(
+            L("kpi_qa"), f"{summary['qa_score']:.2f}%", qa_vs, "normal",
+            spark=sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"), spark_key="qa_spark_qa",
+            caption=qa_disp,
+            traffic=qa_light,
+        )
+    with qk_mid:
+        with st.container(key="didi_qa_fail_grid"):
+            qk2, qk3 = st.columns(2)
+            with qk2:
+                render_kpi(
+                    L("kpi_critical_rate"), f"{crit['pct_fatal']:.1f}%",
+                    f"{crit['n_fatal']:,} of {crit['n_audits']:,} audits scored 0",
+                    "off",
+                    help_text=L("note_crit_kpi"),
+                )
+            with qk3:
+                render_kpi(
+                    L("kpi_crit_fails"), f"{crit['n_crit_fails']:,}",
+                    f"{crit['pct_fails_critical']:.1f}% of attribute fails", "off",
+                )
+            qk5, qk6 = st.columns(2)
+            with qk5:
+                render_kpi(
+                    L("kpi_audits_noncrit"), f"{crit['pct_audits_noncrit']:.1f}%",
+                    f"{crit['n_audits_noncrit']:,} of {crit['n_audits']:,} audits",
+                    "off",
+                    help_text=L("note_noncrit_audits"),
+                )
+            with qk6:
+                render_kpi(
+                    L("kpi_audits_any_fail"), f"{crit['pct_audits_any_fail']:.1f}%",
+                    f"{crit['n_audits_any_fail']:,} of {crit['n_audits']:,} audits",
+                    "off",
+                    help_text=L("note_any_fail_audits"),
+                    caption="Unique evaluations with ≥1 attribute fail — not the number of fail marks.",
+                )
+    with qk4:
+        render_kpi(
+            L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
+            spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
+                               vol_series.get("evals_labels") or None, "", "Audits"),
+            spark_key="qa_spark_evals",
+        )
+    qn1, qn2 = st.columns(2)
+    with qn1:
+        render_notes(qa_chip(summary["qa_score"]))
+    with qn2:
+        render_notes(attr_chip(top_attr, crit))
+
+    src_attr = top_attr.rename(columns={"Fail_Count": "Count", "Error_Category": "Cat"}) if not top_attr.empty else top_attr
+    src_crit = crit_attr.rename(columns={"Fail_Count": "Count", "Error_Category": "Cat"}) if not crit_attr.empty else crit_attr
+    src_qa_cr = qa_cr_fails.rename(columns={"Fail_Count": "Count", "CR_Lv4": "Cat"}) if not qa_cr_fails.empty else qa_cr_fails
+    qa_roster = qa_agent_roster(audits, errors, min_n=_slice_qa_n)
+    n_roster = 0 if qa_roster.empty else len(qa_roster)
+    n_roster_below = (
+        0 if qa_roster.empty else int((qa_roster["QA_Score"] < QA_GOAL).sum())
+    )
+    qa_fail_top = qa_agent_fail_concentrators(errors, audits)
+    n_fail_events, n_fail_audits = fail_event_totals(errors)
+    fail_n_note = f"{n_fail_audits:,} audits" if n_fail_audits else None
+    fail_kw = dict(
+        value_title="Attribute fails",
+        sample_unit="attribute fails",
+        universe_n=n_fail_events or None,
+        n_note=fail_n_note,
+    )
+    n_filter_audits_qa = int(len(audits)) if audits is not None else 0
+    if audits.empty:
+        qa_sup = pd.DataFrame()
+    else:
+        qa_sup = (
+            audits.groupby("Supervisor_ID", as_index=False)
+            .agg(QA_Score=("Score_Pct", "mean"), n=("Audit_ID", "count"),
+                 Fatal_Rate=("Fatal_Flag", "mean"), Agents=("Agent_ID", "nunique"))
+        )
+        qa_sup = qa_sup[qa_sup["n"] >= _slice_qa_n].sort_values("QA_Score")
+    ch_names, ch_vals = [], []
+    for _ch in ("Phone", "Live Chat"):
+        _d = ch_qa.get(_ch) or {}
+        if _d.get("qa_score") is not None:
+            ch_names.append(_ch)
+            ch_vals.append(float(_d["qa_score"]))
+    aht_r_qa, aht_n_qa = _pair_r(aht_corr, "AHT vs QA", "All")
+    if aht_r_qa is None:
+        aht_r_qa, aht_n_qa = _pair_r(aht_corr, "QA vs AHT", "All")
+
+    def extra_qa_ch() -> None:
+        if len(ch_vals) >= 2:
+            low_i = 0 if ch_vals[0] <= ch_vals[1] else 1
+            high_i = 1 - low_i
+            gap = abs(ch_vals[0] - ch_vals[1])
+            tone = "risk" if ch_vals[low_i] < QA_GOAL else "info"
+            render_notes({
+                "text": (
+                    f"{ch_names[low_i]} QA {ch_vals[low_i]:.1f}% is {gap:.1f} points "
+                    f"below {ch_names[high_i]}."
+                ),
+                "tone": tone,
+            })
+            return
+        if ch_vals:
+            render_notes(qa_chip(ch_vals[0]))
+            return
+        render_notes({"text": "No Phone or Live Chat audits in this filter.", "tone": "info"})
+
+    def extra_qa_crit() -> None:
+        share = crit.get("pct_fails_critical")
+        if share is None:
+            render_notes({"text": "No CRITICAL vs Non-critical split in this filter.", "tone": "info"})
+            return
+        render_notes({"text": f"{float(share):.1f}% of QA fails are CRITICAL.", "tone": "risk"})
+
+    def extra_qa_crit_p() -> None:
+        render_notes(attr_chip(crit_attr if not crit_attr.empty else top_attr, crit))
+
+    def extra_qa_attr() -> None:
+        st.caption(
+            "Bars count attribute-fail events. One audit can contribute more than one fail. "
+            f"This filter: {n_fail_events:,} attribute fails · {n_fail_audits:,} audits."
+        )
+        render_notes(attr_chip(top_attr, crit))
+
+    def extra_qa_cr() -> None:
+        if qa_cr.empty:
+            render_notes({"text": "No contact reason Lv4 (detail) QA scores in this filter.", "tone": "info"})
+            return
+        row = qa_cr.iloc[0]
+        n = int(row["N"]) if "N" in row and pd.notna(row["N"]) else None
+        tone = "risk" if float(row["QA_Score"]) < QA_GOAL else "info"
+        n_txt = f" on {n:,} audits" if n is not None else ""
+        render_notes({
+            "text": f"Lowest bar is {float(row['QA_Score']):.1f}%{n_txt}.",
+            "tone": tone,
+        })
+        if see_all:
+            st.caption("See all is on — every contact reason Lv4 with ≥1 audit is shown. Official QA is still the mean of Score_Pct.")
+
+    def extra_qa_aht() -> None:
+        render_r_box(aht_r_qa, aht_n_qa, "QA vs handle time", audits=volumes.get("evaluations"))
+        render_aht_quality_block("qa_aht", include_qa_scatter=False)
+
+    fig_qa_crit_p = pareto_dual_axis(
+        src_crit if not src_crit.empty else pd.DataFrame(),
+        "Cat", "Count", title="CRITICAL fails by attribute",
+        critical_col="Is_Critical",
+        value_title="Attribute fails",
+        sample_unit="attribute fails",
+        universe_n=int(len(crit_errors)) if crit_errors is not None and not crit_errors.empty else None,
+        n_note=(
+            f"{int(crit_errors['Audit_ID'].nunique()):,} audits"
+            if crit_errors is not None and not crit_errors.empty and "Audit_ID" in crit_errors.columns
+            else None
+        ),
+    )
+
+    def extra_qa_lv1() -> None:
+        render_notes(pareto_chip(qa_cr_groups, "CR_Lv1", "Fail_Count", "QA fails") if not qa_cr_groups.empty else {"text": "No contact reason Lv1 (group) fail rows.", "tone": "info"})
+        pair = pair_display(qa_cr_pair, "Fail_Count", "Fails")
+        if not pair.empty:
+            with st.expander("Contact reason Lv4 (detail) inside each Lv1 (group)"):
+                show_df(pair)
+
+    def extra_qa_agents() -> None:
+        st.caption(
+            f"N = {n_fail_events:,} attribute fails · {n_fail_audits:,} audits. "
+            "Bars are fail events, not unique audits, and include agents with fewer than 5 audits. "
+            + (
+                "See all is on — the coaching roster includes every agent with ≥1 audit."
+                if see_all else "below 85 · 5+ audits is the coaching roster only."
+            )
+        )
+        if qa_fail_top.empty and qa_roster.empty:
+            render_notes({
+                "text": (
+                    "No agent with a QA fail or ≥ 1 audit in this filter."
+                    if see_all else "No agent with a QA fail or ≥ 5 audits in this filter."
+                ),
+                "tone": "info",
+            })
+            return
+        top = qa_fail_top.iloc[0] if not qa_fail_top.empty else None
+        top_txt = ""
+        if top is not None and int(top.get("Fail_Count") or 0) > 0:
+            uniq = int(top["Unique_Fail_Audits"]) if "Unique_Fail_Audits" in top.index and pd.notna(top["Unique_Fail_Audits"]) else None
+            uniq_txt = f", {uniq} unique audit{'s' if uniq != 1 else ''} with a fail" if uniq is not None else ""
+            n_attr = int(top["N_Attributes"]) if "N_Attributes" in top.index and pd.notna(top["N_Attributes"]) else None
+            attr_txt = f", {n_attr} attribute{'s' if n_attr != 1 else ''}" if n_attr is not None else ""
+            top_txt = (
+                f" Most attribute-fail events sit with {top['Agent_ID']} "
+                f"({int(top['Fail_Count']):,} events, {float(top['Fail_Share']):.1f}% of attribute fails"
+                f"{uniq_txt}{attr_txt})."
+            )
+        roster_txt = (
+            f"{n_roster_below} of {n_roster} agents "
+            f"{'in this filter' if see_all else 'with ≥ 5 audits'} are below QA 85. "
+            "The table is grouped by supervisor."
+        ) if n_roster else (
+            "No agents in this filter." if see_all else "No agent with ≥ 5 audits in this filter."
+        )
+        render_notes({
+            "text": f"{roster_txt}{top_txt}",
+            "tone": "risk" if n_roster_below else "ok",
+        })
+        if qa_roster.empty:
+            return
+        view = st.radio(
+            "Agent roster",
+            ("All agents", "Below QA 85"),
+            horizontal=True,
+            key=f"qa_agent_view_{_fn}",
+            label_visibility="collapsed",
+        )
+        shown = qa_roster
+        if view == "Below QA 85":
+            shown = qa_roster[qa_roster["QA_Score"] < QA_GOAL]
+        if shown.empty:
+            st.caption(
+                "No agent below QA 85 in this filter."
+                if see_all else "No agent below QA 85 with ≥ 5 audits."
+            )
+            return
+        st.caption(
+            "Supervisor repeats on purpose — that is the team. Worst team first, then attribute-fail events. "
+            "Fail share is of every attribute fail in this filter, including agents not in the table."
+        )
+        show_df(qa_agent_roster_display(shown))
+
+    def extra_qa_sup() -> None:
+        n_bar = int(qa_sup["n"].sum()) if not qa_sup.empty and "n" in qa_sup.columns else 0
+        st.caption(_supervisor_n_caption(
+            n_bar, n_filter_audits_qa, _n_supervisor_teams_under_min(audits, _slice_qa_n),
+            lowest_first=True,
+            min_n=_slice_qa_n,
+        ))
+
+    render_preview_board(
+        [
+            {
+                "id": "qa_spc", "btn": "btndaily",
+                "title": "QA by day",
+                "value": f"{qa_day:.1f}%" if qa_day is not None else "—",
+                "delta": qa_day_delta,
+                "delta_color": qa_day_color,
+                "spark": sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
+                "fig": control_i_chart(qa_spc, "Target 85"),
+                "drill": "day",
+            },
+            {
+                "id": "qa_crit", "kind": "pie", "btn": "btnpie",
+                "title": "CRITICAL vs Non-critical",
+                "value": f"{crit['pct_fails_critical']:.1f}%",
+                "delta": f"{crit['n_crit_fails']:,} CRITICAL fails",
+                "spark": spark_donut_fig(["CRITICAL", "Non-critical"], [crit["n_crit_fails"], crit["n_noncrit_fails"]]),
+                "fig": critical_split_chart(crit["n_crit_fails"], crit["n_noncrit_fails"]),
+                "extra": extra_qa_crit,
+            },
+            {
+                "id": "qa_crit_p", "btn": "btncr",
+                "title": "CRITICAL fails by attribute",
+                "value": f"{crit_attr.iloc[0]['Pct_Of_Fails']:.1f}%" if not crit_attr.empty else "—",
+                "delta": _n_delta(crit_attr.iloc[0] if not crit_attr.empty else None, "Fail_Count", "Count", unit="fails"),
+                "spark": spark_hbar_fig(
+                    crit_attr.head(5)["Error_Category"].tolist(),
+                    crit_attr.head(5)["Pct_Of_Fails"].fillna(0).tolist(), unit="%",
+                ) if not crit_attr.empty else None,
+                "fig": fig_qa_crit_p,
+                "extra": extra_qa_crit_p,
+            },
+            {
+                "id": "qa_hist", "btn": "btnscope",
+                "title": "How QA scores are spread",
+                "value": f"{summary['qa_score']:.2f}%",
+                "delta": f"{crit['n_fatal']:,} audits scored 0",
+                "spark": sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
+                "fig": qa_histogram_chart(hist_qa),
+            },
+            {
+                "id": "qa_ch", "btn": "btnch",
+                "title": "QA by channel",
+                "value": f"{ch_vals[0]:.1f}%" if ch_vals else "—",
+                "delta": (
+                    f"{int((ch_qa.get(ch_names[0]) or {}).get('audit_count') or 0):,} audits"
+                    if ch_names else None
+                ),
+                "spark": spark_hbar_fig(ch_names, ch_vals, unit="%") if ch_vals else None,
+                "fig": qa_channel_compare_chart(ch_qa),
+                "extra": extra_qa_ch,
+                "drill": "channel",
+            },
+            {
+                "id": "qa_attr", "btn": "btncr",
+                "title": "QA fails by attribute",
+                "value": f"{top_attr.iloc[0]['Pct_Of_Fails']:.1f}%" if not top_attr.empty else "—",
+                "delta": _n_delta(top_attr.iloc[0] if not top_attr.empty else None, "Fail_Count", "Count", unit="fails"),
+                "spark": spark_hbar_fig(
+                    top_attr.head(5)["Error_Category"].tolist(), top_attr.head(5)["Pct_Of_Fails"].fillna(0).tolist(), unit="%",
+                ) if not top_attr.empty else None,
+                "fig": pareto_dual_axis(
+                    src_attr if not src_attr.empty else pd.DataFrame(),
+                    "Cat", "Count", title="QA fails by attribute",
+                    critical_col="Is_Critical", **fail_kw,
+                ),
+                "extra": extra_qa_attr,
+            },
+            {
+                "id": "qa_cr", "btn": "btncr",
+                "title": "QA by contact reason Lv4 (detail)",
+                "value": f"{qa_cr.iloc[0]['QA_Score']:.1f}%" if not qa_cr.empty else "—",
+                "delta": _n_delta(qa_cr.iloc[0] if not qa_cr.empty else None, "N", unit="audits"),
+                "spark": spark_hbar_fig(
+                    qa_cr.head(5)["CR_Lv4"].tolist(), qa_cr.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_cr.empty else None,
+                "fig": qa_by_cr_chart(qa_cr),
+                "extra": extra_qa_cr,
+                "drill": "cr",
+            },
+            {
+                "id": "qa_lv1", "btn": "btngroup",
+                "title": "QA fails by contact reason Lv1 (group)",
+                "value": f"{qa_cr_groups.iloc[0]['Pct']:.1f}%" if not qa_cr_groups.empty else "—",
+                "delta": _n_delta(qa_cr_groups.iloc[0] if not qa_cr_groups.empty else None, "Fail_Count", unit="fails"),
+                "spark": spark_hbar_fig(
+                    qa_cr_groups.head(5)["CR_Lv1"].tolist(), qa_cr_groups.head(5)["Pct"].fillna(0).tolist(), unit="%",
+                ) if not qa_cr_groups.empty else None,
+                "fig": cr_group_hbar(
+                    qa_cr_groups, "CR_Lv1", "Fail_Count", "Pct", "Attribute fails",
+                    title="QA fails by contact reason Lv1 (group)",
+                    universe_n=n_fail_events or None,
+                    n_note=fail_n_note,
+                    sample_unit="attribute fails",
+                ),
+                "extra": extra_qa_lv1,
+                "drill": "cr_lv1",
+            },
+            {
+                "id": "qa_cr_p", "btn": "btncr",
+                "title": "QA fails by contact reason Lv4 (detail)",
+                "value": f"{qa_cr_fails.iloc[0]['Fail_Count']:,.0f}" if not qa_cr_fails.empty else "—",
+                "delta": _n_delta(qa_cr_fails.iloc[0] if not qa_cr_fails.empty else None, "Fail_Count", unit="fails"),
+                "spark": spark_hbar_fig(
+                    qa_cr_fails.head(5)["CR_Lv4"].tolist(), qa_cr_fails.head(5)["Fail_Count"].fillna(0).tolist(),
+                ) if not qa_cr_fails.empty else None,
+                "fig": pareto_dual_axis(
+                    src_qa_cr if not src_qa_cr.empty else pd.DataFrame(),
+                    "Cat", "Count", title="QA fails by contact reason Lv4 (detail)",
+                    **fail_kw,
+                ),
+                "extra": lambda: render_notes(pareto_chip(src_qa_cr, "Cat", "Count", "attribute fails")),
+                "drill": "cr",
+            },
+            {
+                "id": "qa_ten", "btn": "btngroup",
+                "title": "QA by agent tenure",
+                "value": f"{tenure_qa.iloc[0]['QA_Score']:.1f}%" if not tenure_qa.empty else "—",
+                "delta": _n_delta(tenure_qa.iloc[0] if not tenure_qa.empty else None, "QA_Evaluations", "n", unit="audits"),
+                "spark": spark_hbar_fig(
+                    tenure_qa.head(5)["Tenure_Cohort"].astype(str).tolist(), tenure_qa.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not tenure_qa.empty else None,
+                "fig": score_volume_combo(
+                    tenure_qa, "Tenure_Cohort", "QA_Score", "QA_Evaluations",
+                    goal=QA_GOAL, title="QA by agent tenure",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ) if not tenure_qa.empty else score_volume_combo(
+                    pd.DataFrame(columns=["Tenure_Cohort", "QA_Score", "QA_Evaluations"]),
+                    "Tenure_Cohort", "QA_Score", "QA_Evaluations",
+                    goal=QA_GOAL, title="QA by agent tenure",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ),
+                "extra": lambda: render_notes(tenure_chip(tenure_qa, "QA_Score", "Tenure_Cohort", QA_GOAL)),
+                "drill": "tenure",
+            },
+            {
+                "id": "qa_agents", "btn": "btndaily",
+                "title": "QA by agent",
+                "value": f"{n_roster_below} / {n_roster}" if n_roster else "0",
+                "delta": "all agents in this filter" if see_all else "below 85 · 5+ audits",
+                "spark": spark_hbar_fig(
+                    qa_fail_top.head(5)["Agent_ID"].astype(str).tolist(),
+                    qa_fail_top.head(5)["Fail_Count"].fillna(0).tolist(),
+                ) if not qa_fail_top.empty and int(qa_fail_top["Fail_Count"].sum() or 0) > 0 else (
+                    spark_hbar_fig(
+                        qa_roster.nsmallest(5, "QA_Score")["Agent_ID"].astype(str).tolist(),
+                        qa_roster.nsmallest(5, "QA_Score")["QA_Score"].fillna(0).tolist(),
+                        unit="%",
+                    ) if not qa_roster.empty else None
+                ),
+                "fig": (
+                    pareto_dual_axis(
+                        qa_fail_top.rename(columns={"Agent_ID": "Cat", "Fail_Count": "Count"}),
+                        "Cat", "Count",
+                        title="QA fails by agent",
+                        **fail_kw,
+                    )
+                    if not qa_fail_top.empty and int(qa_fail_top["Fail_Count"].sum() or 0) > 0
+                    else hbar_score_chart(
+                        qa_roster if see_all or qa_roster.empty else qa_roster.nsmallest(12, "QA_Score"),
+                        "Agent_ID", "QA_Score", "Audit_Count",
+                        title="QA by agent",
+                        extra_col="Supervisor_ID" if not qa_roster.empty else None,
+                        universe_n=n_filter_audits_qa or None,
+                    )
+                ),
+                "extra": extra_qa_agents,
+                "drill": "agent",
+            },
+            {
+                "id": "qa_sup", "btn": "btnch",
+                "title": "QA by supervisor",
+                "value": f"{qa_sup.iloc[0]['QA_Score']:.1f}%" if not qa_sup.empty else "—",
+                "delta": _n_delta(qa_sup.iloc[0] if not qa_sup.empty else None, "n", unit="audits"),
+                "spark": spark_hbar_fig(
+                    qa_sup.head(5)["Supervisor_ID"].astype(str).tolist(), qa_sup.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_sup.empty else None,
+                "fig": hbar_score_chart(
+                    qa_sup if not qa_sup.empty else qa_sup,
+                    "Supervisor_ID", "QA_Score", "n",
+                    title="QA by supervisor",
+                    universe_n=n_filter_audits_qa or None,
+                ),
+                "extra": extra_qa_sup,
+                "drill": "supervisor",
+            },
+            {
+                "id": "qa_special", "btn": "btnscope",
+                "title": "QA by Special project",
+                "value": f"{qa_special.iloc[0]['QA_Score']:.1f}%" if not qa_special.empty else "—",
+                "delta": _n_delta(qa_special.iloc[0] if not qa_special.empty else None, "n", unit="audits"),
+                "spark": spark_hbar_fig(
+                    qa_special.head(5)["Special_project"].astype(str).tolist(), qa_special.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_special.empty else None,
+                "fig": score_volume_combo(
+                    qa_special if not qa_special.empty else pd.DataFrame(columns=["Special_project", "QA_Score", "n"]),
+                    "Special_project", "QA_Score", "n",
+                    goal=QA_GOAL, title="QA by Special project",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ),
+                "drill": "special_project",
+            },
+            {
+                "id": "qa_type", "btn": "btnscope",
+                "title": "QA by Type of audit",
+                "value": f"{qa_audit_type.iloc[0]['QA_Score']:.1f}%" if not qa_audit_type.empty else "—",
+                "delta": _n_delta(qa_audit_type.iloc[0] if not qa_audit_type.empty else None, "n", unit="audits"),
+                "spark": spark_hbar_fig(
+                    qa_audit_type.head(5)["Type_of_audit"].astype(str).tolist(), qa_audit_type.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_audit_type.empty else None,
+                "fig": score_volume_combo(
+                    qa_audit_type if not qa_audit_type.empty else pd.DataFrame(columns=["Type_of_audit", "QA_Score", "n"]),
+                    "Type_of_audit", "QA_Score", "n",
+                    goal=QA_GOAL, title="QA by Type of audit",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ),
+                "drill": "audit_type",
+            },
+            {
+                "id": "qa_aht", "btn": "btnscat",
+                "title": "Handle time vs quality",
+                "value": f"{aht_r_qa:+.2f}" if aht_r_qa is not None else "—",
+                "delta": f"N = {aht_n_qa} shared Lv4" if aht_n_qa else None,
+                "spark": spark_r_fig(aht_r_qa),
+                "fig": qa_aht_scatter(aht_points),
+                "extra": extra_qa_aht,
+                "drill": "cr",
+            },
+        ],
+        state_key=f"qa_preview_{_fn}",
+        columns=2,
+    )
+
+    render_methodology()
+
+elif page == "CSAT":
+    render_banner(L("section_csat"))
+    ck1, ck2, ck3, ck4 = st.columns(4)
+    with ck1:
+        render_kpi(
+            L("kpi_csat"), f"{summary['csat']:.2f}%", cs_vs, "normal",
+            spark=sparkline_fig(csat_spark_vals, CHART_COLORS["csat"], csat_spark_lbl, "%", "CSAT %"),
+            spark_key="csat_spark",
+            traffic=cs_light,
+        )
+    with ck2:
+        render_kpi(
+            L("kpi_surveys"), f"{volumes['surveys']:,}", s_txt, s_dcol,
+            spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["csat"],
+                               vol_series.get("surveys_labels") or None, "", "Surveys"),
+            spark_key="csat_spark_vol",
+        )
+    with ck3:
+        render_kpi(
+            "4–5 star surveys",
+            f"{_star_hi:,}",
+            (
+                f"{(_star_hi / _star_n * 100):.1f}% of surveys"
+                if _star_n else "% of surveys rated 4 or 5 stars"
+            ),
+            "off",
+            spark=spark_donut_fig(
+                _stars_hi["Rating"].astype(str).tolist(),
+                _stars_hi["Count"].fillna(0).tolist(),
+            ) if not _stars_hi.empty else None,
+            spark_key="csat_spark_stars_hi",
+            size="secondary",
+        )
+    with ck4:
+        render_kpi(
+            "1–3 star surveys",
+            f"{_star_lo:,}",
+            (
+                f"{(_star_lo / _star_n * 100):.1f}% of surveys"
+                if _star_n else "surveys rated 1 to 3 stars"
+            ),
+            "off",
+            spark=spark_donut_fig(
+                _stars_lo["Rating"].astype(str).tolist(),
+                _stars_lo["Count"].fillna(0).tolist(),
+            ) if not _stars_lo.empty else None,
+            spark_key="csat_spark_stars_lo",
+            size="secondary",
+        )
+    render_notes(csat_chip(summary["csat"]))
+
+    render_banner("Customer comments")
+    st.caption(
+        f"{comments['n_real']:,} surveys with a readable open_question comment. "
+        "Positive vs negative uses that full set. Themes use only the 1–3★ surveys that left a comment."
+    )
+    if comments["n_real"] <= 0:
+        st.caption("No comments with text in this filter.")
+    else:
+        pie_col, theme_col = st.columns(2)
+        with pie_col:
+            with panel("Positive vs negative"):
+                st.plotly_chart(
+                    square_pie_fig(manner_pie_chart(
+                        comments["polarity"],
+                        "Positive vs negative",
+                        colors=[
+                            "#D64545" if s == "Negative" else "#2E9B57"
+                            for s in comments["polarity"]["Slice"].astype(str)
+                        ],
+                    )),
+                    width="stretch", config=CHART_CFG, key=f"voc_polarity_{_fn}", theme=None,
+                )
+                st.caption(
+                    f"{comments['n_negative']:,} negative · {comments['n_positive']:,} positive "
+                    f"of {comments['n_real']:,} surveys with comments. "
+                    f"{comments['n_from_text']:,} from the words; stars only if the text is unclear. "
+                    "The Other placeholder is skipped."
+                )
+        with theme_col:
+            with panel("Themes in 1–3 star comments"):
+                if voc.empty:
+                    st.caption("No classifiable 1–3★ comments in this filter.")
+                else:
+                    st.plotly_chart(
+                        voc_bar_chart(voc), width="stretch", config=CHART_CFG,
+                        key=f"voc_themes_{_fn}", theme=None,
+                    )
+                    render_notes(voc_chip(voc))
+                    low = int(voc.iloc[0]["Total_Low"]) if "Total_Low" in voc.columns else 0
+                    surveys = int(voc.iloc[0]["Total_Low_Surveys"]) if "Total_Low_Surveys" in voc.columns else 0
+                    tagged = int(voc.iloc[0]["Total_Tagged"]) if "Total_Tagged" in voc.columns else 0
+                    if surveys > 0:
+                        st.caption(
+                            f"{low:,} of {surveys:,} 1–3★ surveys left a comment. "
+                            f"{tagged:,} of those comments had a classifiable theme."
+                        )
+                    elif low > 0 and tagged < low:
+                        st.caption(f"{tagged:,} of {low:,} 1–3★ comments had a classifiable theme.")
+
+    ten_plot = csat_ten.copy()
+    if not ten_plot.empty:
+        ten_plot["Tenure"] = ten_plot["CSAT_Agent_Tenure"].astype(str).str.replace("_", " ")
+    qa_cs_r, qa_cs_n = _pair_r(corr_tbl, "QA vs CSAT")
+    aht_cs_r, aht_cs_n = _pair_r(aht_corr, "AHT vs CSAT", "All")
+    csat_roster = csat_agent_roster(csat, audits, min_n=_slice_csat_n)
+    n_csat_roster = 0 if csat_roster.empty else len(csat_roster)
+    n_csat_below = (
+        0 if csat_roster.empty else int((csat_roster["CSAT_Score"] < CSAT_GOAL).sum())
+    )
+    csat_agents_plot = (
+        csat_roster if see_all or csat_roster.empty else csat_roster.nsmallest(12, "CSAT_Score")
+    )
+
+    def extra_csat_seg() -> None:
+        if csat_seg.empty:
+            render_notes({"text": "Not enough surveys to segment CSAT.", "tone": "info"})
+            return
+        worst = csat_seg.sort_values("CSAT_Score").iloc[0]
+        render_notes(rate_chip(worst["Segment"], float(worst["CSAT_Score"]), CSAT_GOAL, lower_better=False))
+
+    def extra_csat_agents() -> None:
+        st.caption(
+            "Official CSAT by agent · 4★+5★ / surveys. "
+            + (
+                "See all is on — every agent with ≥1 survey is shown (n can be 1)."
+                if see_all else "20+ surveys. Chart is the 12 lowest scores."
+            )
+        )
+        if csat_roster.empty:
+            render_notes({
+                "text": "No CSAT agents in this filter." if see_all else "No agent with 20+ surveys in this filter.",
+                "tone": "info",
+            })
+            return
+        mapped = int((~csat_roster["Supervisor_ID"].eq(CSAT_UNMAPPED_SUPERVISOR)).sum())
+        n_floor = "≥1 survey" if see_all else "20+ surveys"
+        render_notes({
+            "text": (
+                f"{n_csat_below} of {n_csat_roster} agents with {n_floor} are below CSAT 85. "
+                f"{mapped} match a QA supervisor."
+            ),
+            "tone": "risk" if n_csat_below else "ok",
+        })
+        view = st.radio(
+            "CSAT agent roster",
+            ("All agents", "Below CSAT 85"),
+            horizontal=True,
+            key=f"csat_agent_view_{_fn}",
+            label_visibility="collapsed",
+        )
+        shown = csat_roster
+        if view == "Below CSAT 85":
+            shown = csat_roster[csat_roster["CSAT_Score"] < CSAT_GOAL]
+        if shown.empty:
+            st.caption(
+                "No agent below CSAT 85 in this filter."
+                if see_all else "No agent below CSAT 85 with 20+ surveys."
+            )
+            return
+        st.caption(
+            "Official CSAT is 4★+5★ / Feedback CNT (ratio of sums). "
+            "Not mapped to a QA supervisor means the CSAT agent name has no QA Agent_ID match."
+        )
+        show_df(csat_agent_roster_display(shown))
+
+    def extra_csat_sup() -> None:
+        st.caption(
+            "Official CSAT by supervisor · agent name matched to QA. "
+            + (
+                "See all is on — every supervisor with ≥1 mapped survey is shown."
+                if see_all else "Chart is the 12 lowest scores with ≥20 surveys."
+            )
+        )
+
+    def extra_csat_cr(level: str) -> None:
+        grain = "Lv1 (group)" if level == "lv1" else "Lv4 (detail)"
+        st.caption(
+            f"Official CSAT by contact reason {grain} · 4★+5★ / surveys. "
+            + (
+                "See all is on — every contact reason with ≥1 survey is shown (n can be 1)."
+                if see_all else "Bars are the lowest scores with ≥20 surveys."
+            )
+        )
+
+    csat_below = (
+        float(hist_csat.loc[hist_csat["CSAT_Score"] < CSAT_GOAL, "Share_Pct"].sum())
+        if not hist_csat.empty else None
+    )
+
+    render_preview_board(
+        [
+            {
+                "id": "csat_stars", "btn": "btnpie",
+                "title": "CSAT by star rating",
+                "value": f"{summary['csat']:.2f}%",
+                "delta": (
+                    f"{int(stars['Count'].sum()):,} surveys — % of surveys rated 4 or 5 stars"
+                    if not stars.empty and "Count" in stars.columns
+                    else "% of surveys rated 4 or 5 stars"
+                ),
+                "spark": spark_hbar_fig(
+                    stars["Rating"].astype(str).tolist(), stars["Pct"].fillna(0).tolist(), unit="%",
+                ) if not stars.empty else None,
+                "fig": csat_star_chart(stars),
+                "extra": lambda: render_notes(csat_chip(summary["csat"])),
+            },
+            {
+                "id": "csat_hist", "btn": "btnscope",
+                "title": "How CSAT scores are spread",
+                "value": f"{summary['csat']:.2f}%",
+                "delta": f"{csat_below:.0f}% of surveys below 85" if csat_below is not None else None,
+                "delta_color": "off",
+                "spark": sparkbar_fig(
+                    hist_csat["Surveys"].tolist(),
+                    CHART_COLORS["csat"],
+                    hist_csat["CSAT_Score"].astype(str).tolist(),
+                    "", "Surveys",
+                ) if not hist_csat.empty else None,
+                "fig": csat_histogram_chart(hist_csat),
+                "extra": lambda: render_notes({
+                    "text": "Slice CSAT % weighted by surveys. Official KPI is the share of surveys rated 4 or 5 stars.",
+                    "tone": "info",
+                }),
+            },
+            {
+                "id": "csat_spc", "btn": "btndaily",
+                "title": "CSAT by day",
+                "value": f"{csat_day:.1f}%" if csat_day is not None else "—",
+                "delta": csat_day_delta,
+                "delta_color": csat_day_color,
+                "spark": sparkline_fig(csat_spark_vals, CHART_COLORS["csat"], csat_spark_lbl, "%", "CSAT %"),
+                "fig": control_i_chart(csat_spc, "Target 85"),
+                "drill": "day",
+            },
+            {
+                "id": "csat_ten", "btn": "btngroup",
+                "title": "CSAT by user tenure",
+                "value": f"{csat_ten.iloc[0]['CSAT_Score']:.1f}%" if not csat_ten.empty else "—",
+                "delta": _n_delta(csat_ten.iloc[0] if not csat_ten.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    ten_plot.head(5)["Tenure"].tolist(), ten_plot.head(5)["CSAT_Score"].fillna(0).tolist(), unit="%",
+                ) if not ten_plot.empty else None,
+                "fig": score_volume_combo(
+                    ten_plot if not ten_plot.empty else pd.DataFrame(columns=["Tenure", "CSAT_Score", "Feedback"]),
+                    "Tenure", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by tenure",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                ),
+                "extra": lambda: render_notes(tenure_chip(ten_plot if not ten_plot.empty else csat_ten, "CSAT_Score", "Tenure" if not ten_plot.empty else "CSAT_Agent_Tenure", CSAT_GOAL)),
+            },
+            {
+                "id": "csat_agents", "btn": "btndaily",
+                "title": "CSAT by agent",
+                "value": f"{n_csat_below} / {n_csat_roster}" if n_csat_roster else "0",
+                "delta": "all agents in this filter" if see_all else "below 85 · 20+ surveys",
+                "spark": spark_hbar_fig(
+                    csat_agents_plot.head(5)["Agent"].astype(str).tolist(),
+                    csat_agents_plot.head(5)["CSAT_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not csat_agents_plot.empty else None,
+                "fig": score_volume_combo(
+                    csat_agents_plot if not csat_agents_plot.empty else pd.DataFrame(columns=["Agent", "CSAT_Score", "Feedback"]),
+                    "Agent", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by agent",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                    force_horizontal=True,
+                ),
+                "extra": extra_csat_agents,
+                "drill": "agent",
+            },
+            {
+                "id": "csat_sup", "btn": "btnch",
+                "title": "CSAT by supervisor",
+                "value": f"{csat_scr_sup.iloc[0]['CSAT_Score']:.1f}%" if not csat_scr_sup.empty else "—",
+                "delta": _n_delta(csat_scr_sup.iloc[0] if not csat_scr_sup.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    csat_scr_sup.head(5)["Supervisor_ID"].astype(str).tolist(),
+                    csat_scr_sup.head(5)["CSAT_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not csat_scr_sup.empty else None,
+                "fig": score_volume_combo(
+                    csat_scr_sup if not csat_scr_sup.empty else pd.DataFrame(columns=["Supervisor_ID", "CSAT_Score", "Feedback"]),
+                    "Supervisor_ID", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by supervisor",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                    force_horizontal=True,
+                ),
+                "extra": extra_csat_sup,
+                "drill": "supervisor",
+            },
+            {
+                "id": "csat_lv1", "btn": "btngroup",
+                "title": "CSAT by contact reason Lv1",
+                "value": f"{csat_scr_lv1.iloc[0]['CSAT_Score']:.1f}%" if not csat_scr_lv1.empty else "—",
+                "delta": _n_delta(csat_scr_lv1.iloc[0] if not csat_scr_lv1.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    csat_scr_lv1.head(5)["CR_Lv1"].astype(str).tolist(),
+                    csat_scr_lv1.head(5)["CSAT_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not csat_scr_lv1.empty else None,
+                "fig": score_volume_combo(
+                    csat_scr_lv1 if not csat_scr_lv1.empty else pd.DataFrame(columns=["CR_Lv1", "CSAT_Score", "Feedback"]),
+                    "CR_Lv1", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by contact reason Lv1 (group)",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                    force_horizontal=True,
+                ),
+                "extra": lambda: extra_csat_cr("lv1"),
+                "drill": "cr_lv1",
+            },
+            {
+                "id": "csat_lv4", "btn": "btncr",
+                "title": "CSAT by contact reason Lv4",
+                "value": f"{csat_scr_lv4.iloc[0]['CSAT_Score']:.1f}%" if not csat_scr_lv4.empty else "—",
+                "delta": _n_delta(csat_scr_lv4.iloc[0] if not csat_scr_lv4.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    csat_scr_lv4.head(5)["CR_Lv4"].astype(str).tolist(),
+                    csat_scr_lv4.head(5)["CSAT_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not csat_scr_lv4.empty else None,
+                "fig": score_volume_combo(
+                    csat_scr_lv4 if not csat_scr_lv4.empty else pd.DataFrame(columns=["CR_Lv4", "CSAT_Score", "Feedback"]),
+                    "CR_Lv4", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by contact reason Lv4 (detail)",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                    force_horizontal=True,
+                ),
+                "extra": lambda: extra_csat_cr("lv4"),
+                "drill": "cr",
+            },
+            {
+                "id": "csat_seg", "btn": "btncr",
+                "title": "Segments furthest from CSAT 85",
+                "value": f"{csat_seg.sort_values('CSAT_Score').iloc[0]['CSAT_Score']:.1f}%" if not csat_seg.empty else "—",
+                "delta": _n_delta(
+                    csat_seg.sort_values("CSAT_Score").iloc[0] if not csat_seg.empty else None,
+                    "Feedback", unit="surveys",
+                ),
+                "spark": spark_hbar_fig(
+                    csat_seg.head(5)["Segment"].astype(str).tolist(), csat_seg.head(5)["CSAT_Score"].fillna(0).tolist(), unit="%",
+                ) if not csat_seg.empty else None,
+                "fig": score_volume_combo(
+                    csat_seg if see_all or csat_seg.empty else csat_seg.head(10),
+                    "Segment", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT furthest from 85%",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                    force_horizontal=True,
+                ),
+                "extra": extra_csat_seg,
+            },
+            {
+                "id": "csat_bt", "btn": "btnscope",
+                "title": "CSAT by Business Type",
+                "value": f"{csat_bt.iloc[0]['CSAT_Score']:.1f}%" if not csat_bt.empty else "—",
+                "delta": _n_delta(csat_bt.iloc[0] if not csat_bt.empty else None, "Feedback", unit="surveys"),
+                "spark": spark_hbar_fig(
+                    csat_bt.head(5)["Business_Type"].astype(str).tolist(), csat_bt.head(5)["CSAT_Score"].fillna(0).tolist(), unit="%",
+                ) if not csat_bt.empty else None,
+                "fig": score_volume_combo(
+                    csat_bt if not csat_bt.empty else pd.DataFrame(columns=["Business_Type", "CSAT_Score", "Feedback"]),
+                    "Business_Type", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by Business Type",
+                    score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
+                ),
+                "drill": "business_type",
+            },
+            {
+                "id": "csat_aht", "btn": "btnscat",
+                "title": "CSAT vs handle time",
+                "value": f"{aht_cs_r:+.2f}" if aht_cs_r is not None else "—",
+                "delta": f"N = {aht_cs_n} shared Lv4" if aht_cs_n else None,
+                "spark": spark_r_fig(aht_cs_r),
+                "fig": aht_metric_scatter(
+                    aht_joined, "CSAT_Pct", y_title="CSAT %", title="CSAT vs AHT",
+                    y_goal=CSAT_GOAL,
+                    empty_text=aht_overlap_empty_text(
+                        aht_cs_n, "CSAT",
+                        surveys=volumes.get("surveys"),
+                        audits=volumes.get("evaluations"),
+                        min_audits=AHT_CR_MIN_AUDITS,
+                    ),
+                ),
+                "extra": lambda: render_r_box(
+                    aht_cs_r, aht_cs_n, "CSAT vs handle time",
+                    surveys=volumes.get("surveys"),
+                    audits=volumes.get("evaluations"),
+                ),
+                "drill": "cr",
+            },
+        ],
+        state_key=f"csat_preview_{_fn}",
+        columns=2,
+    )
+
+elif page == "Recontact":
+    render_banner(L("section_recontact"))
+    rk1, rk2, rk3, rk4 = st.columns(4)
+    with rk1:
+        render_kpi(
+            L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
+            spark=sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
+            spark_key="rc_spark",
+            traffic=rc_light,
+        )
+    with rk2:
+        render_kpi(
+            L("kpi_fcr"), f"{fcr_rate:.2f}%",
+            fcr_vs,
+            "off",
+            spark=sparkline_fig(fcr_spark_vals, CHART_COLORS["qa"], rc_spark_lbl, "%", "FCR %"),
+            spark_key="rc_spark_fcr",
+            help_text="FCR is 100 minus this page’s recontact rate. The business case scores recontact (≤5.44%), not FCR.",
+            caption="Companion to recontact. No CX Quality target.",
+        )
+    with rk3:
+        render_kpi(
+            L("kpi_contacts"), f"{volumes['contacts']:,}", c_txt, c_dcol,
+            spark=sparkbar_fig(vol_series["contacts"] or [volumes["contacts"]], CHART_COLORS["blue"],
+                               vol_series.get("contacts_labels") or None, "", "Contacts"),
+            spark_key="rc_spark_vol",
+        )
+    with rk4:
+        render_kpi(
+            L("kpi_recontacts"), f"{volumes.get('recontacts', 0):,}", r_txt, r_dcol,
+            spark=sparkbar_fig(
+                vol_series.get("recontacts") or [volumes.get("recontacts", 0)],
+                CHART_COLORS["recontact"],
+                vol_series.get("recontacts_labels") or None, "", "Repeats",
+            ),
+            spark_key="rc_spark_repeats",
+            caption="Σ Recontact Volume · numerator of the official rate.",
+        )
+
+    render_banner(L("panel_rc_channel"))
+    with panel("Contacts, repeats, and rate by channel"):
+        if rc_ch_tbl.empty:
+            st.caption("No recontact rows in this filter.")
+        else:
+            _plotly_chart(
+                recontact_channel_combo_chart(rc_ch_tbl),
+                key="rc_ch_combo",
+                drill="channel",
+            )
+            st.caption("Click a channel bar to apply that filter. Rate is Repeats / Contacts (ratio of sums), not an average of the Rate % column.")
+            show_df(channel_mix_display(rc_ch_tbl))
+            st.caption(
+                "Official recontact is Σ Repeats / Σ Contacts across these rows. Do not average the Rate % column. "
+                "Self Help is most of the contacts at a low rate, so the official mix is not the Phone or Live Chat rate. "
+                "Only Phone and Live Chat also appear in QA and CSAT. FCR is 100 minus this mix — there is no FCR target."
+            )
+
+    src_rc = rc_cr.rename(columns={"Recontacts": "Count", "CR_Lv4": "Cat"}) if not rc_cr.empty else rc_cr
+    rc_universe = (
+        int(pd.to_numeric(recontact["Recontact Volume"], errors="coerce").fillna(0).sum())
+        if recontact is not None and not recontact.empty and "Recontact Volume" in recontact.columns
+        else 0
+    )
+    fig_rc_cr_combo = recontact_cr_combo_chart(rc_cr)
+    fig_rc_scope = recontact_scope_chart(rc_scope if sel_channel == "All" else pd.DataFrame())
+    fig_rc_ch = (
+        pareto_dual_axis(
+            rc_ch_vol, "Cat", "Count", title="Repeat volume by channel",
+            value_title="Repeats", sample_unit="repeats",
+            universe_n=rc_universe or None,
+        )
+        if not rc_ch_vol.empty else pareto_dual_axis(pd.DataFrame(), "Cat", "Count", title="Repeat volume by channel")
+    )
+    fig_rc_cr = (
+        pareto_dual_axis(
+            src_rc, "Cat", "Count", title="Repeat volume by contact reason Lv4 (detail)",
+            value_title="Repeats", sample_unit="repeats",
+            universe_n=rc_universe or None,
+        )
+        if not src_rc.empty else pareto_dual_axis(pd.DataFrame(), "Cat", "Count", title="Repeat volume by contact reason Lv4 (detail)")
+    )
+    fig_rc_lv1 = cr_group_hbar(
+        rc_cr_groups, "CR_Lv1", "Recontacts", "Pct", "Recontact volume",
+        title="Recontact by contact reason Lv1 (group)",
+        universe_n=rc_universe or None,
+        sample_unit="repeats",
+    )
+    fig_rc_spc = control_i_chart(rc_spc, "Target 5.44")
+    fig_rc_aht = aht_metric_scatter(
+        aht_joined, "Recontact_Rate",
+        y_title="Recontact rate %",
+        title="Recontact vs AHT",
+        y_goal=RECONTACT_GOAL,
+        lower_better=True,
+        empty_text=aht_overlap_empty_text(
+            int(aht_joined[["AHT_min", "Recontact_Rate"]].dropna().shape[0])
+            if aht_joined is not None and not aht_joined.empty
+            and "AHT_min" in aht_joined.columns and "Recontact_Rate" in aht_joined.columns
+            else 0,
+            "recontact",
+            audits=volumes.get("evaluations"),
+            min_audits=AHT_CR_MIN_AUDITS,
+        ),
+    )
+
+    mix_top = rc_cr.iloc[0] if not rc_cr.empty else None
+    ch_top = rc_ch_vol.iloc[0] if not rc_ch_vol.empty else None
+    lv1_top = rc_cr_groups.iloc[0] if not rc_cr_groups.empty else None
+    sh_share = dilution.get("share") if isinstance(dilution, dict) else None
+
+    def _pair_r(tbl: pd.DataFrame, pair: str, slice_name: str | None = None):
+        if tbl is None or tbl.empty or "Pair" not in tbl.columns:
+            return None, 0
+        sub = tbl[tbl["Pair"] == pair]
+        if slice_name and "Slice" in sub.columns:
+            hit = sub[sub["Slice"] == slice_name]
+            if not hit.empty:
+                sub = hit
+        if sub.empty:
+            return None, 0
+        row = sub.iloc[0]
+        n = int(row["N_CR"]) if "N_CR" in row and pd.notna(row["N_CR"]) else 0
+        r = row["Pearson_r"] if "Pearson_r" in row else None
+        return (float(r) if pd.notna(r) else None), n
+
+    qa_r, qa_n = _pair_r(corr_tbl, "QA vs Recontact")
+    aht_r, aht_n = _pair_r(aht_corr, "AHT vs Recontact", "All")
+
+    def extra_rc_donut() -> None:
+        st.caption("Bars are Σ Recontact Volume. The line is Σ Repeats / Σ Contacts for that contact reason Lv4 (detail), not an average of row rates.")
+        render_notes(pareto_chip(rc_cr, "CR_Lv4", "Recontacts", "repeat volume") if not rc_cr.empty else None)
+
+    def extra_rc_scope() -> None:
+        render_notes(fcr_scope_chip(
+            fcr_rate, fcr_audited if sel_channel == "All" else None, sh_share, rc_repeats,
+        ))
+
+    def extra_rc_ch() -> None:
+        if ch_top is None:
+            render_notes({"text": "No channel rows in this filter.", "tone": "info"})
+            return
+        share = (float(ch_top["Count"]) / float(rc_ch_vol["Count"].sum()) * 100) if rc_ch_vol["Count"].sum() else 0
+        render_notes({"text": f"{ch_top['Cat']} is {share:.0f}% of recontact volume.", "tone": "risk"})
+
+    def extra_rc_cr() -> None:
+        render_notes(pareto_chip(src_rc if src_rc is not None else pd.DataFrame(), "Cat", "Count", "recontacts"))
+
+    def extra_rc_lv1() -> None:
+        extra = None
+        if not rc_cr_pair.empty and "Recontact_Rate" in rc_cr_pair.columns:
+            extra = {
+                "Rate": rc_cr_pair["Recontact_Rate"].map(lambda v: f"{v:.2f}%" if pd.notna(v) else "—"),
+            }
+        pair = pair_display(rc_cr_pair, "Recontacts", "Volume", extra)
+        if not pair.empty:
+            with st.expander("Contact reason Lv4 (detail) inside each Lv1 (group)"):
+                show_df(pair)
+
+    def extra_rc_aht() -> None:
+        render_r_box(aht_r, aht_n, "AHT vs recontact")
+
+    scope_names, scope_vals = [], []
+    if sel_channel == "All" and not rc_scope.empty:
+        scope_names = ["Official", "Excl. Self Help", "Phone + Chat"]
+        scope_vals = [float(v) if pd.notna(v) else 0.0 for v in rc_scope.sort_values("Scope_Order")["Rate"].head(3)]
+
+    render_preview_board(
+        [
+            {
+                "id": "rc_donut",
+                "btn": "btncr",
+                "title": L("panel_rc_donut"),
+                "value": f"{mix_top['Pct']:.1f}%" if mix_top is not None else "—",
+                "delta": _n_delta(mix_top, "Recontacts", unit="repeats"),
+                "spark": spark_hbar_fig(
+                    rc_cr.head(5)["CR_Lv4"].tolist(),
+                    rc_cr.head(5)["Recontacts"].fillna(0).tolist(),
+                ) if not rc_cr.empty else None,
+                "fig": fig_rc_cr_combo,
+                "extra": extra_rc_donut,
+                "drill": "cr",
+            },
+            {
+                "id": "rc_scope",
+                "btn": "btnscope",
+                "title": L("panel_rc_scope"),
+                "value": f"{rc_rate:.2f}%",
+                "delta": rc_vs,
+                "delta_color": "inverse",
+                "spark": spark_hbar_fig(scope_names, scope_vals, unit="%") if scope_vals else None,
+                "fig": fig_rc_scope,
+                "extra": extra_rc_scope,
+            },
+            {
+                "id": "rc_ch_pareto",
+                "btn": "btnch",
+                "title": L("panel_rc_channel_pareto"),
+                "value": f"{(float(ch_top['Count']) / float(rc_ch_vol['Count'].sum()) * 100):.1f}%" if ch_top is not None and rc_ch_vol["Count"].sum() else "—",
+                "delta": _n_delta(ch_top, "Count", unit="repeats"),
+                "spark": spark_hbar_fig(
+                    rc_ch_vol.head(5)["Cat"].tolist(),
+                    (rc_ch_vol.head(5)["Count"] / rc_ch_vol["Count"].sum() * 100).tolist(),
+                    unit="%",
+                ) if not rc_ch_vol.empty else None,
+                "fig": fig_rc_ch,
+                "extra": extra_rc_ch,
+                "drill": "channel",
+            },
+            {
+                "id": "rc_pareto",
+                "btn": "btncr",
+                "title": L("panel_rc_pareto"),
+                "value": f"{mix_top['Pct']:.1f}%" if mix_top is not None else "—",
+                "delta": _n_delta(mix_top, "Recontacts", unit="repeats"),
+                "delta_color": "off",
+                "spark": spark_hbar_fig(
+                    rc_cr.head(5)["CR_Lv4"].tolist(), rc_cr.head(5)["Recontacts"].fillna(0).tolist(),
+                ) if not rc_cr.empty else None,
+                "fig": fig_rc_cr,
+                "extra": extra_rc_cr,
+                "drill": "cr",
+            },
+            {
+                "id": "rc_cr_lv1",
+                "btn": "btngroup",
+                "title": L("panel_cr_group_rc"),
+                "value": f"{lv1_top['Pct']:.1f}%" if lv1_top is not None else "—",
+                "delta": _n_delta(lv1_top, "Recontacts", "Contacts", unit="repeats"),
+                "spark": spark_hbar_fig(
+                    rc_cr_groups.head(5)["CR_Lv1"].tolist(), rc_cr_groups.head(5)["Pct"].tolist(), unit="%",
+                ) if not rc_cr_groups.empty else None,
+                "fig": fig_rc_lv1,
+                "extra": extra_rc_lv1,
+                "drill": "cr_lv1",
+            },
+            {
+                "id": "rc_spc",
+                "btn": "btndaily",
+                "title": L("panel_rc_ichart"),
+                "value": f"{rc_day:.2f}%" if rc_day is not None else "—",
+                "delta": rc_day_delta,
+                "delta_color": rc_day_color,
+                "spark": sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
+                "fig": fig_rc_spc,
+                "drill": "day",
+            },
+            {
+                "id": "rc_aht",
+                "btn": "btnscat",
+                "title": L("panel_aht_rc"),
+                "value": f"{aht_r:+.2f}" if aht_r is not None else "—",
+                "delta": f"N = {aht_n} shared Lv4" if aht_n else None,
+                "spark": spark_r_fig(aht_r),
+                "fig": fig_rc_aht,
+                "extra": extra_rc_aht,
+                "drill": "cr",
+            },
+        ],
+        state_key=f"rc_preview_{_fn}",
+        columns=2,
+    )
+
+elif page == "Alerts":
+    tickets_key = f"tickets_{_fn}"
+    if tickets_key not in st.session_state:
+        st.session_state[tickets_key] = []
+    tickets = st.session_state[tickets_key]
+    q4_key = f"hub_q4_only_{_fn}"
+    pipe_key = f"watch_pipe_{_fn}"
+    pipe_filter = st.session_state.get(pipe_key)
+
+    def _next_ticket_n() -> int:
+        return len(tickets) + 1
+
+    qa_q = qa_coaching_queue(agents_below_qa_goal(audits, min_n=_slice_qa_n, below_goal_only=True))
+    team_view = sel_supervisor != "All"
+    qa_agents_view = qa_q_agents.copy() if qa_q_agents is not None and not qa_q_agents.empty else pd.DataFrame()
+    csat_agents_view = csat_q_agents.copy() if csat_q_agents is not None and not csat_q_agents.empty else pd.DataFrame()
+    if team_view and not qa_agents_view.empty:
+        qa_agents_view = qa_agents_view[qa_agents_view["Supervisor_ID"].astype(str) == str(sel_supervisor)]
+    if team_view and not csat_agents_view.empty:
+        csat_agents_view = csat_agents_view[csat_agents_view["Supervisor_ID"].astype(str) == str(sel_supervisor)]
+    qa_sum_view = quartile_band_summary(qa_agents_view) if team_view else qa_q_sum
+    csat_sum_view = quartile_band_summary(csat_agents_view) if team_view else csat_q_sum
+
+    people = people_watchlist(
+        qa_mix, csat_mix, qa_q_agents, csat_q_agents,
+        q4_only=bool(st.session_state.get(q4_key)),
+        q4_share_alert=SUPERVISOR_Q4_SHARE_ALERT,
+    )
+    watch = annotate_watch_pipeline(people, tickets)
+    shown = watch
+    if not watch.empty and pipe_filter in {"active", "progress", "closed"}:
+        shown = watch[watch["Pipeline"] == pipe_filter]
+    n_active = 0 if watch.empty else int((watch["Pipeline"] == "active").sum())
+    n_prog = sum(1 for t in tickets if t.status != "Closed")
+    n_closed = sum(1 for t in tickets if t.status == "Closed")
+    desk_hex = {
+        "QA": CHART_COLORS["qa"],
+        "CSAT": CHART_COLORS["csat"],
+        "Recontact": CHART_COLORS["recontact"],
+    }
+
+    qa_floor = "≥1 audit" if see_all else f"n≥{_slice_qa_n} audits"
+    cs_floor = "≥1 survey" if see_all else f"n≥{_slice_csat_n} surveys"
+    h1, h2, h3 = st.columns(3)
+    with h1:
+        render_kpi(
+            "QA · Q4",
+            f"Q4 · {int(qa_sum_view.get('q4') or 0)} agents",
+            caption=(
+                f"{int(qa_sum_view.get('q4') or 0)} of {int(qa_sum_view.get('ranked') or 0)} "
+                f"ranked agents ({qa_floor}) in the bottom 25% of this filter."
+            ),
+            spark=sparkbar_fig(
+                [int((qa_sum_view.get("bands") or {}).get(q, {}).get("n") or 0) for q in ("Q1", "Q2", "Q3", "Q4")],
+                STATUS_COLORS["red"], ["Q1", "Q2", "Q3", "Q4"], "", "Agents",
+            ),
+            spark_key="hub_spark_qa_q",
+            size="secondary",
+        )
+    with h2:
+        render_kpi(
+            "CSAT · Q4",
+            f"Q4 · {int(csat_sum_view.get('q4') or 0)} agents",
+            caption=(
+                f"{int(csat_sum_view.get('q4') or 0)} of {int(csat_sum_view.get('ranked') or 0)} "
+                f"ranked agents ({cs_floor}) in the bottom 25% of this filter."
+            ),
+            spark=sparkbar_fig(
+                [int((csat_sum_view.get("bands") or {}).get(q, {}).get("n") or 0) for q in ("Q1", "Q2", "Q3", "Q4")],
+                CHART_COLORS["csat"], ["Q1", "Q2", "Q3", "Q4"], "", "Agents",
+            ),
+            spark_key="hub_spark_cs_q",
+            size="secondary",
+        )
+    with h3:
+        render_kpi(
+            L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
+            traffic=rc_light,
+            size="secondary",
+            caption="Operation-level only. Recontact has no agent or supervisor field.",
+        )
+    st.caption(
+        "Q4 = bottom 25% of this filter, even if every score is above 85. "
+        "Quartile edges move with the filter — they are not the 85 goal. "
+        "Official QA (mean Score_Pct) and CSAT (4★+5★ / Feedback) on the operation strip "
+        "are team/operation means. Talent mix is who sits in each band. "
+        "Recontact / FCR are not scored by agent."
+    )
+
+    render_banner("Who is in each quartile")
+    qleft, qright = st.columns(2)
+    with qleft:
+        with panel("QA agents"):
+            _plotly_chart(
+                quartile_count_chart(qa_sum_view, title="QA agents by quartile"),
+                key="hub_qa_qcount",
+            )
+            render_quartile_bands(qa_sum_view)
+            st.caption("Q1 is the top 25% of official QA in this filter. Names are a sample of each band.")
+    with qright:
+        with panel("CSAT agents"):
+            _plotly_chart(
+                quartile_count_chart(csat_sum_view, title="CSAT agents by quartile"),
+                key="hub_cs_qcount",
+            )
+            render_quartile_bands(csat_sum_view)
+            st.caption("Official CSAT is 4★+5★ / Feedback (ratio of sums). No recontact-by-agent chart.")
+
+    render_banner("Supervisor talent mix")
+    st.toggle(
+        "Q4-heavy teams only",
+        key=q4_key,
+        help="Supervisors with a high share of company-Q4 agents, or in the worst talent-mix quartile.",
+    )
+    q4_only = bool(st.session_state.get(q4_key))
+    mix_view = qa_mix.copy() if qa_mix is not None and not qa_mix.empty else pd.DataFrame()
+    if not mix_view.empty and q4_only:
+        mix_view = mix_view[
+            mix_view["Requires_Review"].fillna(False).astype(bool)
+            | mix_view["Talent_Quartile"].astype(str).eq("Q4")
+        ]
+    if team_view and not mix_view.empty:
+        mix_view = mix_view[mix_view["Supervisor_ID"].astype(str) == str(sel_supervisor)]
+
+    if team_view:
+        st.caption(
+            f"Team {sel_supervisor}: agents placed in company QA quartiles (this filter). "
+            "Official team QA can still be on goal when several agents sit in Q4."
+        )
+        if st.button("← All supervisors", key=f"hub_back_sup_{_fn}", width="stretch"):
+            _set_people_filter("supervisor", None)
+        if qa_agents_view.empty:
+            st.caption("No ranked QA agents for this supervisor in the current filter.")
+        else:
+            band_cols = st.columns(4)
+            for col, q in zip(band_cols, ("Q1", "Q2", "Q3", "Q4")):
+                sub = qa_agents_view[qa_agents_view["Quartile"].astype(str).eq(q)]
+                with col:
+                    st.markdown(
+                        f'<p class="didi-qcol-h">{q} · {len(sub)}</p>',
+                        unsafe_allow_html=True,
+                    )
+                    if sub.empty:
+                        st.caption("—")
+                        continue
+                    for _, row in sub.head(8).iterrows():
+                        agent = _cell_str(row.get("Agent_ID"), "—")
+                        qa_txt = _fmt(row.get("QA_Score"), 1, "%")
+                        on = str(sel_agent) == agent
+                        tone = "red" if q == "Q4" else ("amber" if q == "Q3" else "green")
+                        with st.container(border=True, key=_next_didi_key(f"didi_sup_{tone}")):
+                            st.markdown(
+                                f'<p class="didi-sup-head didi-sup-head--{tone}">{html_escape(agent)}</p>',
+                                unsafe_allow_html=True,
+                            )
+                            st.markdown(
+                                f'<p class="didi-sup-find">QA {qa_txt} · {_cell_str(row.get("QA_n"), "0")} audits</p>',
+                                unsafe_allow_html=True,
+                            )
+                            b1, b2 = st.columns(2)
+                            with b1:
+                                if st.button(
+                                    "Clear agent" if on else "Open agent",
+                                    key=f"hub_ag_{agent}_{_fn}",
+                                    width="stretch",
+                                ):
+                                    _set_people_filter("agent", None if on else agent)
+                            with b2:
+                                draft = make_agent_ticket(agent, pd.Series(row), max(_next_ticket_n(), 1))
+                                if st.button("🎫 Create ticket", key=f"tk_ag_{agent}_{_fn}", width="stretch"):
+                                    tickets.append(make_agent_ticket(agent, pd.Series(row), _next_ticket_n()))
+                                    st.session_state[tickets_key] = tickets
+                                    st.rerun()
+                                st.download_button(
+                                    "✉️ Email draft",
+                                    data=draft.email_body,
+                                    file_name=f"{agent.replace(' ', '_')}_coaching.txt",
+                                    mime="text/plain",
+                                    key=f"em_ag_{agent}_{_fn}",
+                                    width="stretch",
+                                )
+                    extra_n = int(len(sub) - 8)
+                    if extra_n > 0:
+                        st.caption(f"+{extra_n} more in {q}")
+    else:
+        st.caption(
+            "Each bar is that TL’s ranked agents split into company Q1–Q4 (Option A talent mix). "
+            "Click a supervisor to see the team. Official QA/CSAT means are separate from this mix."
+        )
+        _plotly_chart(
+            supervisor_mix_chart(mix_view, title="QA talent mix by supervisor"),
+            key="hub_qa_mix",
+            drill="supervisor",
+        )
+        if not mix_view.empty:
+            top = mix_view.head(4)
+            for _, row in top.iterrows():
+                sup = _cell_str(row.get("Supervisor_ID"), "—")
+                n_q4 = int(row.get("Q4_Agents") or 0)
+                n_ranked = int(row.get("Ranked_Agents") or 0)
+                review = _as_bool(row.get("Requires_Review"))
+                qa_txt = _fmt(row.get("QA_Score"), 1, "%")
+                cs_txt = _fmt(row.get("CSAT_Score"), 1, "%")
+                tone = "red" if review or _cell_str(row.get("Talent_Quartile")) == "Q4" else "amber"
+                team = agents_for_supervisor(qa_q_agents, sup)
+                qrow = qa_q[qa_q["Supervisor_ID"].astype(str) == sup] if not qa_q.empty else pd.DataFrame()
+                with st.container(border=True, key=_next_didi_key(f"didi_sup_{tone}")):
+                    st.markdown(
+                        f'<p class="didi-sup-head didi-sup-head--{tone}">{html_escape(sup)}</p>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f'<p class="didi-coach-copy">{html_escape(sup)}: {n_q4} of {n_ranked} ranked '
+                        "agents are in company Q4 (bottom 25%). Official QA for the team can still be on goal.</p>",
+                        unsafe_allow_html=True,
+                    )
+                    render_quartile_pill(
+                        row.get("Q1_pct"), row.get("Q2_pct"),
+                        row.get("Q3_pct"), row.get("Q4_pct"),
+                    )
+                    st.markdown(
+                        f'<p class="didi-hub-muted">Official QA {qa_txt} · CSAT {cs_txt} · '
+                        f"talent mix is not the contractual KPI.</p>",
+                        unsafe_allow_html=True,
+                    )
+                    if review:
+                        share = _fmt(row.get("Q4_Share"), 0, "%")
+                        st.markdown(
+                            '<div class="didi-hub-flag">'
+                            f"{html_escape(share)} of this TL’s ranked agents "
+                            "are in company Q4. Auto-tickets need manager review."
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                    if st.button("Open team", key=f"hub_sup_{sup}_{_fn}", width="stretch"):
+                        _set_people_filter("supervisor", sup)
+                    b1, b2 = st.columns(2)
+                    src = qrow.iloc[0] if not qrow.empty else pd.Series({
+                        "Agents": n_ranked,
+                        "Audits": int(row.get("n") or 0),
+                        "Worst_QA": team["QA_Score"].min() if not team.empty and "QA_Score" in team.columns else None,
+                        "Feedback": row.get("Feedback"),
+                        "CSAT_Score": row.get("CSAT_Score"),
+                        "Ranked_Agents": n_ranked,
+                    })
+                    with b1:
+                        if review:
+                            st.caption("Ticket locked — manager review.")
+                        elif st.button("🎫 Create ticket", key=f"tk_qa_{sup}_{_fn}", width="stretch"):
+                            if _as_bool(row.get("CSAT_below")) and not _as_bool(row.get("QA_below")):
+                                tickets.append(make_csat_ticket(sup, src, team, _next_ticket_n()))
+                            else:
+                                tickets.append(make_qa_ticket(sup, src, team, _next_ticket_n()))
+                            st.session_state[tickets_key] = tickets
+                            st.rerun()
+                    with b2:
+                        if review:
+                            st.caption("Email after review.")
+                        else:
+                            draft = (
+                                make_csat_ticket(sup, src, team, max(_next_ticket_n(), 1))
+                                if _as_bool(row.get("CSAT_below")) and not _as_bool(row.get("QA_below"))
+                                else make_qa_ticket(sup, src, team, max(_next_ticket_n(), 1))
+                            )
+                            st.download_button(
+                                "✉️ Email draft",
+                                data=draft.email_body,
+                                file_name=f"{sup.replace(' ', '_')}_coaching.txt",
+                                mime="text/plain",
+                                key=f"em_qa_{sup}_{_fn}",
+                                width="stretch",
+                            )
+        else:
+            st.caption("No supervisor with enough ranked agents in this filter.")
+
+    render_banner("Coaching queue")
+    st.caption(
+        "Each card states the talent-mix problem in one sentence. "
+        "Official team mean and Q4 share are different things — a team can be on goal and still have a Q4-heavy mix. "
+        "Click Focus to open that supervisor or agent."
+    )
+    people_shown = shown[shown["Desk"].isin(["QA", "CSAT"])] if not shown.empty else shown
+    if people_shown is None or people_shown.empty:
+        st.caption("No QA/CSAT coaching rows for the current filter.")
+    else:
+        for desk in ("QA", "CSAT"):
+            grp = people_shown[people_shown["Desk"] == desk]
+            if grp.empty:
+                continue
+            hex_d = desk_hex.get(desk, STATUS_COLORS["neutral"])
+            st.markdown(
+                f'<div class="didi-watch-group">'
+                f'<span class="didi-watch-group-dot" style="background:{hex_d}"></span>'
+                f'<span class="didi-watch-group-name">{html_escape(desk)}</span>'
+                f'<span class="didi-watch-group-n">{len(grp)}</span>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            for i, row in grp.head(6).iterrows():
+                kind = _cell_str(row.get("Focus_Kind"))
+                key = _cell_str(row.get("Focus_Key"))
+                selected = (
+                    (kind == "supervisor" and str(sel_supervisor) == key)
+                    or (kind == "agent" and str(sel_agent) == key)
+                )
+                box = "didi_watch_on" if selected else "didi_watch"
+                with st.container(border=True, key=_next_didi_key(box)):
+                    st.markdown(
+                        f'<p class="didi-coach-copy">{html_escape(_cell_str(row.get("Issue")))}</p>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        "Clear focus" if selected else "Focus coaching",
+                        key=f"watch_{desk}_{i}_{_fn}",
+                        width="stretch",
+                    ):
+                        dim = "supervisor" if kind == "supervisor" else "agent"
+                        _set_people_filter(dim, None if selected else key)
+
+    render_banner("Recontact — operations")
+    st.caption(
+        "Recontact has no supervisor, agent, tenure, or country field (region is always SSL). "
+        "This block is the official rate versus 5.44, plus contact-reason Lv4 alerts — not people cards."
+    )
+    rc1, rc2 = st.columns([1, 2])
+    with rc1:
+        render_kpi(
+            L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
+            traffic=rc_light,
+            size="secondary",
+            caption="Σ Recontact Volume / Σ Contacts. FCR is 100 − this rate; no FCR target.",
+        )
+    with rc2:
+        rc_ops = recontact_ops_table(rc_cr)
+        if rc_ops.empty:
+            st.caption("No contact-reason recontact rows off the 5.44 goal in this filter.")
+        else:
+            show_df(pd.DataFrame({
+                "Contact reason Lv4 (detail)": rc_ops["Contact reason Lv4 (detail)"],
+                "Repeats": rc_ops["Repeats"].map(lambda v: f"{int(v):,}"),
+                "Rate %": rc_ops["Rate %"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+                "vs 5.44": rc_ops["vs 5.44"].map(lambda v: f"{v:+.2f}" if pd.notna(v) else "—"),
+            }))
+
+    render_banner("Ticket tracker")
+    st.caption("Click a stage to filter the coaching queue. Click again to show all.")
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        with st.container(key=_next_didi_key("didi_flow")):
+            if st.button(
+                f"Active alerts: {n_active}",
+                key=f"pipe_active_{_fn}",
+                width="stretch",
+                type="primary" if pipe_filter == "active" else "secondary",
+            ):
+                st.session_state[pipe_key] = None if pipe_filter == "active" else "active"
+                st.rerun()
+    with f2:
+        with st.container(key=_next_didi_key("didi_flow")):
+            if st.button(
+                f"In progress / notified: {n_prog}",
+                key=f"pipe_prog_{_fn}",
+                width="stretch",
+                type="primary" if pipe_filter == "progress" else "secondary",
+            ):
+                st.session_state[pipe_key] = None if pipe_filter == "progress" else "progress"
+                st.rerun()
+    with f3:
+        with st.container(key=_next_didi_key("didi_flow")):
+            if st.button(
+                f"Closed / coached: {n_closed}",
+                key=f"pipe_closed_{_fn}",
+                width="stretch",
+                type="primary" if pipe_filter == "closed" else "secondary",
+            ):
+                st.session_state[pipe_key] = None if pipe_filter == "closed" else "closed"
+                st.rerun()
+    if not tickets:
+        st.caption("Create a ticket from a coaching card to move work through this flow. Email is a draft — the Excel has no addresses.")
+    else:
+        tcols = st.columns(min(3, len(tickets)))
+        for i, ticket in enumerate(tickets):
+            with tcols[i % len(tcols)]:
+                render_ticket_card(ticket, tickets_key)
+

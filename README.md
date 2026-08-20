@@ -1,122 +1,70 @@
-# DiDi CX Performance Dashboard — Deploy Guide
+# DiDi CX QA Dashboard
 
-## Entregable 1: Performance Dashboard
-
-Dashboard interactivo con slicers para el Business Case de CX Quality Analyst.
-
-### KPIs de la semana (W19)
-
-| Métrica | Valor | Meta | Estado |
-|---------|-------|------|--------|
-| QA Score | 94.14 | ≥ 85 | 🟢 |
-| CSAT | 79.95% | ≥ 85% | 🔴 |
-| Recontact Rate | 5.83% | ≤ 5.44% | 🟡 |
-
----
-
-## Opción A — Streamlit Cloud (1 link gratis) ⭐ Recomendada
-
-### Paso 1: Subir a GitHub
-
-```bash
-cd C:\Users\PC\Documents\DIDI
-git init
-git add .
-git commit -m "DiDi CX Performance Dashboard"
-git remote add origin https://github.com/TU_USUARIO/didi-cx-dashboard.git
-git push -u origin main
-```
-
-### Paso 2: Deploy en Streamlit Cloud
-
-1. Ve a [share.streamlit.io](https://share.streamlit.io)
-2. Conecta tu cuenta de GitHub
-3. Selecciona el repo `didi-cx-dashboard`
-4. Main file: `app.py`
-5. Click **Deploy**
-
-Obtendrás un link como: `https://didi-cx-dashboard.streamlit.app`
-
-### Paso 3: Editar datos
-
-Para actualizar el dashboard con datos nuevos:
-
-1. Reemplaza el Excel en `c:\Users\PC\Downloads\Business Case.xlsx`
-2. Ejecuta: `python scripts/process_data.py`
-3. Haz commit y push de los CSVs actualizados en `data/`
-4. Streamlit Cloud se redeploya automáticamente
-
----
-
-## Opción B — Looker Studio + Google Sheets (editable en vivo)
-
-Si prefieres que cualquier persona edite datos directamente en Sheets:
-
-1. Abre [Google Sheets](https://sheets.google.com)
-2. Importa `data/DiDi_CX_Dashboard_Data.xlsx` (File → Import)
-3. Ve a [Looker Studio](https://lookerstudio.google.com)
-4. Create → Report → Google Sheets connector
-5. Selecciona cada pestaña como fuente de datos
-6. Crea visualizaciones con filtros (slicers) por Channel, Country, CR Lv4
-7. Share → "Anyone with the link can view"
-
-**Ventaja:** Editas Google Sheets y el dashboard se actualiza al instante.
-
----
+Dashboard interactivo para el Business Case CX Quality Analyst.
+**Todos los datos provienen del archivo Business Case.xlsx** (tabs QA, CSAT, Recontact).
 
 ## Correr localmente
 
 ```powershell
 cd C:\Users\PC\Documents\DIDI
-python -m pip install -r requirements.txt
-python scripts/process_data.py
+pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Abre: `http://localhost:8501`
+## Datos
 
----
+La app lee el **snapshot parquet versionado en `data/packaged/`** (0,8 MB, 9 tablas).
+Si ese snapshot no existe, reconstruye el modelo desde `data/Business Case.xlsx`.
+Todas las rutas son relativas al proyecto, así que funciona igual en local y en la nube.
 
-## Estructura del proyecto
+Si cambias el Excel fuente, regenera el snapshot:
+
+```powershell
+python scripts\build_data_artifact.py     # reconstruye data/packaged/*.parquet
+python scripts\smoke_test_deploy.py       # valida filas y totales de control
+python scripts\smoke_test_app.py          # ejecuta app.py completo sin navegador
+```
+
+Totales de control del dataset completo: QA Score **94,14** · CSAT **79,95** ·
+Recontact Rate **5,83**.
+
+## Despliegue
+
+Ver [DEPLOY.md](DEPLOY.md) para publicar en Streamlit Community Cloud con repositorio
+privado y acceso restringido por correo (el Business Case es confidencial).
+
+## Estructura
 
 ```
 DIDI/
-├── app.py                          # Dashboard Streamlit
-├── requirements.txt
+├── app.py                      # UI Streamlit
+├── config.py                   # Metas, colores DiDi y rutas de datos
+├── DEPLOY.md                   # Guía de despliegue
+├── modules/
+│   ├── data_loader.py          # Snapshot parquet + fallback al Excel
+│   ├── kpis.py                 # Cálculo de métricas
+│   ├── charts.py               # Gráficos Plotly
+│   └── recommendations.py      # Recomendaciones (solo datos reales)
 ├── scripts/
-│   └── process_data.py             # Pipeline ETL + métricas
-├── data/
-│   ├── kpi_summary.csv             # KPIs vs goals
-│   ├── qa_by_channel.csv           # QA por canal
-│   ├── qa_by_cr.csv                # QA por CR Lv4
-│   ├── qa_attributes.csv           # Defectos por atributo
-│   ├── csat_by_cr.csv              # CSAT por CR Lv4
-│   ├── csat_by_business_type.csv   # CSAT por Business Type
-│   ├── recontact_by_cr.csv         # Recontact por CR Lv4
-│   ├── combined_analysis.csv       # Análisis cruzado
-│   ├── voc_sample.csv              # Voice of Customer
-│   └── DiDi_CX_Dashboard_Data.xlsx # Master editable
+│   ├── build_data_artifact.py  # Genera data/packaged/*.parquet
+│   ├── smoke_test_deploy.py    # Verifica la capa de datos
+│   └── smoke_test_app.py       # Verifica el render completo de app.py
+└── data/
+    ├── packaged/               # Snapshot parquet (se despliega con el repo)
+    ├── Business Case.xlsx      # Fuente original (fallback)
+    └── cache/                  # Caché local, ignorado por git
 ```
 
----
+## Secciones
 
-## Secciones del dashboard (cumple requisitos del PDF)
+| Página | Contenido |
+|--------|-----------|
+| **Overview** | 3 KPIs vs meta, volúmenes diarios, WoW, canal, requester, combined CR, action plan |
+| **QA Score** | Críticos vs no críticos, Phone/Live Chat, Pareto, CR, tenure, Special project, Type of audit, AHT, supervisor, agentes |
+| **CSAT** | Estrellas, VOC, segmentación, user_tenure, Business Type |
+| **Recontact** | Tasa oficial, alcance (Self Help diluye), Pareto CR, canal |
 
-| Requisito PDF | Sección del Dashboard |
-|---------------|----------------------|
-| Overall performance vs goals | Overview — KPI cards |
-| QA by channel, CR, attributes | QA Analysis (3 tabs) |
-| CSAT segmented + VOC | CSAT / VOC (3 tabs) |
-| Recontact patterns | Recontact |
-| Combined metric insight | Combined Insights |
-| Slicers/filters | Sidebar: Channel, Country, CR Lv4 |
+## Nota importante
 
----
-
-## Notas técnicas
-
-- QA Score calculado con fórmula del PDF (no se usa `Score_end_user` directamente)
-- Phone attrs: cols W–AH · Live Chat attrs: cols AI–AP
-- Critical fail = score 0 · Non-critical fail = −10 pts · N/A (2) excluido
-- Colores DiDi: `#FF6600`, `#1A1A1A`, `#FFFFFF`
-- Semáforo: 🟢 at/above goal · 🟡 within 5pp · 🔴 >5pp below goal
+No hay datos simulados. El módulo de "Plan de Acción" genera recomendaciones
+basadas en hallazgos reales (scores bajo meta, errores frecuentes, CRs problemáticos).
