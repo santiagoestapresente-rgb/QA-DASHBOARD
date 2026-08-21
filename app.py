@@ -2740,6 +2740,21 @@ def _apply_pending_sidebar_filters() -> None:
         st.session_state[_filter_widget_key("agent")] = "All"
 
 
+def _copy_sidebar_filter_state(old_fn: int, new_fn: int) -> None:
+    """Carry sidebar filter values when bumping fn (same pattern as Reset filters)."""
+    for prefix in (
+        "flt_weeks", "flt_day", "flt_ch", "flt_cty", "flt_lob", "flt_cr1",
+        "flt_req", "flt_ten", "flt_sup", "flt_agent", "flt_audt", "flt_sp", "flt_bt",
+    ):
+        old_key = f"{prefix}_{old_fn}"
+        if old_key in st.session_state:
+            st.session_state[f"{prefix}_{new_fn}"] = st.session_state[old_key]
+    lv1 = st.session_state.get(f"flt_cr1_{old_fn}", "All")
+    old_cr = f"flt_cr_{old_fn}_{lv1}"
+    if old_cr in st.session_state:
+        st.session_state[f"flt_cr_{new_fn}_{lv1}"] = st.session_state[old_cr]
+
+
 cr_lookup = cr_group_lookup(csat_all)
 cr_lv1_opts = sorted({v for v in cr_lookup.values() if v and str(v).strip()} | {CR_UNMAPPED})
 
@@ -3526,14 +3541,27 @@ def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
 
 
 def _set_people_filter(dim: str, value: str | None) -> None:
-    if not value or str(value) == "All":
-        st.session_state[_PENDING_SIDEBAR_FILTER] = {
-            "dim": dim,
-            "value": "All",
-            "clear_agent": dim == "supervisor",
-        }
-    else:
-        st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": str(value), "mode": "toggle"}
+    """Hub buttons cannot mutate an existing widget key — bump fn like Reset filters."""
+    old_fn = int(st.session_state.fn)
+    new_fn = old_fn + 1
+    st.session_state.fn = new_fn
+    _copy_sidebar_filter_state(old_fn, new_fn)
+    sup_key = f"flt_sup_{new_fn}"
+    agent_key = f"flt_agent_{new_fn}"
+    if dim == "supervisor":
+        if not value or str(value) == "All":
+            st.session_state[sup_key] = "All"
+            st.session_state[agent_key] = "All"
+        else:
+            current = str(st.session_state.get(sup_key) or "All")
+            st.session_state[sup_key] = "All" if current == str(value) else str(value)
+            st.session_state[agent_key] = "All"
+    elif dim == "agent":
+        if not value or str(value) == "All":
+            st.session_state[agent_key] = "All"
+        else:
+            current = str(st.session_state.get(agent_key) or "All")
+            st.session_state[agent_key] = "All" if current == str(value) else str(value)
     st.rerun()
 
 
