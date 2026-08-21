@@ -2669,6 +2669,77 @@ if "fn" not in st.session_state:
     st.session_state.fn = 0
 _fn = st.session_state.fn
 
+_PENDING_SIDEBAR_FILTER = "_pending_sidebar_filter"
+
+
+def _filter_widget_key(dim: str) -> str:
+    keys = {
+        "channel": f"flt_ch_{_fn}",
+        "country": f"flt_cty_{_fn}",
+        "lob": f"flt_lob_{_fn}",
+        "cr_lv1": f"flt_cr1_{_fn}",
+        "requester": f"flt_req_{_fn}",
+        "tenure": f"flt_ten_{_fn}",
+        "supervisor": f"flt_sup_{_fn}",
+        "agent": f"flt_agent_{_fn}",
+        "audit_type": f"flt_audt_{_fn}",
+        "special_project": f"flt_sp_{_fn}",
+        "business_type": f"flt_bt_{_fn}",
+        "weeks": f"flt_weeks_{_fn}",
+        "day": f"flt_day_{_fn}",
+    }
+    if dim == "cr":
+        lv1 = st.session_state.get(f"flt_cr1_{_fn}", "All")
+        return f"flt_cr_{_fn}_{lv1}"
+    return keys[dim]
+
+
+def _apply_pending_sidebar_filters() -> None:
+    """Replay hub/chart filter clicks before sidebar widgets mount."""
+    pending = st.session_state.pop(_PENDING_SIDEBAR_FILTER, None)
+    if not pending:
+        return
+    dim = pending["dim"]
+    value = pending.get("value")
+    mode = pending.get("mode", "set")
+    if mode == "weeks_single":
+        week_key = _filter_widget_key("weeks")
+        current = [str(x) for x in (st.session_state.get(week_key) or [])]
+        target = str(value)
+        st.session_state[week_key] = list(weeks) if current == [target] else [target]
+        return
+    if mode == "cr_toggle":
+        cr_all_key = f"flt_cr_{_fn}_All"
+        current = str(st.session_state.get(cr_all_key) or st.session_state.get(_filter_widget_key("cr")) or "All")
+        st.session_state[f"flt_cr1_{_fn}"] = "All"
+        st.session_state[cr_all_key] = "All" if current == str(value) else str(value)
+        return
+    widget_key = _filter_widget_key(dim)
+    if value is None or str(value) == "All":
+        st.session_state[widget_key] = "All"
+        if dim == "supervisor" or pending.get("clear_agent"):
+            st.session_state[_filter_widget_key("agent")] = "All"
+        return
+    if mode == "toggle":
+        current = str(st.session_state.get(widget_key) or "All")
+        if dim == "channel":
+            current = normalize_channel_label(current) if current not in (None, "All") else current
+            value = normalize_channel_label(value)
+        st.session_state[widget_key] = "All" if current == str(value) else str(value)
+    else:
+        current = st.session_state.get(widget_key, "All")
+        if dim == "channel":
+            current = normalize_channel_label(current) if current not in (None, "All") else current
+            value = normalize_channel_label(value)
+        if str(current) == str(value):
+            if pending.get("clear_if_same"):
+                st.session_state[widget_key] = "All"
+            return
+        st.session_state[widget_key] = value
+    if dim == "supervisor" and str(st.session_state.get(widget_key)) != "All":
+        st.session_state[_filter_widget_key("agent")] = "All"
+
+
 cr_lookup = cr_group_lookup(csat_all)
 cr_lv1_opts = sorted({v for v in cr_lookup.values() if v and str(v).strip()} | {CR_UNMAPPED})
 
@@ -2699,6 +2770,8 @@ elif weeks:
     week_span = str(weeks[0])
 else:
     week_span = "—"
+
+_apply_pending_sidebar_filters()
 
 with st.sidebar:
     st.markdown(
@@ -3268,28 +3341,6 @@ def drill(title: str, *, expanded: bool = False):
     return st.expander(title, expanded=expanded)
 
 
-def _filter_widget_key(dim: str) -> str:
-    keys = {
-        "channel": f"flt_ch_{_fn}",
-        "country": f"flt_cty_{_fn}",
-        "lob": f"flt_lob_{_fn}",
-        "cr_lv1": f"flt_cr1_{_fn}",
-        "requester": f"flt_req_{_fn}",
-        "tenure": f"flt_ten_{_fn}",
-        "supervisor": f"flt_sup_{_fn}",
-        "agent": f"flt_agent_{_fn}",
-        "audit_type": f"flt_audt_{_fn}",
-        "special_project": f"flt_sp_{_fn}",
-        "business_type": f"flt_bt_{_fn}",
-        "weeks": f"flt_weeks_{_fn}",
-        "day": f"flt_day_{_fn}",
-    }
-    if dim == "cr":
-        lv1 = st.session_state.get(f"flt_cr1_{_fn}", "All")
-        return f"flt_cr_{_fn}_{lv1}"
-    return keys[dim]
-
-
 def _filter_allowed(dim: str) -> set[str] | None:
     if dim == "channel":
         return set(filter_opts(audits_all["Channel"]))
@@ -3453,19 +3504,11 @@ def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
     if not value:
         return
     if dim == "weeks":
-        week_key = _filter_widget_key("weeks")
-        current = [str(x) for x in (st.session_state.get(week_key) or [])]
-        if current == [value]:
-            st.session_state[week_key] = list(weeks)
-        else:
-            st.session_state[week_key] = [value]
+        st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": "weeks", "value": value, "mode": "weeks_single"}
         st.rerun()
         return
     if dim == "cr":
-        cr_all_key = f"flt_cr_{_fn}_All"
-        current = str(st.session_state.get(cr_all_key) or st.session_state.get(_filter_widget_key("cr")) or "All")
-        st.session_state[f"flt_cr1_{_fn}"] = "All"
-        st.session_state[cr_all_key] = "All" if current == value else value
+        st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": "cr", "value": value, "mode": "cr_toggle"}
         st.rerun()
         return
     widget_key = _filter_widget_key(dim)
@@ -3475,23 +3518,22 @@ def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
         value = normalize_channel_label(value)
     if str(current) == str(value):
         if dim == "country":
-            st.session_state[widget_key] = "All"
+            st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": "All"}
             st.rerun()
         return
-    st.session_state[widget_key] = value
+    st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": value}
     st.rerun()
 
 
 def _set_people_filter(dim: str, value: str | None) -> None:
-    widget_key = _filter_widget_key(dim)
     if not value or str(value) == "All":
-        st.session_state[widget_key] = "All"
-        st.rerun()
-        return
-    current = str(st.session_state.get(widget_key) or "All")
-    st.session_state[widget_key] = "All" if current == str(value) else str(value)
-    if dim == "supervisor":
-        st.session_state[_filter_widget_key("agent")] = "All"
+        st.session_state[_PENDING_SIDEBAR_FILTER] = {
+            "dim": dim,
+            "value": "All",
+            "clear_agent": dim == "supervisor",
+        }
+    else:
+        st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": str(value), "mode": "toggle"}
     st.rerun()
 
 
