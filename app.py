@@ -422,6 +422,9 @@ _CSS = f"""
 html, body, [class*="css"], .stApp, .stMarkdown, .stCaption, button, input, textarea {{
     font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
 }}
+html {{
+    zoom: 0.8;
+}}
 .stApp {{
     background: {DIDI_NAVY};
     background-image: {_GRAD_PAGE};
@@ -2401,6 +2404,7 @@ st.html(
     "<div id='didi-theme-sync'></div>"
     "<script>"
     "(function(){"
+    "try{document.documentElement.style.zoom='0.8';}catch(e){}"
     "if(window.__didiDialogGrip)return;"
     "window.__didiDialogGrip=true;"
     "var MIN_W=560,MIN_H=420;"
