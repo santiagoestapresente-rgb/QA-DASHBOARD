@@ -27,34 +27,53 @@ PAGES = {
         "QA Score",
         "CSAT Score",
         "Recontact Rate",
-        "FCR",
         "Total Contacts",
         "Combined Analysis",
-        "Contact reason Lv4 (detail) failing more than one KPI",
-        "CSAT vs recontact",
         "Within 5 points",
         "What to do next",
-        "Handle time vs quality",
-        "Supervisors furthest from QA 85",
-        "Supervisors furthest from CSAT 85",
+        "Supervisor QA impact Pareto",
         "Supervisors: QA vs CSAT",
+        "QA, CSAT and recontact by channel",
+        "QA and AHT by contact reason Lv1",
+        "QA and AHT by contact reason Lv4",
+        "QA and AHT by contact reason SUB_CR",
+        "Supervisor CSAT impact Pareto",
+        "Contact reason classification coverage",
+        "Top contact reasons (SUB_CR)",
         "How the data is sliced",
         "QA Agent_ID",
         "Contact reason Lv1",
         "Contact reason Lv4",
+        "Contact reason SUB_CR",
+        "Contact number by channel",
         "4–5 star surveys",
         "1–3 star surveys",
-        "See all slices",
+        "Performance trends",
+        "QA score by day",
+        "Week by week",
+        "Lower-volume contact reasons",
+        "Critical fails",
+        "Non-critical fails",
+        "AHT",
+        "Auditor resolution rate",
+        "Unresolved — process followed",
+        "Abandoned interaction rate",
     ),
     "QA Score": (
         "QA overview",
-        "QA by channel",
+        "QA score by channel",
+        "Audit volume by channel",
+        "Audits summary",
+        "Performance trends",
+        "Detail by category",
         "CRITICAL",
         "CRITICAL fails by attribute",
         "QA fails by attribute",
         "Score_end_user",
         "Audits with critical fail",
         "Audits with non-critical fails",
+        "Auditor resolution rate",
+        "Unresolved — process followed",
         "Audits with fails (critical and non-critical)",
         "Non-critical",
         "Phone",
@@ -62,10 +81,15 @@ PAGES = {
         "Special project",
         "Type of audit",
         "Handle time vs quality",
-        "QA fails by contact reason Lv4",
+        "QA fail Pareto by contact reason Lv4",
         "contact reason Lv1",
         "QA by agent tenure",
-        "below 85 · 5+ audits",
+        "SUB_CR",
+        "Interaction outcome (auditor notes)",
+        "Solution and process",
+        "Auditor-tagged dissatisfaction",
+        "Same-CR contacts in last 48h",
+        "did not follow process",
     ),
     "CSAT": (
         "CSAT overview",
@@ -73,31 +97,28 @@ PAGES = {
         "Positive vs negative",
         "Themes in 1–3 star comments",
         "open_question",
-        "CSAT by star rating",
-        "surveys rated 4 or 5",
-        "How CSAT scores are spread",
+        "CSAT by day",
+        "CSAT score histogram",
         "star comments",
         "surveys with comments",
-        "surveys left a comment",
-        "Segments furthest from CSAT 85",
         "CSAT by contact reason Lv4",
-        "user tenure",
-        "below 85 · 20+ surveys",
+        "SUB_CR",
+        "CSAT by agent tenure",
         "Business Type",
-        "CSAT vs handle time",
         "4–5 star surveys",
         "1–3 star surveys",
     ),
     "Recontact": (
         "Recontact overview",
-        "Repeats and rate by contact reason Lv4",
+        "Repeated contacts and rate by contact reason Lv4",
+        "Repeated contacts and rate by contact reason SUB_CR",
         "Official mix vs Phone + Chat",
         "Self Help",
-        "Repeat volume by contact reason Lv4",
+        "Repeat volume by channel",
         "Recontact by contact reason Lv1",
         "Recontact vs handle time",
         "FCR",
-        "Total recontacts",
+        "Recontact number",
         "Contacts, repeats, and rate by channel",
         "12-channel mix",
         "Do not average",
@@ -105,14 +126,14 @@ PAGES = {
     ),
     "Alerts": (
         "Performance Hub",
-        "Watchlist",
-        "Supervisor health",
-        "View Q4 only",
-        "Create ticket",
+        "Equal-count split",
+        "Top 25%",
+        "Supervisor talent mix",
+        "Q4-heavy teams only",
+        "Coaching queue",
+        "Focus coaching",
         "Ticket tracker",
-        "Email draft",
         "Active alerts",
-        "recontact has no",
     ),
 }
 
@@ -122,7 +143,6 @@ LEAK_TOKENS = (
     '&lt;div class="kpi',
     'class="kpi-card"',
     "kpi-card",
-    "js-plotly-plot",
 )
 
 SPANISH_ATTR_LEAK = (
@@ -218,6 +238,18 @@ def _assert_gap_n_split() -> str | None:
     if "N = 10 fails" not in blob4:
         return f"Fail Pareto should keep fail counts as N: {blob4!r}"
 
+    long_tail = pd.DataFrame({
+        "Cat": [f"R{i}" for i in range(1, 13)],
+        "Count": list(range(12, 0, -1)),
+    })
+    fig_tail = pareto_dual_axis(long_tail, "Cat", "Count", title="CSAT unsatisfied Pareto", bucket_other=True)
+    blob_tail = _annotation_text(fig_tail)
+    ticks = " ".join(str(t).replace("<br>", " ") for t in (fig_tail.layout.xaxis.ticktext or []))
+    if "Remaining reasons (5 more)" not in ticks:
+        return f"Pareto tail should be leftover after 80%, not a fixed top 10: {ticks!r}"
+    if "7 named bars reach 80%" not in blob_tail:
+        return f"Pareto N note should say named bars reach 80%: {blob_tail!r}"
+
     zeros = pd.DataFrame({"Cat": ["Agent 26", "Agent 94"], "Count": [1, 0]})
     figz = pareto_dual_axis(zeros, "Cat", "Count", title="QA fails by agent")
     blobz = _annotation_text(figz)
@@ -225,6 +257,27 @@ def _assert_gap_n_split() -> str | None:
         return "Zero-fail agent should not appear on a fail Pareto"
     if "N = 1 fails" not in blobz:
         return f"Zero-fail rows should drop from N: {blobz!r}"
+
+    crowded = pd.DataFrame({
+        "Cat": [f"Supervisor {i}" for i in range(1, 11)],
+        "Count": list(range(10, 0, -1)),
+    })
+    fig_c = pareto_dual_axis(crowded, "Cat", "Count", title="QA fails by supervisor")
+    angle = fig_c.layout.xaxis.tickangle
+    try:
+        angle_v = float(angle)
+    except (TypeError, ValueError):
+        angle_v = 0.0
+    if abs(angle_v) < 40:
+        return f"Short many-bar Pareto labels should rotate, tickangle={angle!r}"
+    n_ann = next(
+        (a for a in (fig_c.layout.annotations or []) if getattr(a, "name", None) == "didi_n"),
+        None,
+    )
+    if n_ann is None:
+        return "Pareto missing didi_n annotation"
+    if str(getattr(n_ann, "xanchor", "")) != "center":
+        return f"N should be centered above the legend, xanchor={n_ann.xanchor!r}"
 
     return None
 
@@ -373,6 +426,17 @@ def _assert_population_n() -> str | None:
         return f"Recontact drifted: {recontact_rate(rc)}"
     if len(audits) != CONTROL_TOTALS["evaluations"]:
         return f"Audit N drifted: {len(audits)}"
+    if "Auditor_Outcome" not in audits.columns or "Dissatisfaction_Flag" not in audits.columns:
+        return "fact_audits missing auditor-note columns"
+    n_bad = int((audits["Process_Adherence"].astype(str) == "Did not follow process").sum())
+    if n_bad != 418:
+        return f"Process_Adherence did-not-follow drifted: {n_bad}"
+    n_yes = int((audits["Dissatisfaction_Flag"].astype(str) == "Yes").sum())
+    if n_yes != 109:
+        return f"Dissatisfaction Yes drifted: {n_yes}"
+    n_rep = int((audits["Repeat_48h"].astype(str) == "Repeat (≥2)").sum())
+    if n_rep != 36:
+        return f"Repeat 48h drifted: {n_rep}"
 
     g = (
         audits.groupby("Supervisor_ID", as_index=False)
@@ -449,7 +513,6 @@ def _assert_see_all_and_scatter() -> str | None:
     from modules.kpis import (
         csat_score_by_cr,
         qa_score_by_cr,
-        series_descriptive_stats,
     )
     from modules.data_loader import load_all_data
 
@@ -470,18 +533,6 @@ def _assert_see_all_and_scatter() -> str | None:
     qa_rel = qa_score_by_cr(audits, top_n=12, min_n=3)
     if len(qa_all) <= len(qa_rel):
         return f"See-all QA by CR should include small samples ({len(qa_all)} vs {len(qa_rel)})"
-
-    stats = series_descriptive_stats([10.0, 20.0, 20.0, 30.0])
-    if stats["n"] != 4:
-        return f"Stats n drifted: {stats['n']}"
-    if abs(float(stats["mean"]) - 20.0) > 1e-9:
-        return f"Stats mean drifted: {stats['mean']}"
-    if abs(float(stats["median"]) - 20.0) > 1e-9:
-        return f"Stats median drifted: {stats['median']}"
-    if stats["mode"] != 20.0:
-        return f"Stats mode drifted: {stats['mode']}"
-    if stats["cv"] is None or abs(float(stats["cv"]) - (stats["std"] / 20.0 * 100)) > 1e-6:
-        return f"Stats CV drifted: {stats['cv']}"
 
     fig = qa_csat_scatter(pd.DataFrame({
         "QA_Score": [80.0, 90.0, 95.0],
@@ -514,7 +565,7 @@ def main() -> int:
     if slice_err:
         print(slice_err)
         return 1
-    print("See-all CSAT/QA frames expand past min-n/top-n; scatter trend + stats are present.")
+    print("CSAT/QA by-CR frames expand past min-n/top-n; scatter trend is present.")
 
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
     at.run()

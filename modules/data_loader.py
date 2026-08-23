@@ -24,6 +24,7 @@ Dimension tables:
 from __future__ import annotations
 
 import os
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -109,6 +110,65 @@ def _apply_source_tenure(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _ensure_sub_cr_columns(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Alias CSAT Sub CR and attach QA SUB_CR onto older packaged snapshots."""
+    out = dict(data)
+    csat = out.get("fact_csat")
+    if csat is not None and not csat.empty:
+        cs = csat
+        changed = False
+        if "SUB_CR" not in cs.columns:
+            cs = cs.copy()
+            cs["SUB_CR"] = _coalesce_sub_cr(cs)
+            changed = True
+        for src, dst in (("CR Lv1", "CR_Lv1"), ("CR Lv2", "CR_Lv2"), ("CR Lv3", "CR_Lv3")):
+            if src in cs.columns and dst not in cs.columns:
+                if not changed:
+                    cs = cs.copy()
+                    changed = True
+                cs[dst] = cs[src]
+        if changed:
+            out["fact_csat"] = cs
+
+    rc = out.get("fact_recontact")
+    if rc is not None and not rc.empty and "SUB_CR" not in rc.columns:
+        r = rc.copy()
+        r["SUB_CR"] = _coalesce_sub_cr(r)
+        if r["SUB_CR"].notna().any():
+            out["fact_recontact"] = r
+
+    audits = out.get("fact_audits")
+    errors = out.get("fact_errors")
+    if audits is not None and not audits.empty and "SUB_CR" in audits.columns:
+        if errors is not None and not errors.empty and "SUB_CR" not in errors.columns:
+            lookup = audits.set_index("Audit_ID")["SUB_CR"]
+            err = errors.copy()
+            err["SUB_CR"] = err["Audit_ID"].map(lookup)
+            out["fact_errors"] = err
+        return out
+
+    source = _source_path()
+    if not source.exists() or audits is None or audits.empty:
+        return out
+    try:
+        qa = pd.read_excel(source, sheet_name="QA")
+        qa.columns = [str(c).strip().replace("\ufeff", "") for c in qa.columns]
+        sub = _coalesce_sub_cr(qa)
+        if len(audits) != len(sub):
+            return out
+        audits = audits.copy()
+        audits["SUB_CR"] = sub.to_numpy()
+        out["fact_audits"] = audits
+        if errors is not None and not errors.empty:
+            lookup = audits.set_index("Audit_ID")["SUB_CR"]
+            err = errors.copy()
+            err["SUB_CR"] = err["Audit_ID"].map(lookup)
+            out["fact_errors"] = err
+    except Exception:
+        return out
+    return out
+
+
 def _apply_display_labels(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     out = dict(data)
     if "fact_errors" in out:
@@ -119,7 +179,7 @@ def _apply_display_labels(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFra
         out["fact_audits"] = _apply_source_tenure(out["fact_audits"])
     if "dim_agents" in out:
         out["dim_agents"] = _apply_source_tenure(out["dim_agents"])
-    return out
+    return _ensure_auditor_notes(_ensure_sub_cr_columns(out))
 
 
 def calc_qa_score(row: pd.Series, attr_cols: list[str]) -> float:
@@ -177,9 +237,253 @@ def load_raw() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return qa, csat, recontact
 
 
+def _optional_label_series(s: pd.Series) -> pd.Series:
+    """String labels that stay missing instead of becoming 'Unknown'."""
+    out = s.astype("string").str.strip()
+    blank = out.isna() | out.eq("") | out.str.casefold().isin(("nan", "none", "null"))
+    return out.mask(blank, pd.NA)
+
+
 def _safe_str_series(s: pd.Series) -> pd.Series:
     """Normalize ID/label columns to clean strings (handles NaN mixed types)."""
     return s.fillna("Unknown").astype(str).str.strip().replace("", "Unknown")
+
+
+AUDITOR_NOTE_COLS = (
+    "Dissatisfaction_Flag",
+    "Dissatisfaction_Owner",
+    "Dissatisfaction_Subreason",
+    "Solution_Provided",
+    "Process_Adherence",
+    "Auditor_Outcome",
+    "Prior_CR_Contacts_48h",
+    "Repeat_48h",
+    "Dissatisfaction_Notes",
+    "Five_Whys",
+)
+
+AUDITOR_OUTCOME_ORDER = (
+    "Resolved + process",
+    "Unresolved + process",
+    "Abandoned",
+    "Resolved, no process",
+    "Unresolved, no process",
+)
+
+REPEAT_48H_ORDER = (
+    "Single contact (1)",
+    "Unmarked (Phone 0)",
+    "Repeat (≥2)",
+)
+
+_SUBREASON_EN = {
+    "no basado en resolucion": "Not resolution-based",
+    "inconforme con resolucion": "Unhappy with resolution",
+    "adherencia al proceso": "Process adherence",
+    "informacion completa y correcta": "Complete and correct information",
+    "servicio de csr": "CSR service",
+    "tiempo de espera": "Wait time",
+    "entidades externas": "External entities",
+    "terceros, problemas con el sistema del agente": "Third parties / agent system",
+    "el proceso indica seguimiento de escalada": "Process requires escalation follow-up",
+    "entendimiento de la app": "App understanding",
+}
+
+
+def _fold_key(value: object) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text.casefold().strip().rstrip(".")
+
+
+def _yes_no_flag(series: pd.Series) -> pd.Series:
+    raw = series.astype("string").str.strip()
+    folded = raw.str.casefold()
+    blank = raw.isna() | folded.isin(("", "nan", "none", "null", "nat"))
+    yes = folded.str.match(r"^s[ií]", na=False)
+    no = folded.eq("no")
+    return pd.Series(
+        np.select(
+            [yes.fillna(False).to_numpy(), no.fillna(False).to_numpy()],
+            ["Yes", "No"],
+            default="Not assessed",
+        ),
+        index=series.index,
+    ).mask(blank.fillna(True), "Not assessed")
+
+
+def _map_subreason(series: pd.Series) -> pd.Series:
+    keys = series.map(_fold_key)
+    mapped = keys.map(_SUBREASON_EN)
+    blank = keys.eq("") | keys.isin(("nan", "none", "null", "n/a", "na"))
+    return mapped.mask(blank | mapped.isna(), pd.NA)
+
+
+def _parse_solution_process(series: pd.Series) -> pd.DataFrame:
+    """Split the compound 'was a solution provided' sentence.
+
+    The source mixes solved vs not with process followed vs not, plus abandonment.
+    Official QA does not use this column.
+    """
+    text = series.astype("string").str.strip()
+    folded = text.str.casefold()
+    blank = text.isna() | folded.isin(("", "nan", "none", "null", "nat"))
+    abandoned = folded.str.contains("abandon", na=False).fillna(False)
+    not_followed = folded.str.contains("no sigu", na=False).fillna(False)
+    followed = folded.str.contains(r"s[ií] sigu", na=False, regex=True).fillna(False)
+    resolved = folded.str.match(r"^s[ií]", na=False).fillna(False)
+    present = (~blank).fillna(False)
+
+    solution = np.select(
+        [abandoned.to_numpy(), resolved.to_numpy(), present.to_numpy()],
+        ["Abandoned", "Resolved", "Not resolved"],
+        default="Not assessed",
+    )
+    process = np.select(
+        [abandoned.to_numpy(), not_followed.to_numpy(), followed.to_numpy()],
+        ["Abandoned", "Did not follow process", "Followed process"],
+        default="Not assessed",
+    )
+    outcome = np.select(
+        [
+            abandoned.to_numpy(),
+            (resolved & followed).to_numpy(),
+            ((~resolved) & followed & ~abandoned & present).to_numpy(),
+            (resolved & not_followed).to_numpy(),
+            ((~resolved) & not_followed & ~abandoned).to_numpy(),
+        ],
+        [
+            "Abandoned",
+            "Resolved + process",
+            "Unresolved + process",
+            "Resolved, no process",
+            "Unresolved, no process",
+        ],
+        default="Not assessed",
+    )
+    return pd.DataFrame(
+        {
+            "Solution_Provided": solution,
+            "Process_Adherence": process,
+            "Auditor_Outcome": outcome,
+        },
+        index=series.index,
+    )
+
+
+def _repeat_48h_status(series: pd.Series) -> pd.DataFrame:
+    n = pd.to_numeric(series, errors="coerce")
+    ge2 = (n >= 2).fillna(False)
+    eq1 = n.eq(1).fillna(False)
+    eq0 = n.eq(0).fillna(False)
+    status = np.select(
+        [ge2.to_numpy(), eq1.to_numpy(), eq0.to_numpy()],
+        ["Repeat (≥2)", "Single contact (1)", "Unmarked (Phone 0)"],
+        default="Not assessed",
+    )
+    return pd.DataFrame(
+        {"Prior_CR_Contacts_48h": n, "Repeat_48h": status},
+        index=series.index,
+    )
+
+
+def _optional_text(series: pd.Series) -> pd.Series:
+    out = series.astype("string").str.strip()
+    blank = out.isna() | out.eq("") | out.str.casefold().isin(("nan", "none", "null", "nat"))
+    return out.mask(blank, pd.NA)
+
+
+def auditor_notes_from_qa(qa: pd.DataFrame) -> pd.DataFrame:
+    """Auditor-note columns for one QA row. Not used in the official QA score."""
+    n = len(qa)
+    idx = qa.index
+    empty = pd.Series(pd.NA, index=idx, dtype="string")
+    out = pd.DataFrame(index=idx)
+
+    if "se_presento_insatisfaccion_en_la_interaccion_human" in qa.columns:
+        out["Dissatisfaction_Flag"] = _yes_no_flag(qa["se_presento_insatisfaccion_en_la_interaccion_human"])
+    else:
+        out["Dissatisfaction_Flag"] = "Not assessed"
+
+    if "Responsabilidad_de_insatisfaccion_human" in qa.columns:
+        owner = _optional_label_series(qa["Responsabilidad_de_insatisfaccion_human"])
+        out["Dissatisfaction_Owner"] = owner.where(out["Dissatisfaction_Flag"].eq("Yes"), pd.NA)
+    else:
+        out["Dissatisfaction_Owner"] = empty
+
+    if "Sub_motivo_de_insatisfaccion_human" in qa.columns:
+        sub = _map_subreason(qa["Sub_motivo_de_insatisfaccion_human"])
+        out["Dissatisfaction_Subreason"] = sub.where(out["Dissatisfaction_Flag"].eq("Yes"), pd.NA)
+    else:
+        out["Dissatisfaction_Subreason"] = empty
+
+    if "Se_le_brindo_solucion_a_la_solicitud" in qa.columns:
+        parsed = _parse_solution_process(qa["Se_le_brindo_solucion_a_la_solicitud"])
+        out["Solution_Provided"] = parsed["Solution_Provided"]
+        out["Process_Adherence"] = parsed["Process_Adherence"]
+        out["Auditor_Outcome"] = parsed["Auditor_Outcome"]
+    else:
+        out["Solution_Provided"] = "Not assessed"
+        out["Process_Adherence"] = "Not assessed"
+        out["Auditor_Outcome"] = "Not assessed"
+
+    if "El_usuario_ya_tenia_mas_contactos_con_el_mismo_cr_en_las_ultimas_48_horas" in qa.columns:
+        rpt = _repeat_48h_status(qa["El_usuario_ya_tenia_mas_contactos_con_el_mismo_cr_en_las_ultimas_48_horas"])
+        out["Prior_CR_Contacts_48h"] = rpt["Prior_CR_Contacts_48h"]
+        out["Repeat_48h"] = rpt["Repeat_48h"]
+    else:
+        out["Prior_CR_Contacts_48h"] = np.nan
+        out["Repeat_48h"] = "Not assessed"
+
+    notes_col = "Descripcion_insatisfaccion_human"
+    five_col = "Analisis_de_los_5_por_que_IA"
+    out["Dissatisfaction_Notes"] = (
+        _optional_text(qa[notes_col]) if notes_col in qa.columns else empty
+    )
+    out["Five_Whys"] = _optional_text(qa[five_col]) if five_col in qa.columns else empty
+    if n == 0:
+        return out
+    return out
+
+
+def _ensure_auditor_notes(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Attach auditor-note columns onto older packaged snapshots when the Excel exists."""
+    out = dict(data)
+    audits = out.get("fact_audits")
+    if audits is None or audits.empty or "Dissatisfaction_Flag" in audits.columns:
+        return out
+    source = _source_path()
+    if not source.exists():
+        return out
+    try:
+        qa = pd.read_excel(source, sheet_name="QA")
+        qa.columns = [str(c).strip().replace("\ufeff", "") for c in qa.columns]
+        notes = auditor_notes_from_qa(qa)
+        if len(notes) != len(audits):
+            return out
+        work = audits.copy()
+        for col in AUDITOR_NOTE_COLS:
+            work[col] = notes[col].to_numpy()
+        out["fact_audits"] = work
+    except Exception:
+        return out
+    return out
+
+
+def _coalesce_sub_cr(df: pd.DataFrame) -> pd.Series:
+    """Finest contact-reason grain: QA SUB_CR_correcta, else CSAT/RC Sub CR."""
+    if "SUB_CR_correcta" in df.columns:
+        s = df["SUB_CR_correcta"]
+        if "SUB_CR_registrada" in df.columns:
+            s = s.fillna(df["SUB_CR_registrada"])
+        return _optional_label_series(s)
+    if "SUB_CR_registrada" in df.columns:
+        return _optional_label_series(df["SUB_CR_registrada"])
+    if "Sub CR" in df.columns:
+        return _optional_label_series(df["Sub CR"])
+    if "SUB_CR" in df.columns:
+        return _optional_label_series(df["SUB_CR"])
+    return pd.Series(pd.NA, index=df.index, dtype="string")
 
 
 def _calc_scores_vectorized(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
@@ -220,6 +524,7 @@ def build_fact_audits(qa: pd.DataFrame) -> pd.DataFrame:
     # Both QA CR columns are English in the Business Case workbook.
     # CR_correcta is the auditor-corrected reason; use it as the display CR.
     df["CR_Lv4"] = df["CR_correcta"].fillna(df["CR_registrada"])
+    df["SUB_CR"] = _coalesce_sub_cr(df)
     df["Tenure_Raw"] = df["Tenure"]
     df["Tenure_Cohort"] = df["Tenure"].map(tenure_display_label)
     df["Auditor_ID"] = df["Type_of_audit"]
@@ -237,13 +542,18 @@ def build_fact_audits(qa: pd.DataFrame) -> pd.DataFrame:
     else:
         df["Source_Score_End_User"] = np.nan
 
+    notes = auditor_notes_from_qa(df)
+    for col in AUDITOR_NOTE_COLS:
+        df[col] = notes[col]
+
     return df[
         [
             "Audit_ID", "Fecha", "Week", "Agent_ID", "Supervisor_ID", "LOB",
-            "Channel", "Country", "CR_Lv4", "Tenure_Raw", "Tenure_Cohort",
+            "Channel", "Country", "CR_Lv4", "SUB_CR", "Tenure_Raw", "Tenure_Cohort",
             "Auditor_ID", "Type_of_audit", "Special_project",
             "Score_Pct", "Fatal_Flag", "Score_Status", "Goal_Status",
             "Source_Score_End_User", "Duration", "Requester",
+            *AUDITOR_NOTE_COLS,
         ]
     ]
 
@@ -253,12 +563,13 @@ def build_fact_errors(qa: pd.DataFrame) -> pd.DataFrame:
     qa = qa.copy()
     qa["Audit_ID"] = range(1, len(qa) + 1)
     qa["CR_Lv4"] = qa["CR_correcta"].fillna(qa["CR_registrada"])
+    qa["SUB_CR"] = _coalesce_sub_cr(qa)
     qa["Agent_ID"] = _safe_str_series(qa["Evaluado"])
     qa["Supervisor_ID"] = _safe_str_series(qa["Supervisor"])
 
     id_vars = [
         "Audit_ID", "fecha", "Week", "Agent_ID", "Supervisor_ID",
-        "LOB", "Channel", "CR_Lv4",
+        "LOB", "Channel", "CR_Lv4", "SUB_CR",
     ]
     parts = []
     for channel, attrs in [("Phone", PHONE_ATTRS), ("Live Chat", LIVECHAT_ATTRS)]:
@@ -281,7 +592,7 @@ def build_fact_errors(qa: pd.DataFrame) -> pd.DataFrame:
     out = pd.concat(parts, ignore_index=True)
     return out[
         ["Audit_ID", "Fecha", "Week", "Agent_ID", "Supervisor_ID", "LOB",
-         "Channel", "CR_Lv4", "Error_Category", "Error_Raw", "Is_Critical", "Severity"]
+         "Channel", "CR_Lv4", "SUB_CR", "Error_Category", "Error_Raw", "Is_Critical", "Severity"]
     ]
 
 
@@ -302,6 +613,11 @@ def build_fact_csat(csat: pd.DataFrame) -> pd.DataFrame:
         df["Business_Type"] = df["Business Type Name"].astype(str).str.strip()
     if "CR Lv1" in df.columns:
         df["CR_Lv1"] = df["CR Lv1"]
+    if "CR Lv2" in df.columns:
+        df["CR_Lv2"] = df["CR Lv2"]
+    if "CR Lv3" in df.columns:
+        df["CR_Lv3"] = df["CR Lv3"]
+    df["SUB_CR"] = _coalesce_sub_cr(df)
     return df
 
 
@@ -323,6 +639,7 @@ def build_fact_recontact(recontact: pd.DataFrame) -> pd.DataFrame:
         np.nan,
     )
     df["FCR_Pct"] = 100 - df["Recontact_Rate"]
+    df["SUB_CR"] = _coalesce_sub_cr(df)
     return df
 
 
@@ -396,10 +713,19 @@ def build_dim_kpis() -> pd.DataFrame:
 
 def build_cr_impact(csat: pd.DataFrame, recontact: pd.DataFrame) -> pd.DataFrame:
     """CR-level CSAT and FCR for Pareto impact weighting (ratio of sums)."""
+
+    def _key(frame: pd.DataFrame) -> pd.Series:
+        return frame["CR_Lv4"].astype(str).str.strip().str.casefold()
+
+    cs = csat.copy()
+    cs["_key"] = _key(cs)
     csat_cr = (
-        csat.groupby("CR_Lv4")
-        .agg(Satisfied=("Satisfied_CNT", "sum"), Feedback_CNT=("Feedback CNT", "sum"))
-        .reset_index()
+        cs.groupby("_key", as_index=False)
+        .agg(
+            CR_Lv4=("CR_Lv4", "first"),
+            Satisfied=("Satisfied_CNT", "sum"),
+            Feedback_CNT=("Feedback CNT", "sum"),
+        )
     )
     csat_cr["CSAT_Pct"] = np.where(
         csat_cr["Feedback_CNT"] > 0,
@@ -408,10 +734,10 @@ def build_cr_impact(csat: pd.DataFrame, recontact: pd.DataFrame) -> pd.DataFrame
     )
     csat_cr = csat_cr.drop(columns=["Satisfied"])
     rc = build_fact_recontact(recontact)
+    rc["_key"] = _key(rc)
     rc_cr = (
-        rc.groupby("CR_Lv4")
+        rc.groupby("_key", as_index=False)
         .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
-        .reset_index()
     )
     rc_cr["Recontact_Rate"] = np.where(
         rc_cr["Contacts"] > 0,
@@ -420,7 +746,13 @@ def build_cr_impact(csat: pd.DataFrame, recontact: pd.DataFrame) -> pd.DataFrame
     )
     rc_cr["FCR_Pct"] = 100 - rc_cr["Recontact_Rate"]
     rc_cr = rc_cr.drop(columns=["Recontacts", "Contacts"])
-    return csat_cr.merge(rc_cr, on="CR_Lv4", how="outer")
+    merged = csat_cr.merge(rc_cr, on="_key", how="outer")
+    if "CR_Lv4" not in merged.columns:
+        merged["CR_Lv4"] = merged["_key"]
+    else:
+        names = rc.groupby("_key")["CR_Lv4"].first()
+        merged["CR_Lv4"] = merged["CR_Lv4"].fillna(merged["_key"].map(names)).fillna(merged["_key"])
+    return merged.drop(columns=["_key"])
 
 
 def build_from_source() -> dict[str, pd.DataFrame]:

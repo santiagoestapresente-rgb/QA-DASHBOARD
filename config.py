@@ -217,12 +217,17 @@ COMPOSITE_WEIGHTS = {"qa": 0.50, "csat": 0.30, "fcr": 0.20}
 RANKING_INDEX_WEIGHTS = {"qa": 0.50, "csat": 0.30, "aht": 0.20}
 RANKING_QA_MIN_N = 5
 RANKING_CSAT_MIN_N = 20
+# Combined Lv4 chart: enough n to draw a bar, then keep the top slice by volume.
+CR_COMBO_TOP_N = 15
+CR_COMBO_MIN_QA_N = 10
+# Supervisor gap Paretos: n below this is insufficient sample, not a ranking.
+SUPERVISOR_GAP_MIN_N = 20
 # Option A leadership flag: share of the supervisor's ranked agents in company Q4.
 SUPERVISOR_Q4_SHARE_ALERT = 40.0
 
 LABELS = {
     'page_overview': 'CX Quality Overview',
-    'page_qa': 'QA Score',
+    'page_qa': 'QA overview',
     'page_csat': 'CSAT / Voice of the Customer',
     'page_recontact': 'Recontact Rate',
     'page_alerts': 'Performance Hub',
@@ -239,12 +244,40 @@ LABELS = {
     'kpi_recontact': 'Recontact Rate',
     'kpi_fcr': 'FCR (derived)',
     'kpi_contacts': 'Total Contacts',
-    'kpi_recontacts': 'Total recontacts',
+    'kpi_recontacts': 'Recontact number',
     'kpi_surveys': 'Total Surveys',
     'kpi_evals': 'QA Evaluations',
     'kpi_critical_rate': 'Audits with critical fail',
     'kpi_crit_fails': 'Critical fails',
     'kpi_noncrit_fails': 'Non-critical fails',
+    'kpi_aht': 'AHT',
+    'note_aht': 'Mean QA Duration in minutes. From audits only; CSAT has no handle-time field. Not an official KPI.',
+    'kpi_resolution': 'Auditor resolution rate',
+    'note_resolution': (
+        "Was the case resolved? Auditor judgment from the form question "
+        "'Se le brindó solución a la solicitud'. "
+        "Resolved ÷ (Resolved + Not resolved). Abandoned chats are excluded. "
+        "This is not FCR — FCR is only 100 minus the recontact rate. "
+        "It does not enter the QA score."
+    ),
+    'caption_resolution': 'Was the case resolved? Auditor judgment — not FCR, not part of the QA score.',
+    'kpi_abandoned': 'Abandoned interaction rate',
+    'note_abandoned': (
+        "Share of QA audits where the auditor marked "
+        "'No, pero el usuario abandonó la interacción' — the caller hung up or closed the chat. "
+        "These audits are excluded from auditor resolution rate. This is not recontact."
+    ),
+    'kpi_unresolved_process': 'Unresolved — process followed',
+    'note_unresolved_process': (
+        "Among audits marked Not resolved only. Process followed = the agent did the script "
+        "and still could not close the case (usually policy or tools). "
+        "Did not follow process = agent-side. "
+        "Named dissatisfaction owner (CX Process vs People) is filled on ~4% of audits — "
+        "see QA notes; do not treat that tag as the full picture."
+    ),
+    'caption_unresolved_process': (
+        "Of not-resolved audits: agent followed the process. The rest did not — that slice is coaching."
+    ),
     'kpi_audits_noncrit': 'Audits with non-critical fails',
     'kpi_audits_any_fail': 'Audits with fails (critical and non-critical)',
     'panel_weekly': 'Weekly trend',
@@ -272,7 +305,7 @@ LABELS = {
     'panel_qa_rc': 'QA vs recontact',
     'sub_qa_rc': 'One point per contact reason Lv4 (detail)',
     'panel_corr': 'KPI correlations',
-    'sub_corr': 'Pearson r on shared contact reason Lv4 (detail) names',
+    'sub_corr': 'R² on shared contact reason Lv4 (detail) names',
     'insight_label': 'Key operational insight',
     'action_label': 'Recommended action',
     'panel_qa_channel': 'QA by channel',
@@ -306,7 +339,7 @@ LABELS = {
     'panel_aht_rc': 'Recontact vs handle time',
     'sub_aht_rc': 'Phone and Live Chat only',
     'panel_aht_corr': 'AHT correlations',
-    'sub_aht_corr': 'Pearson r at contact reason Lv4 (detail)',
+    'sub_aht_corr': 'R² at contact reason Lv4 (detail)',
     'panel_csat_pareto': 'Unsatisfied surveys by contact reason Lv4 (detail)',
     'sub_csat_pareto': '1★–3★ volume by contact reason Lv4 (detail)',
     'panel_supervisor': 'QA by supervisor',
@@ -315,6 +348,14 @@ LABELS = {
     'sub_pareto_cr': 'Attribute fails by contact reason Lv4 (detail)',
     'panel_cr_group_qa': 'QA fails by contact reason Lv1 (group)',
     'sub_cr_group_qa': 'Contact reason Lv1 (group) vs contact reason Lv4 (detail)',
+    'panel_qa_notes': 'Interaction outcome (auditor notes)',
+    'panel_qa_outcome': 'Solution and process',
+    'sub_qa_outcome': 'Auditor tag. Not an official KPI. Official QA is still the attribute-grid score.',
+    'panel_qa_dissat': 'Auditor-tagged dissatisfaction',
+    'sub_qa_dissat': 'Yes/No from the auditor. Owner and sub-reason exist only when Yes.',
+    'panel_qa_48h': 'Same-CR contacts in last 48h',
+    'sub_qa_48h': 'Count on the audit, not official recontact. 0 is Phone-only; Live Chat never uses 0.',
+    'note_qa_notes': 'Auditor notes from the QA form. They do not enter the official QA score (attribute grid, critical → 0, else −10 from 100).',
     'panel_stars': 'CSAT by star rating',
     'sub_stars': 'Share of surveys',
     'panel_voc': 'Comment themes',
@@ -327,8 +368,10 @@ LABELS = {
     'sub_csat_ichart': 'Usual range and 85 goal',
     'panel_csat_bt': 'CSAT by Business Type',
     'sub_csat_bt': 'CSAT tab Business Type',
-    'panel_rc_donut': 'Repeats and rate by contact reason Lv4 (detail)',
+    'panel_rc_donut': 'Repeated contacts and rate by contact reason Lv4 (detail)',
     'sub_rc_donut': 'Repeat volume and official rate (ratio of sums) by contact reason Lv4 (detail)',
+    'panel_rc_sub': 'Repeated contacts and rate by contact reason SUB_CR',
+    'sub_rc_sub': 'Repeat volume and official rate at SUB_CR. Recontact has no native SUB_CR — Lv4 volume is split by CSAT mix.',
     'panel_rc_scope': 'Official mix vs Phone + Chat',
     'sub_rc_scope': 'Official rate uses all 12 channels. Phone + Chat is the audited rate.',
     'panel_rc_pareto': 'Repeat volume by contact reason Lv4 (detail)',
@@ -350,6 +393,7 @@ LABELS = {
     'note_cr_map': 'Contact reason Lv1 (group) comes from the CSAT hierarchy, matched by contact reason Lv4 (detail). Reasons that do not appear in CSAT are shown as Not mapped. This is a grouping of official metrics, not a new formula.',
     'filter_cr': 'Contact reason Lv4 (detail)',
     'filter_cr_lv1': 'Contact reason Lv1 (group)',
+    'filter_sub_cr': 'Contact reason SUB_CR (finest)',
     'col_cr_group': 'Contact reason Lv1 (group)',
     'col_cr_detail': 'Contact reason Lv4 (detail)',
     'qa_story': '',
@@ -362,8 +406,11 @@ LABEL_GROUPS = {
     "Section labels": ["section_overview", "section_qa", "section_csat", "section_recontact", "section_market", "section_combined", "section_alerts_contract", "section_alerts_ops"],
     "KPI cards": [
         "kpi_qa", "kpi_csat", "kpi_recontact", "kpi_fcr", "kpi_contacts", "kpi_recontacts", "kpi_surveys",
-        "kpi_evals", "kpi_critical_rate", "kpi_crit_fails", "kpi_noncrit_fails",
-        "kpi_audits_noncrit", "kpi_audits_any_fail",
+        "kpi_evals", "kpi_critical_rate", "kpi_crit_fails", "kpi_noncrit_fails", "kpi_aht",
+        "kpi_resolution", "note_resolution", "caption_resolution",
+        "kpi_abandoned", "note_abandoned",
+        "kpi_unresolved_process", "note_unresolved_process", "caption_unresolved_process",
+        "kpi_audits_noncrit", "kpi_audits_any_fail", "note_aht",
     ],
     "Overview panels": [
         "panel_weekly", "sub_weekly", "panel_channel", "sub_channel", "panel_requester",
@@ -385,8 +432,10 @@ LABEL_GROUPS = {
         "panel_aht_csat", "sub_aht_csat", "panel_aht_rc", "sub_aht_rc",
         "panel_aht_corr", "sub_aht_corr", "panel_supervisor", "sub_supervisor",
         "panel_pareto_cr", "sub_pareto_cr", "panel_cr_group_qa", "sub_cr_group_qa",
+        "panel_qa_notes", "panel_qa_outcome", "sub_qa_outcome",
+        "panel_qa_dissat", "sub_qa_dissat", "panel_qa_48h", "sub_qa_48h",
         "note_hist", "note_crit_kpi", "note_noncrit_audits", "note_any_fail_audits",
-        "note_crit_split", "note_spc", "note_cr_map",
+        "note_crit_split", "note_spc", "note_cr_map", "note_qa_notes",
         "qa_story",
     ],
     "CSAT panels": [
@@ -395,12 +444,12 @@ LABEL_GROUPS = {
         "panel_csat_bt", "sub_csat_bt", "panel_csat_pareto", "sub_csat_pareto",
     ],
     "Recontact panels": [
-        "panel_rc_donut", "sub_rc_donut", "panel_rc_scope", "sub_rc_scope",
+        "panel_rc_donut", "sub_rc_donut", "panel_rc_sub", "sub_rc_sub", "panel_rc_scope", "sub_rc_scope",
         "panel_rc_pareto", "sub_rc_pareto", "panel_rc_ichart", "sub_rc_ichart",
         "panel_rc_channel_pareto", "sub_rc_channel_pareto",
         "panel_rc_channel", "sub_rc_channel", "panel_cr_group_rc", "sub_cr_group_rc",
     ],
-    "Filters": ["filter_cr", "filter_cr_lv1", "col_cr_group", "col_cr_detail"],
+    "Filters": ["filter_cr", "filter_cr_lv1", "filter_sub_cr", "col_cr_group", "col_cr_detail"],
 }
 
 UI_OVERRIDES_PATH = ROOT / "ui_overrides.json"

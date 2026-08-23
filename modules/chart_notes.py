@@ -20,6 +20,14 @@ def _top_name(series: pd.Series) -> str:
     return str(series.iloc[0])[:48]
 
 
+def _r2_phrase(r) -> str:
+    r2 = float(r) ** 2
+    if abs(float(r)) < 0.05:
+        return f"R²={r2:.2f}"
+    side = "positive" if float(r) > 0 else "negative"
+    return f"R²={r2:.2f} ({side})"
+
+
 def _lead(scope: str) -> str:
     return f"{scope} " if scope else ""
 
@@ -233,7 +241,7 @@ def scatter_notes(df: pd.DataFrame, x: str, y: str, pair: str, scope: str = "") 
     if n < 5:
         return [
             f"{lead}Only {n} contact reason Lv4 (detail) name(s) have both {pair} after the current filter.".strip(),
-            "Pearson r is withheld below 5 shared reasons so two or three names cannot look like a relationship.",
+            "R² is withheld below 5 shared reasons so two or three names cannot look like a relationship.",
             "Widen Channel, Market, or contact reason Lv4 (detail) if you need the association read. The KPI cards above still use the filtered totals.",
         ]
     r = sub.corr().iloc[0, 1]
@@ -241,11 +249,11 @@ def scatter_notes(df: pd.DataFrame, x: str, y: str, pair: str, scope: str = "") 
         return [f"{lead}{pair} has no linear read in this filter.".strip()]
     mag = abs(float(r))
     if mag < 0.25:
-        link = f"{pair} barely move together (r={float(r):.2f}, N={n}). Fixing one will not automatically fix the other."
+        link = f"{pair} barely move together ({_r2_phrase(r)}, N={n}). Fixing one will not automatically fix the other."
     elif r > 0:
-        link = f"{pair} move in the same direction (r={float(r):.2f}, N={n}). Higher X tends to come with higher Y at reason level."
+        link = f"{pair} move in the same direction ({_r2_phrase(r)}, N={n}). Higher X tends to come with higher Y at reason level."
     else:
-        link = f"{pair} move in opposite directions (r={float(r):.2f}, N={n}). The drivers are splitting, not reinforcing."
+        link = f"{pair} move in opposite directions ({_r2_phrase(r)}, N={n}). The drivers are splitting, not reinforcing."
     return [
         f"{lead}{link}".strip(),
         "Each point is one contact reason Lv4 (detail), not a survey and not an agent. This is association, not cause.",
@@ -269,14 +277,14 @@ def corr_coverage_notes(coverage: dict, corr: pd.DataFrame, scope: str = "") -> 
             f"all three {coverage.get('all_three', 0)}."
         ),
         (
-            "Pearson r needs at least 5 shared names for that pair. "
-            "r near 0 means the two KPIs do not move together at reason level. "
+            "R² needs at least 5 shared names for that pair. "
+            "R² near 0 means the two KPIs do not move together at reason level. "
             "N is the count of shared Lv4 names, not surveys and not audits."
         ),
     ]
     if corr is not None and not corr.empty and corr["Pearson_r"].isna().all():
         notes.append(
-            "No pair currently has 5 shared names, so r is withheld. "
+            "No pair currently has 5 shared names, so R² is withheld. "
             "The KPI scorecard above is still valid — this table is only the association read. "
             "Set Channel back to All, or drop Market / contact-reason cuts, to bring overlapping names back."
         )
@@ -308,17 +316,17 @@ def aht_notes(points: pd.DataFrame, by_channel: pd.DataFrame, scope: str = "", c
     long = points.sort_values("AHT_min", ascending=False).iloc[0]
     if pd.notna(r) and abs(float(r)) < 0.20:
         notes.append(
-            f"At reason level, AHT and QA barely move together (r={float(r):.2f}). "
+            f"At reason level, AHT and QA barely move together ({_r2_phrase(r)}). "
             "Longer calls are not a reliable explanation for the audit score in this filter."
         )
     elif pd.notna(r) and r < 0:
         notes.append(
-            f"Longer AHT tends to sit with lower QA (r={float(r):.2f}). "
+            f"Longer AHT tends to sit with lower QA ({_r2_phrase(r)}). "
             "That is a pressure hypothesis: check time-management and information-complete fails on those reasons, not a proven cause."
         )
     elif pd.notna(r):
         notes.append(
-            f"Longer AHT does not track with worse QA here (r={float(r):.2f}). "
+            f"Longer AHT does not track with worse QA here ({_r2_phrase(r)}). "
             "Do not use average handle time as the primary quality lever in this slice."
         )
     tail = (
@@ -359,44 +367,46 @@ def aht_outcome_notes(
 
     if "Phone" in slices and phone_csat is not None and phone_csat > 0.20:
         notes.append(
-            f"Phone: longer AHT sits with higher CSAT (r={phone_csat:+.2f}). "
+            f"Phone: longer AHT sits with higher CSAT ({_r2_phrase(phone_csat)}). "
             "Rushing the call is the risk — extra handle is not the CSAT problem on this channel."
         )
     elif "Phone" in slices and phone_csat is not None and phone_csat < -0.20:
         notes.append(
-            f"Phone: longer AHT sits with lower CSAT (r={phone_csat:+.2f}). "
+            f"Phone: longer AHT sits with lower CSAT ({_r2_phrase(phone_csat)}). "
             "Those reasons are already stuck — coach the process, not speed."
         )
     if "Live Chat" in slices and chat_csat is not None and chat_csat < -0.15:
         notes.append(
-            f"Live Chat: longer threads sit with lower CSAT (r={chat_csat:+.2f}). "
+            f"Live Chat: longer threads sit with lower CSAT ({_r2_phrase(chat_csat)}). "
             "A long chat is usually an unresolved ticket, not thorough service."
         )
     if "Phone" in slices and phone_rc is not None and phone_rc < -0.20:
         notes.append(
-            f"Phone: longer AHT sits with fewer repeats (r={phone_rc:+.2f}). "
+            f"Phone: longer AHT sits with fewer repeats ({_r2_phrase(phone_rc)}). "
             "Cutting handle time there can cost first-contact resolution."
         )
     if "Live Chat" in slices and chat_rc is not None and abs(chat_rc) < 0.20:
         notes.append(
-            f"Live Chat: AHT and recontact barely move together (r={chat_rc:+.2f}). "
+            f"Live Chat: AHT and recontact barely move together ({_r2_phrase(chat_rc)}). "
             "FCR work is the contact reason Lv4 (detail), not chat length."
         )
     all_csat, _ = _r("AHT vs CSAT", "All")
     all_rc, _ = _r("AHT vs Recontact", "All")
-    if channel in (None, "All", "") and all_qa is not None and abs(all_qa) > 0.25:
+    if channel in (None, "All", "") and all_qa is not None:
         notes.append(
-            f"Pooled AHT vs QA looks strong (r={all_qa:+.2f}) because Phone and Live Chat "
-            "are different operations. Coach each channel, not the All bar."
+            f"Pooled AHT vs QA ({_r2_phrase(all_qa)}) is not Phone R² plus Chat R². "
+            "All is one correlation on the mixed Phone+Chat cloud. Phone handle is longer by nature, "
+            "so All can be strongly positive while both channels are flat or negative. "
+            "Coach the channel rows, not All."
         )
     if channel in (None, "All", "") and all_csat is not None and all_csat < -0.20:
         notes.append(
-            f"Pooled AHT vs CSAT is negative (r={all_csat:+.2f}), but Phone is the opposite. "
+            f"Pooled AHT vs CSAT is negative ({_r2_phrase(all_csat)}), but Phone is the opposite. "
             "Do not cut handle time as a CSAT lever until you split the channel."
         )
     if channel in (None, "All", "") and all_rc is not None and abs(all_rc) < 0.15:
         notes.append(
-            f"Pooled AHT vs recontact is almost flat (r={all_rc:+.2f}). "
+            f"Pooled AHT vs recontact is almost flat ({_r2_phrase(all_rc)}). "
             "Phone still shows longer calls with fewer repeats — that FCR trade-off is hidden in All."
         )
     if not notes:

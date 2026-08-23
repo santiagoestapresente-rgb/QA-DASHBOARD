@@ -57,35 +57,39 @@ def combined_operational_analysis(
     if audits.empty:
         return pd.DataFrame()
 
+    qa = audits.copy()
+    qa["_key"] = qa["CR_Lv4"].astype(str).str.strip().str.casefold()
     qa_cr = (
-        audits.groupby("CR_Lv4")
-        .agg(QA_Score=("Score_Pct", "mean"), QA_N=("Audit_ID", "count"))
-        .reset_index()
+        qa.groupby("_key", as_index=False)
+        .agg(CR_Lv4=("CR_Lv4", "first"), QA_Score=("Score_Pct", "mean"), QA_N=("Audit_ID", "count"))
     )
     qa_cr = qa_cr[qa_cr["QA_N"] >= min_audits]
 
-    csat_cr = pd.DataFrame(columns=["CR_Lv4", "CSAT_Score", "Feedback"])
+    csat_cr = pd.DataFrame(columns=["_key", "CR_Lv4", "CSAT_Score", "Feedback"])
     if not csat.empty and "CR_Lv4" in csat.columns:
+        cs = csat.copy()
+        cs["_key"] = cs["CR_Lv4"].astype(str).str.strip().str.casefold()
         csat_cr = (
-            csat.groupby("CR_Lv4")
-            .agg(Feedback=("Feedback CNT", "sum"), Satisfied=("Satisfied_CNT", "sum"))
-            .reset_index()
+            cs.groupby("_key", as_index=False)
+            .agg(CR_Lv4=("CR_Lv4", "first"), Feedback=("Feedback CNT", "sum"), Satisfied=("Satisfied_CNT", "sum"))
         )
         csat_cr["CSAT_Score"] = (csat_cr["Satisfied"] / csat_cr["Feedback"] * 100).round(2)
         csat_cr = csat_cr[csat_cr["Feedback"] >= min_feedback]
 
-    rc_cr = pd.DataFrame(columns=["CR_Lv4", "Recontact_Rate", "Contacts", "Recontacts"])
+    rc_cr = pd.DataFrame(columns=["_key", "CR_Lv4", "Recontact_Rate", "Contacts", "Recontacts"])
     if not recontact.empty:
+        rc = recontact.copy()
+        rc["_key"] = rc["CR_Lv4"].astype(str).str.strip().str.casefold()
         rc_cr = (
-            recontact.groupby("CR_Lv4")
-            .agg(Contacts=("Contacts", "sum"), Recontacts=("Recontact Volume", "sum"))
-            .reset_index()
+            rc.groupby("_key", as_index=False)
+            .agg(CR_Lv4=("CR_Lv4", "first"), Contacts=("Contacts", "sum"), Recontacts=("Recontact Volume", "sum"))
         )
         rc_cr["Recontact_Rate"] = (rc_cr["Recontacts"] / rc_cr["Contacts"] * 100).round(2)
         rc_cr = rc_cr[rc_cr["Contacts"] >= min_contacts]
 
-    merged = qa_cr.merge(csat_cr[["CR_Lv4", "CSAT_Score", "Feedback"]], on="CR_Lv4", how="left")
-    merged = merged.merge(rc_cr[["CR_Lv4", "Recontact_Rate", "Contacts", "Recontacts"]], on="CR_Lv4", how="left")
+    merged = qa_cr.merge(csat_cr[["_key", "CSAT_Score", "Feedback"]], on="_key", how="left")
+    merged = merged.merge(rc_cr[["_key", "Recontact_Rate", "Contacts", "Recontacts"]], on="_key", how="left")
+    merged = merged.drop(columns=["_key"])
 
     merged["QA_vs"] = (merged["QA_Score"] - QA_GOAL).round(1)
     merged["CSAT_vs"] = (merged["CSAT_Score"] - CSAT_GOAL).round(1)
@@ -166,6 +170,12 @@ def requester_performance(
         })
 
     df = pd.DataFrame(rows)
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "Segment", "QA_Score", "CSAT_Score", "Recontact_Rate",
+            "QA_Score_vs", "CSAT_Score_vs", "Recontact_Rate_vs",
+            "QA_Score_status", "CSAT_Score_status", "Recontact_Rate_status",
+        ])
     for col, goal, hib in [
         ("QA_Score", QA_GOAL, True),
         ("CSAT_Score", CSAT_GOAL, True),

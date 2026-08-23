@@ -120,14 +120,16 @@ def voc_chip(df: pd.DataFrame) -> dict:
 def scatter_chip(r: float | None, n: int, pair: str) -> dict:
     if r is None or pd.isna(r) or n < 5:
         return chip(
-            f"{pair}: {int(n)} shared Lv4 name(s); r needs ≥5 names, not surveys.",
+            f"{pair}: {int(n)} shared Lv4 name(s); R² needs ≥5 names, not surveys.",
             "info",
         )
+    r2 = float(r) ** 2
     mag = abs(float(r))
     if mag < 0.20:
-        return chip(f"{pair} r={float(r):+.2f} — very weak (N={n}).", "info")
+        return chip(f"{pair} R²={r2:.2f} — almost no relationship (N={n}).", "info")
+    side = "negative" if float(r) < 0 else "positive"
     tone = "risk" if mag >= 0.40 else "info"
-    return chip(f"{pair} r={float(r):+.2f} on {n} shared Lv4.", tone)
+    return chip(f"{pair} R²={r2:.2f} ({side}) on {n} shared Lv4.", tone)
 
 
 def aht_overlap_empty_text(
@@ -160,8 +162,8 @@ def r_explain(
     surveys: int | None = None,
     audits: int | None = None,
 ) -> dict:
-    """Short box copy for correlation scatters. r is Pearson's r on shared CR Lv4."""
-    title = "What r means"
+    """Short box copy for association scatters. Lead with R²; sign comes from r."""
+    title = "What R² means"
     n_val = int(n) if n is not None and pd.notna(n) else 0
     if r is None or pd.isna(r) or n_val < 5:
         bits = []
@@ -179,10 +181,11 @@ def r_explain(
             "title": title,
             "body": (
                 f"{lead}{pair}: {n_val} shared contact reason Lv4 (detail) name(s) "
-                "have both values. r needs at least 5 shared names — not 5 surveys."
+                "have both values. R² needs at least 5 shared names — not 5 surveys."
                 f"{handle}"
             ),
         }
+    r2 = float(r) ** 2
     mag = abs(float(r))
     if mag < 0.20:
         strength = "almost no relationship"
@@ -192,14 +195,19 @@ def r_explain(
         strength = "a moderate relationship"
     else:
         strength = "a strong relationship"
-    move = (
-        "When one goes up, the other tends to go up."
-        if float(r) > 0
-        else "When one goes up, the other tends to go down."
-    )
+    move = ""
+    if mag >= 0.05:
+        move = (
+            " The slope is positive: when one goes up, the other tends to go up."
+            if float(r) > 0
+            else " The slope is negative: when one goes up, the other tends to go down."
+        )
     return {
         "title": title,
-        "body": f"r is {float(r):+.2f} on {n} contact reason Lv4 (detail) names — {strength}. {move}",
+        "body": (
+            f"R² is {r2:.2f} on {n} contact reason Lv4 (detail) names — {strength}.{move} "
+            "R² is the share of one score that a straight line in the other can explain."
+        ),
     }
 
 

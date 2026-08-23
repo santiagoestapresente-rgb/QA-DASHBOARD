@@ -17,8 +17,11 @@ from config import (
     DIDI_ORANGE,
     DIDI_TEXT,
     QA_GOAL,
+    RANKING_CSAT_MIN_N,
+    CR_COMBO_MIN_QA_N,
     RECONTACT_GOAL,
     STATUS_COLORS,
+    TENURE_SOURCE_ORDER,
 )
 
 FONT = 'Inter, "Segoe UI", system-ui, sans-serif'
@@ -43,6 +46,53 @@ def _goal_status(value, goal: float, higher_is_better: bool = True) -> str:
 
 def _status_hex(value, goal: float, higher_is_better: bool = True) -> str:
     return STATUS_COLORS.get(_goal_status(value, goal, higher_is_better), STATUS_COLORS["neutral"])
+
+
+VOLUME_LINE = "#475569"
+# Percentage score axis. Labels sit outside the bar; extra right margin covers them.
+SCORE_LABEL_MAX = 100
+
+_TRAFFIC_LEGEND = (
+    ("On goal", STATUS_COLORS["green"]),
+    ("Within 5 points", STATUS_COLORS["amber"]),
+    ("More than 5 points off", STATUS_COLORS["red"]),
+)
+
+
+def _add_traffic_legend(fig: go.Figure, *, secondary_y: bool | None = None) -> None:
+    """Dummy traces so the legend matches the 3-state bar colors."""
+    for name, color in _TRAFFIC_LEGEND:
+        tr = go.Bar(
+            x=[None], y=[None], name=name,
+            marker_color=color, hoverinfo="skip", showlegend=True,
+        )
+        if secondary_y is None:
+            fig.add_trace(tr)
+        else:
+            fig.add_trace(tr, secondary_y=secondary_y)
+
+
+def _tenure_rank(value: object) -> int:
+    raw = str(value or "").strip().replace("–", "-").replace("—", "-").casefold()
+    rank = {
+        str(k).replace("–", "-").replace("—", "-").casefold(): i
+        for i, k in enumerate(list(TENURE_SOURCE_ORDER) + ["Unknown"])
+    }
+    return rank.get(raw, 99)
+
+
+def _is_tenure_col(cat_col: str) -> bool:
+    return "tenure" in str(cat_col).casefold()
+
+
+def _sort_tenure_plot(plot: pd.DataFrame, cat_col: str) -> pd.DataFrame:
+    if plot is None or plot.empty or not _is_tenure_col(cat_col):
+        return plot
+    out = plot.copy()
+    out["_tord"] = out[cat_col].map(_tenure_rank)
+    return out.sort_values("_tord", kind="mergesort").drop(columns="_tord")
+
+
 LEGEND_BOTTOM = dict(
     orientation="h", y=-0.22, x=0.5, xanchor="center",
     font=dict(size=10, color=DIDI_TEXT), bgcolor="rgba(0,0,0,0)",
@@ -281,50 +331,69 @@ def _panel(
         legend_y = None
     if legend_y is not None and legend_y >= 0.95:
         top = max(top, 52)
-    bottom = max(bottom, 72)
+    bottom = max(bottom, 56)
     right = max(right, 48)
+    left = max(left, 48)
     sample = None
     try:
         if n is not None and pd.notna(n) and int(n) >= 0 and n_unit:
             sample = int(n)
     except (TypeError, ValueError):
         sample = None
+    n_lines: list[str] = []
     if sample is not None and sample > 0:
-        top = max(top, 36)
+        n_lines.append(f"N = {sample:,} {n_unit}".strip())
+        if n_note:
+            n_lines.append(str(n_note).strip())
+        # N sits on its own row(s) above the legend so they cannot print on top of each other.
+        top = max(top, 56 + 20 * len(n_lines) + 36)
+        fig.update_layout(
+            legend=dict(
+                orientation="h", y=1.0, yanchor="bottom",
+                x=0.5, xanchor="center",
+                font=dict(size=10, color=DIDI_TEXT),
+                bgcolor="rgba(0,0,0,0)",
+                tracegroupgap=16,
+                itemsizing="constant",
+            )
+        )
     fig.update_layout(
         font=dict(family=FONT, size=11, color=DIDI_TEXT),
         paper_bgcolor=PAPER,
         plot_bgcolor=PAPER,
         margin=dict(l=left, r=right, t=top, b=bottom),
         height=height + 8,
+        autosize=True,
         legend_font=dict(color=DIDI_TEXT),
         legend_bgcolor="rgba(0,0,0,0)",
         title=dict(text=""),
+        dragmode=False,
     )
     fig.update_traces(cliponaxis=False, selector=dict(type="bar"))
     fig.update_xaxes(
         showgrid=False, linecolor=LINE, tickfont=dict(size=10, color=TICK),
         title_font=dict(color=TICK), zeroline=False,
+        automargin=True,
     )
     fig.update_yaxes(
         showgrid=True, gridcolor=GRID, linecolor=LINE,
         tickfont=dict(size=10, color=TICK), title_font=dict(color=TICK), zeroline=False,
+        automargin=True,
     )
-    if sample is not None and sample > 0:
-        n_label = f"N = {sample:,} {n_unit}"
-        if n_note:
-            n_label = f"{n_label} · {n_note}"
-        fig.add_annotation(
-            text=n_label,
-            xref="paper", yref="paper",
-            x=0, y=1,
-            xanchor="left", yanchor="bottom",
-            yshift=10,
-            showarrow=False,
-            font=dict(size=11, color="#C5D0DC"),
-            name="didi_n",
-        )
-    fig.update_annotations(font=dict(color=DIDI_MUTED, size=12))
+    if n_lines:
+        # Legend occupies ~20px just above the plot; N rows sit above that.
+        for i, line in enumerate(n_lines):
+            fig.add_annotation(
+                text=line,
+                xref="paper", yref="paper",
+                x=0.5, y=1,
+                xanchor="center", yanchor="bottom",
+                yshift=36 + 18 * (len(n_lines) - 1 - i),
+                showarrow=False,
+                font=dict(size=11, color=DIDI_MUTED),
+                name="didi_n" if i == 0 else f"didi_n_{i}",
+                align="center",
+            )
     _blank_null_axis_titles(fig)
     return fig
 
@@ -371,14 +440,14 @@ def sparkbar_fig(
     return _mini(fig, labeled=True)
 
 
-def _spark_card(fig: go.Figure, height: int = 118, margin: dict | None = None) -> go.Figure:
+def _spark_card(fig: go.Figure, height: int = 118, margin: dict | None = None, *, legend: bool = False) -> go.Figure:
     fill = PAPER or DIDI_CARD
     fig.update_layout(
         height=height,
         margin=margin or dict(l=4, r=8, t=4, b=4),
         paper_bgcolor=fill,
         plot_bgcolor=fill,
-        showlegend=False,
+        showlegend=legend,
         title=dict(text=""),
         font=dict(family=FONT, size=10, color=DIDI_TEXT),
     )
@@ -439,40 +508,77 @@ def spark_hbar_fig(
     return _spark_card(fig, height=132, margin=dict(l=8, r=42, t=4, b=4))
 
 
-def spark_donut_fig(names: list[str], values: list[float]) -> go.Figure:
-    """Ring mix for a KPI card — no outside labels, no legend."""
+def spark_donut_fig(
+    names: list[str],
+    values: list[float],
+    *,
+    legend: bool = False,
+    colors: list[str] | None = None,
+) -> go.Figure:
+    """Ring mix for a KPI card — optional tiny legend under the ring."""
     fig = go.Figure()
     if not names or not values:
         fig.add_annotation(text="No data", showarrow=False, font=dict(size=10, color=DIDI_MUTED))
         return _spark_card(fig)
+    labels = list(names)[:6]
+    star_fill = {
+        "5 Stars": CHART_COLORS["blue"],
+        "4 Stars": "#2E9B57",
+        "3 Stars": STATUS_COLORS["amber"],
+        "2 Stars": "#E85D4C",
+        "1 Star": STATUS_COLORS["red"],
+    }
+    fills = colors or [
+        star_fill.get(str(n), DONUT_PALETTE[i % len(DONUT_PALETTE)])
+        for i, n in enumerate(labels)
+    ]
     fig.add_trace(go.Pie(
-        labels=[_spark_label(n, 28) for n in names[:6]],
+        labels=[_spark_label(n, 28) for n in labels],
         values=[float(v) if v is not None and pd.notna(v) else 0.0 for v in list(values)[:6]],
         hole=0.62,
         marker=dict(
-            colors=DONUT_PALETTE[: min(6, len(names))],
+            colors=fills[: len(labels)],
             line=dict(color=PAPER or DIDI_CARD, width=1.5),
         ),
         textinfo="none",
         hovertemplate="%{label}<br>%{percent}<extra></extra>",
-        showlegend=False,
+        showlegend=legend,
+        sort=False,
+        direction="clockwise",
     ))
+    if legend:
+        fig.update_layout(
+            showlegend=True,
+            legend=dict(
+                orientation="h", y=-0.08, x=0.5, xanchor="center",
+                font=dict(size=9, color=DIDI_TEXT), bgcolor="rgba(0,0,0,0)",
+                itemwidth=30,
+            ),
+        )
+        return _spark_card(fig, height=148, margin=dict(l=8, r=8, t=6, b=28), legend=True)
     return _spark_card(fig, margin=dict(l=8, r=8, t=8, b=8))
 
 
 def spark_r_fig(r: float | None) -> go.Figure:
-    """Pearson r as a −1…+1 bar, sized for a KPI card."""
+    """R² as a 0…1 bar, colored by the sign of Pearson r."""
     fig = go.Figure()
-    val = 0.0 if r is None or pd.isna(r) else float(r)
+    has = r is not None and not (isinstance(r, float) and pd.isna(r))
+    try:
+        has = has and pd.notna(r)
+    except (TypeError, ValueError):
+        has = False
+    val = float(r) ** 2 if has else 0.0
+    sign = float(r) if has else 0.0
+    color = DIDI_ORANGE if sign >= 0 else STATUS_COLORS["red"]
     fig.add_trace(go.Bar(
-        x=[val], y=["r"], orientation="h",
-        marker_color=DIDI_ORANGE if val >= 0 else STATUS_COLORS["red"],
+        x=[val], y=["R²"], orientation="h",
+        marker_color=color,
         width=0.42,
-        hovertemplate="r = %{x:+.2f}<extra></extra>",
+        hovertemplate="R² = %{x:.2f}<extra></extra>",
     ))
     fig.add_vline(x=0, line_color=LINE, line_width=1)
     fig.update_xaxes(
-        range=[-1, 1], tickvals=[-1, 0, 1], title_text="",
+        range=[0, 1], tickvals=[0, 0.5, 1], title_text="",
         tickfont=dict(size=9, color=TICK), showgrid=False, zeroline=False,
     )
     fig.update_yaxes(visible=False, title_text="")
@@ -763,13 +869,19 @@ def top_failing_attributes_chart(df: pd.DataFrame) -> go.Figure:
     )
 
 
-def qa_by_cr_chart(df: pd.DataFrame) -> go.Figure:
-    if df.empty:
+def qa_by_cr_chart(
+    df: pd.DataFrame,
+    *,
+    cat_col: str = "CR_Lv4",
+    grain: str = "contact reason Lv4 (detail)",
+) -> go.Figure:
+    title = f"QA score by {grain}"
+    if df.empty or cat_col not in df.columns:
         fig = go.Figure()
-        fig.add_annotation(text="No contact reason Lv4 (detail) scores in the current filter", showarrow=False)
-        return _panel(fig, 320, title="QA score by contact reason Lv4 (detail)")
+        fig.add_annotation(text=f"No {grain} scores in the current filter", showarrow=False)
+        return _panel(fig, 320, title=title)
 
-    labels = [_wrap_label(x, 36, max_lines=2) for x in df["CR_Lv4"]]
+    labels = [_wrap_label(x, 36, max_lines=2) for x in df[cat_col]]
     colors = [_status_hex(s, QA_GOAL, True) for s in df["QA_Score"]]
     n_vals = pd.to_numeric(df["N"], errors="coerce") if "N" in df.columns else pd.Series([np.nan] * len(df))
     vs_txt = [
@@ -781,7 +893,7 @@ def qa_by_cr_chart(df: pd.DataFrame) -> go.Figure:
         text=vs_txt, textposition="outside", textfont=dict(size=9, color=DIDI_TEXT),
         cliponaxis=False,
         customdata=np.column_stack([
-            df["CR_Lv4"].astype(str).to_numpy(),
+            df[cat_col].astype(str).to_numpy(),
             n_vals.fillna(0).to_numpy(),
             pd.to_numeric(df["vs_goal"], errors="coerce").fillna(0).to_numpy() if "vs_goal" in df.columns else np.zeros(len(df)),
         ]),
@@ -789,11 +901,11 @@ def qa_by_cr_chart(df: pd.DataFrame) -> go.Figure:
     ))
     fig.add_vline(x=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
     fig.update_layout(
-        xaxis=dict(range=[0, 118], title="QA score %"),
-        margin=dict(l=220, r=80, t=12, b=40),
+        xaxis=dict(range=[0, SCORE_LABEL_MAX], title="QA score %"),
+        margin=dict(l=220, r=96, t=12, b=40),
     )
     return _panel(
-        fig, _hbar_height(len(df), 34, 110), title="QA score by contact reason Lv4 (detail)",
+        fig, _hbar_height(len(df), 34, 110), title=title,
         n=_sum_n(df, "N", "n", "Audits"), n_unit="audits",
     )
 
@@ -894,11 +1006,11 @@ def _rc_axis(df: pd.DataFrame, col: str = "Recontact_Rate") -> tuple[float, floa
     return 0.0, max(8.0, RECONTACT_GOAL * 1.35, peak * 1.18)
 
 
-def weekly_kpi_chart(df: pd.DataFrame) -> go.Figure:
+def weekly_kpi_chart(df: pd.DataFrame, *, height: int = 360) -> go.Figure:
     if df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No weekly data in the current filter", showarrow=False)
-        return _panel(fig, 280, title="Week-over-week trend")
+        return _panel(fig, min(height, 280), title="Week-over-week trend")
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     if "QA_Score" in df.columns and _finite(df["QA_Score"]):
         fig.add_trace(go.Scatter(
@@ -934,15 +1046,26 @@ def weekly_kpi_chart(df: pd.DataFrame) -> go.Figure:
         fig.update_yaxes(title_text="Recontact %", range=[0, rc_hi], tickformat=".2f", secondary_y=True)
     else:
         fig.update_yaxes(title_text="Recontact %", visible=False, secondary_y=True)
+    compact = height <= 260
+    if compact:
+        fig.update_layout(legend=LEGEND_TOP, margin=dict(l=40, r=40, t=36, b=28))
+        return _panel(fig, height, title="Week-over-week trend")
     fig.update_layout(legend=LEGEND_TOP, margin=dict(l=56, r=56, t=52, b=48))
-    return _panel(fig, 360, title="Week-over-week trend", n=_len_n(df), n_unit="weeks")
+    return _panel(fig, height, title="Week-over-week trend", n=_len_n(df), n_unit="weeks")
 
 
-def control_i_chart(df: pd.DataFrame, title_goal: str, chart_title: str | None = None) -> go.Figure:
+def control_i_chart(
+    df: pd.DataFrame,
+    title_goal: str,
+    chart_title: str | None = None,
+    *,
+    height: int = 380,
+) -> go.Figure:
+    compact = height <= 280
     if df.empty:
         fig = go.Figure()
         fig.add_annotation(text="Not enough daily points to show typical variation", showarrow=False)
-        return _panel(fig, 340, title=chart_title)
+        return _panel(fig, min(height, 280) if compact else 340, title=chart_title)
     fig = go.Figure()
     colors = [STATUS_COLORS["red"] if flag else CHART_COLORS["blue"] for flag in df["Beyond_Limits"]]
     hover = []
@@ -954,24 +1077,44 @@ def control_i_chart(df: pd.DataFrame, title_goal: str, chart_title: str | None =
     fig.add_trace(go.Scatter(
         x=df["Date"], y=df["Value"], mode="lines+markers", name="Daily value",
         line=dict(color=CHART_COLORS["blue"], width=2),
-        marker=dict(color=colors, size=7),
+        marker=dict(color=colors, size=7 if not compact else 6),
         hovertext=hover, hoverinfo="text",
         customdata=day_ids,
     ))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["CL"], mode="lines", name="Average",
-                             line=dict(color=DIDI_TEXT, width=1)))
+                             line=dict(color=DIDI_MUTED, width=1.4)))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["UCL"], mode="lines", name="Upper usual range",
-                             line=dict(color=STATUS_COLORS["red"], width=1, dash="dot")))
+                             line=dict(color="#F07167", width=1.4, dash="dot")))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["LCL"], mode="lines", name="Lower usual range",
-                             line=dict(color=STATUS_COLORS["red"], width=1, dash="dot")))
+                             line=dict(color="#F07167", width=1.4, dash="dot")))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Goal"], mode="lines", name=title_goal,
-                             line=dict(color=STATUS_COLORS["green"], width=1, dash="dash")))
-    fig.update_layout(
-        legend=LEGEND_TOP,
-        margin=dict(l=48, r=28, t=56, b=48),
-        yaxis_title="",
-    )
-    return _panel(fig, 360, title=chart_title, n=_len_n(df), n_unit="days")
+                             line=dict(color=STATUS_COLORS["green"], width=1.6, dash="dash")))
+    vals = []
+    for col in ("Value", "CL", "UCL", "LCL", "Goal"):
+        if col in df.columns:
+            vals.extend(pd.to_numeric(df[col], errors="coerce").dropna().tolist())
+    y_lo, y_hi = 0.0, 100.0
+    if vals:
+        lo, hi = min(vals), max(vals)
+        gap = max(0.8, (hi - lo) * 0.08)
+        y_lo, y_hi = lo - gap, hi + gap
+    nticks = 5 if compact else 6
+    if compact:
+        fig.update_layout(
+            legend=LEGEND_TOP,
+            margin=dict(l=40, r=28, t=36, b=36),
+            yaxis=dict(title="", range=[y_lo, y_hi], tickformat=".1f", nticks=nticks),
+        )
+        fig = _panel(fig, height, title=chart_title)
+    else:
+        fig.update_layout(
+            legend=LEGEND_TOP,
+            margin=dict(l=48, r=28, t=56, b=48),
+            yaxis=dict(title="", range=[y_lo, y_hi], tickformat=".1f", nticks=nticks),
+        )
+        fig = _panel(fig, height, title=chart_title, n=_len_n(df), n_unit="days")
+    fig.update_yaxes(range=[y_lo, y_hi], tickformat=".1f", title_text="", nticks=nticks)
+    return fig
 
 
 def qa_histogram_chart(df: pd.DataFrame) -> go.Figure:
@@ -1002,25 +1145,59 @@ def csat_histogram_chart(df: pd.DataFrame) -> go.Figure:
     if df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No CSAT scores", showarrow=False)
-        return _panel(fig, 240, title="CSAT score distribution")
+        return _panel(fig, 360, title="CSAT score histogram")
+    scores = pd.to_numeric(df["CSAT_Score"], errors="coerce")
+    surveys = pd.to_numeric(df["Surveys"], errors="coerce").fillna(0)
+    peak = float(surveys.max()) if len(surveys) else 0.0
     colors = [
-        STATUS_COLORS["red"] if int(x) < CSAT_GOAL else CHART_COLORS["csat"]
-        for x in df["CSAT_Score"]
+        STATUS_COLORS["red"] if float(x) < CSAT_GOAL else CHART_COLORS["blue"]
+        for x in scores
+    ]
+    labels = [
+        f"{int(v):,}" if peak and v >= max(peak * 0.08, 1) else ""
+        for v in surveys
     ]
     fig = go.Figure(go.Bar(
-        x=df["CSAT_Score"], y=df["Surveys"], marker_color=colors,
-        text=df["Surveys"].map(lambda v: f"{int(v):,}"),
-        textposition="outside", textfont=dict(size=9, color=DIDI_TEXT),
+        x=scores, y=surveys, marker_color=colors,
+        text=labels,
+        textposition="outside", textfont=dict(size=11, color=DIDI_TEXT),
+        hovertemplate="CSAT %{x:.0f}%<br>%{y:,.0f} surveys<extra></extra>",
+        width=3.2,
     ))
-    fig.add_vline(x=CSAT_GOAL, line_dash="dash", line_color=STATUS_COLORS["green"])
+    fig.add_vline(x=CSAT_GOAL, line_dash="dash", line_color=STATUS_COLORS["green"], line_width=2)
+    y_hi = peak * 1.16 if peak else 1
     fig.update_layout(
-        xaxis_title="CSAT %",
-        yaxis_title="Surveys",
+        xaxis=dict(title="CSAT %", range=[-4, 104], dtick=20),
+        yaxis=dict(title="Surveys", range=[0, y_hi], rangemode="tozero", tickformat=","),
         margin=dict(l=56, r=28, t=28, b=56),
-        yaxis=dict(rangemode="tozero"),
+        showlegend=False,
     )
     fig.update_traces(cliponaxis=False)
-    return _panel(fig, 280, title="CSAT score distribution", n=_sum_n(df, "Surveys"), n_unit="surveys")
+    fig = _panel(fig, 380, title="CSAT score histogram")
+    fig.update_xaxes(title_text="CSAT %", range=[-4, 104], dtick=20)
+    fig.update_yaxes(title_text="Surveys", range=[0, y_hi], tickformat=",")
+    fig.update_layout(showlegend=False)
+    return fig
+
+
+def _pareto_remainder_label(existing, n_more: int | None = None) -> str:
+    """Tail bucket name that never collides with a real category such as taxonomy Other."""
+    taken = {str(v).strip().casefold() for v in existing.dropna()}
+    bases = (
+        (f"Remaining reasons ({n_more} more)" if n_more else "Remaining reasons"),
+        "Remaining reasons",
+        "All remaining categories",
+        "Rest of categories",
+    )
+    for label in bases:
+        if label.casefold() not in taken:
+            return label
+    return "Remaining reasons *"
+
+
+def is_pareto_remainder_label(value: object) -> bool:
+    text = str(value or "").strip().casefold()
+    return text.startswith("remaining reasons") or text.startswith("all remaining") or text.startswith("rest of categories")
 
 
 def pareto_dual_axis(
@@ -1033,15 +1210,23 @@ def pareto_dual_axis(
     sample_unit: str | None = None,
     universe_n: int | None = None,
     n_note: str | None = None,
+    bucket_other: bool = False,
 ) -> go.Figure:
     """Classic vertical Pareto: descending bars, value on the left, cumulative % on the right.
 
     When `count_col` is a weighted gap (gap × volume), N is the sum of evaluations
     on the plotted bars — never the sum of gap × n labeled as audits.
     Zero-count rows are omitted so they cannot steal axis space or N.
-    Cumulative % is of the full fail/volume universe, not only the top 10 bars.
+    Cumulative % is of the full fail/volume universe, not only the plotted bars.
+    With `bucket_other`, named bars run until ~80% of that universe (capped), and
+    Remaining reasons is the leftover tail — not a fixed top 10.
     """
-    from modules.kpis import add_pareto_cumulative
+    from modules.kpis import (
+        PARETO_MAX_NAMED,
+        PARETO_VITAL_PCT,
+        add_pareto_cumulative,
+        pareto_named_and_tail,
+    )
     if df is None or df.empty or cat_col not in df.columns or count_col not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No data for this ranking", showarrow=False)
@@ -1061,11 +1246,40 @@ def pareto_dual_axis(
         if universe_n is not None and not gap and float(universe_n) > 0
         else float(work[count_col].sum())
     )
-    p = add_pareto_cumulative(
-        work.sort_values(count_col, ascending=False).head(10),
-        count_col,
-        universe=universe,
-    )
+    ranked = work.sort_values(count_col, ascending=False)
+    remainder_name = None
+    n_more = 0
+    n_cats = int(len(ranked))
+    vital_n = n_cats
+    named_n = n_cats
+    if bucket_other:
+        named, tail, vital_n = pareto_named_and_tail(
+            ranked, count_col, pct=PARETO_VITAL_PCT, max_named=PARETO_MAX_NAMED, universe=universe,
+        )
+        named_n = int(len(named))
+        if not tail.empty:
+            n_more = int(len(tail))
+            extra = {c: pd.NA for c in named.columns}
+            remainder_name = _pareto_remainder_label(named[cat_col], n_more=n_more)
+            extra[cat_col] = remainder_name
+            extra[count_col] = float(pd.to_numeric(tail[count_col], errors="coerce").fillna(0).sum())
+            ranked = pd.concat([named, pd.DataFrame([extra])], ignore_index=True)
+        else:
+            ranked = named
+        p = add_pareto_cumulative(ranked, count_col, universe=universe)
+    else:
+        p = add_pareto_cumulative(
+            ranked.head(10),
+            count_col,
+            universe=universe,
+        )
+    if remainder_name:
+        is_rem = p[cat_col].astype(str).eq(remainder_name)
+        p = pd.concat([p.loc[~is_rem], p.loc[is_rem]], ignore_index=True)
+        vals = pd.to_numeric(p[count_col], errors="coerce").fillna(0)
+        total = float(universe) if universe and float(universe) > 0 else float(vals.sum())
+        p["Cum_Count"] = vals.cumsum()
+        p["Cum_Pct"] = np.where(total > 0, (p["Cum_Count"] / total * 100).round(1), 0.0)
     n = len(p)
     xs = np.arange(n)
     labels = [_wrap_label(v, 22, max_lines=3) for v in p[cat_col]]
@@ -1073,6 +1287,15 @@ def pareto_dual_axis(
     cum = p["Cum_Pct"].astype(float)
     y_max = float(counts.max()) * 1.28 if counts.max() > 0 else 1
     long_labels = bool(p[cat_col].astype(str).str.len().max() > 18)
+    crowded = n >= 6
+    if n >= 8:
+        tick_angle = -75
+    elif crowded or long_labels:
+        tick_angle = -48
+    else:
+        tick_angle = 0
+    tick_size = 9 if crowded else 10
+    bottom = 176 if long_labels else (148 if crowded else 108)
     hit = np.where(cum.to_numpy() >= 80)[0]
     cut = int(hit[0]) if len(hit) else n - 1
 
@@ -1092,6 +1315,18 @@ def pareto_dual_axis(
             auto_note = n_note
     elif n_note:
         auto_note = n_note if auto_note is None else auto_note
+    if n_more > 0:
+        if named_n >= vital_n:
+            rest_note = (
+                f"{named_n} named bars reach {int(PARETO_VITAL_PCT):.0f}% · "
+                f"last bar = {n_more} more reasons (leftover ~{100 - int(PARETO_VITAL_PCT):.0f}%)"
+            )
+        else:
+            rest_note = (
+                f"{int(PARETO_VITAL_PCT):.0f}% takes {vital_n} reasons · showing {named_n} · "
+                f"last bar = {n_more} more combined"
+            )
+        auto_note = f"{auto_note} · {rest_note}" if auto_note else rest_note
     sample, unit, n_note = _split_view_universe(sample, unit, universe_n, auto_note)
 
     has_crit = bool(critical_col and critical_col in p.columns)
@@ -1109,6 +1344,15 @@ def pareto_dual_axis(
     else:
         colors = _bar_gradient(n)
         hover = [f"{name}<br>{value_title}: {val:,.0f}" for name, val in zip(p[cat_col].astype(str), counts)]
+    if remainder_name and n_more > 0:
+        hover = [
+            (
+                h + f"<br>{n_more} reasons combined — not a contact reason"
+                if str(name) == remainder_name
+                else h
+            )
+            for h, name in zip(hover, p[cat_col].astype(str))
+        ]
     if vol_col:
         vol_name = _vol_label(vol_col)
         vols = pd.to_numeric(p[vol_col], errors="coerce")
@@ -1137,7 +1381,8 @@ def pareto_dual_axis(
     ), secondary_y=False)
     if has_crit:
         fig.add_trace(go.Bar(x=[None], y=[None], name="CRITICAL", marker=dict(color="#D64545"), hoverinfo="skip"), secondary_y=False)
-        fig.add_trace(go.Bar(x=[None], y=[None], name="Non-critical", marker=dict(color="#2E6FBE"), hoverinfo="skip"), secondary_y=False)
+        if any(not flag for flag in crit_flag):
+            fig.add_trace(go.Bar(x=[None], y=[None], name="Non-critical", marker=dict(color="#2E6FBE"), hoverinfo="skip"), secondary_y=False)
     fig.add_trace(go.Scatter(
         x=np.concatenate([[-0.5], xs + 0.5]),
         y=np.concatenate([[0.0], cum.to_numpy()]),
@@ -1152,7 +1397,6 @@ def pareto_dual_axis(
     )
     fig.add_hline(y=80, line_dash="dot", line_color="rgba(255,102,0,0.45)", secondary_y=True)
 
-    bottom = 188 if long_labels else 108
     fig.update_layout(
         bargap=0.22,
         bargroupgap=0.08,
@@ -1162,8 +1406,8 @@ def pareto_dual_axis(
     fig.update_xaxes(
         title_text="",
         tickmode="array", tickvals=list(xs), ticktext=labels,
-        tickangle=-40 if long_labels else 0,
-        tickfont=dict(size=10, color=TICK),
+        tickangle=tick_angle,
+        tickfont=dict(size=tick_size, color=TICK),
         range=[-0.6, n - 0.4],
         showgrid=False,
         automargin=True,
@@ -1176,8 +1420,8 @@ def pareto_dual_axis(
     fig = _panel(fig, 500, title=title, n=sample, n_unit=unit, n_note=n_note)
     fig.update_xaxes(
         tickmode="array", tickvals=list(xs), ticktext=labels,
-        tickangle=-40 if long_labels else 0,
-        tickfont=dict(size=10, color=TICK),
+        tickangle=tick_angle,
+        tickfont=dict(size=tick_size, color=TICK),
         range=[-0.6, n - 0.4],
         showgrid=False,
         automargin=True,
@@ -1186,14 +1430,6 @@ def pareto_dual_axis(
     fig.update_yaxes(
         title_text="Cumulative %", range=[0, 105], ticksuffix="%",
         showgrid=False, secondary_y=True,
-    )
-    fig.update_layout(
-        legend=dict(
-            orientation="h", y=1.08, x=0.5, xanchor="center", yanchor="bottom",
-            font=dict(size=10, color=DIDI_TEXT), bgcolor="rgba(0,0,0,0)",
-        ),
-        margin=dict(l=56, r=72, t=72, b=bottom),
-        bargap=0.22,
     )
     return fig
 
@@ -1222,9 +1458,10 @@ def qa_channel_compare_chart(ch_qa: dict) -> go.Figure:
         x=frame["Channel"], y=frame["QA"], name="QA",
         marker_color=[_status_hex(v, QA_GOAL, True) for v in frame["QA"]],
         width=0.42,
-        text=[f"{v:.1f}% · {int(n):,}" for v, n in zip(frame["QA"], frame["n"])],
-        textposition="inside", insidetextanchor="middle",
-        textfont=dict(size=12, color="#FFFFFF"),
+        text=[f"{v:.1f}%" for v in frame["QA"]],
+        textposition="outside",
+        textfont=dict(size=12, color=DIDI_TEXT),
+        cliponaxis=False,
         customdata=np.column_stack([
             frame["n"].to_numpy(),
             frame["n_crit"].to_numpy(),
@@ -1240,14 +1477,15 @@ def qa_channel_compare_chart(ch_qa: dict) -> go.Figure:
         fig.add_trace(go.Scatter(
             x=frame["Channel"], y=frame["pct_fatal"], name="% audits scored 0",
             mode="lines+markers",
-            line=dict(color=DIDI_ORANGE, width=2.5),
-            marker=dict(size=10, color=DIDI_ORANGE),
+            line=dict(color=VOLUME_LINE, width=2.2),
+            marker=dict(size=7, color=VOLUME_LINE, line=dict(width=1.2, color="#FFFFFF")),
             hovertemplate="%{x}<br>CRITICAL fail rate %{y:.1f}%<br>Audits %{customdata:,.0f}<extra></extra>",
             customdata=frame["n"],
         ), secondary_y=True)
-    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED, annotation_text="Goal 85")
+    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
+    _add_traffic_legend(fig, secondary_y=False)
     fatal_max = float(pd.to_numeric(frame["pct_fatal"], errors="coerce").max() or 0)
-    fig.update_yaxes(title_text="QA score %", range=[0, 108], secondary_y=False)
+    fig.update_yaxes(title_text="QA score %", range=[0, SCORE_LABEL_MAX], secondary_y=False)
     fig.update_yaxes(
         title_text="% audits scored 0",
         range=[0, max(12.0, fatal_max * 1.45)],
@@ -1363,23 +1601,29 @@ def csat_recontact_scatter(df: pd.DataFrame) -> go.Figure:
             showarrow=False,
         )
         return _panel(fig, 260, title="Correlation CSAT vs Recontact")
+    names = plot["CR_Lv4"].astype(str) if "CR_Lv4" in plot.columns else pd.Series([""] * len(plot))
+    size_col = "Feedback" if "Feedback" in plot.columns else None
+    sizes = (np.clip(plot[size_col] / 80, 8, 28) if size_col else 10)
     fig = go.Figure(go.Scatter(
-        x=plot["CSAT_Pct"], y=plot["Recontact_Rate"], mode="markers",
-        marker=dict(size=9, color=CHART_COLORS["csat"], opacity=0.85),
-        customdata=plot["CR_Lv4"].astype(str) if "CR_Lv4" in plot.columns else None,
-        hovertext=plot["CR_Lv4"] if "CR_Lv4" in plot.columns else None,
-        hoverinfo="text+x+y",
-        name="Contact reasons",
+        x=plot["CSAT_Pct"], y=plot["Recontact_Rate"],
+        mode="markers",
+        marker=dict(size=sizes, color=CHART_COLORS["csat"], opacity=0.88,
+                    line=dict(width=0.6, color="#FFFFFF")),
+        customdata=names,
+        hovertemplate="%{customdata}<br>CSAT %{x:.1f}%<br>Recontact %{y:.2f}%<extra></extra>",
+        name="Lv4 (detail)",
+        showlegend=False,
+        cliponaxis=False,
     ))
     _add_ols_trendline(fig, plot["CSAT_Pct"], plot["Recontact_Rate"])
     fig.add_vline(x=CSAT_GOAL, line_dash="dot", line_color=DIDI_MUTED)
     fig.add_hline(y=RECONTACT_GOAL, line_dash="dot", line_color=DIDI_MUTED)
     fig.update_layout(
         xaxis_title="CSAT %", yaxis_title="Recontact Rate %",
-        margin=dict(l=56, r=28, t=16, b=56),
+        margin=dict(l=56, r=88, t=28, b=56),
     )
     return _panel(
-        fig, 260, title="Correlation CSAT vs Recontact",
+        fig, 420, title="Correlation CSAT vs Recontact",
         n=_len_n(plot), n_unit="contact reasons Lv4 (detail)",
     )
 
@@ -1478,9 +1722,13 @@ def aht_metric_scatter(
     fig.update_layout(
         xaxis_title="AHT (minutes)",
         yaxis_title=y_title,
-        legend=LEGEND_TOP,
-        margin=dict(l=56, r=28, t=52, b=48),
+        legend=dict(
+            orientation="h", y=1.02, x=1, xanchor="right", yanchor="bottom",
+            font=dict(size=10, color=DIDI_TEXT), bgcolor="rgba(0,0,0,0)",
+        ),
+        margin=dict(l=56, r=28, t=56, b=48),
         yaxis=yaxis,
+        dragmode=False,
     )
     return _panel(
         fig, 320, title=title,
@@ -1512,6 +1760,8 @@ def score_volume_combo(
     higher_better: bool = True,
     bar_color: str | None = None,
     force_horizontal: bool = False,
+    sample_unit: str | None = None,
+    n_note: str | None = None,
 ) -> go.Figure:
     """Bars = KPI (one color, matches legend), line = volume. Long names go horizontal."""
     if df is None or df.empty or cat_col not in df.columns or score_col not in df.columns:
@@ -1523,15 +1773,19 @@ def score_volume_combo(
         fig = go.Figure()
         fig.add_annotation(text="No data in the current filter", showarrow=False)
         return _panel(fig, 320, title=title)
+    plot = _sort_tenure_plot(plot, cat_col)
     n = len(plot)
     scores = pd.to_numeric(plot[score_col], errors="coerce")
     vols = pd.to_numeric(plot[vol_col], errors="coerce") if vol_col in plot.columns else pd.Series([np.nan] * n)
     names = plot[cat_col].astype(str)
-    long = bool(force_horizontal or names.str.len().max() > 22 or n > 7)
+    long = bool(force_horizontal or ((not _is_tenure_col(cat_col)) and (names.str.len().max() > 22 or n > 7)))
     solid = bar_color or CHART_COLORS.get("csat") or "#F2A900"
 
     if long:
-        plot = plot.assign(_s=scores, _v=vols).sort_values("_s", ascending=True)
+        if not _is_tenure_col(cat_col):
+            plot = plot.assign(_s=scores, _v=vols).sort_values("_s", ascending=True)
+        else:
+            plot = plot.assign(_s=scores, _v=vols)
         labels = [_wrap_label(x, 34, max_lines=2) for x in plot[cat_col]]
         fills = (
             [_status_hex(v, goal, higher_better) for v in plot["_s"]]
@@ -1539,6 +1793,7 @@ def score_volume_combo(
         )
         fig = go.Figure(go.Bar(
             y=labels, x=plot["_s"], orientation="h", name=score_title,
+            showlegend=goal is None,
             marker_color=fills,
             text=[
                 f"{s:.1f}% · {int(v):,}" if pd.notna(v) else (f"{s:.1f}%" if pd.notna(s) else "—")
@@ -1557,19 +1812,21 @@ def score_volume_combo(
         ))
         if goal is not None:
             fig.add_vline(x=goal, line_dash="dash", line_color=DIDI_MUTED)
+            _add_traffic_legend(fig)
         fig.update_layout(
-            xaxis=dict(title=score_title, range=[0, max(108.0, float(plot["_s"].max() or 0) * 1.25)]),
-            yaxis=dict(title=""),
+            xaxis=dict(title=score_title, range=[0, SCORE_LABEL_MAX]),
+            yaxis=dict(title="", autorange="reversed" if _is_tenure_col(cat_col) else True),
             showlegend=True,
             legend=LEGEND_TOP,
-            margin=dict(l=200, r=72, t=48, b=40),
+            margin=dict(l=200, r=96, t=48, b=40),
         )
-        sample, unit, n_note = _n_for_panel(
+        sample, unit, auto_note = _n_for_panel(
             plot, vol_col, title=title, value_title=vol_title,
+            sample_unit=sample_unit,
         )
         return _panel(
             fig, _hbar_height(n, 32, 90), title=title,
-            n=sample, n_unit=unit, n_note=n_note,
+            n=sample, n_unit=unit, n_note=n_note or auto_note,
         )
 
     xs = list(range(n))
@@ -1581,38 +1838,42 @@ def score_volume_combo(
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Bar(
         x=xs, y=scores, name=score_title,
+        showlegend=goal is None,
         marker_color=fills,
         text=[f"{v:.1f}%" if pd.notna(v) else "" for v in scores],
-        textposition="inside", insidetextanchor="middle",
-        textfont=dict(size=11, color="#FFFFFF"),
+        textposition="outside",
+        textfont=dict(size=11, color=DIDI_TEXT),
+        cliponaxis=False,
         customdata=np.column_stack([names.to_numpy(), vols.fillna(0).to_numpy()]),
         hovertemplate="%{customdata[0]}<br>" + score_title + " %{y:.1f}%<br>" + vol_title + " %{customdata[1]:,.0f}<extra></extra>",
     ), secondary_y=False)
     if vols.notna().any():
         fig.add_trace(go.Scatter(
             x=xs, y=vols, name=vol_title, mode="lines+markers",
-            line=dict(color=DIDI_ORANGE, width=2.4),
-            marker=dict(size=8, color=DIDI_ORANGE),
+            line=dict(color=VOLUME_LINE, width=2.2),
+            marker=dict(size=6, color=VOLUME_LINE, line=dict(width=1.2, color="#FFFFFF")),
             hovertemplate=vol_title + " %{y:,.0f}<extra></extra>",
         ), secondary_y=True)
     if goal is not None:
         fig.add_hline(y=goal, line_dash="dash", line_color=DIDI_MUTED, annotation_text=f"Goal {goal:g}")
+        _add_traffic_legend(fig, secondary_y=False)
     fig.update_xaxes(
         tickmode="array", tickvals=xs, ticktext=labels,
-        tickangle=0 if n <= 4 else -25,
+        tickangle=0 if n <= 6 else -25,
         title="",
     )
-    fig.update_yaxes(title_text=score_title, range=[0, 108], secondary_y=False)
-    fig.update_yaxes(title_text=vol_title, showgrid=False, secondary_y=True)
+    fig.update_yaxes(title_text=score_title, range=[0, SCORE_LABEL_MAX], secondary_y=False)
+    fig.update_yaxes(title_text=vol_title, showgrid=False, rangemode="tozero", secondary_y=True)
     fig.update_layout(
         legend=LEGEND_TOP,
-        margin=dict(l=56, r=56, t=52, b=100),
+        margin=dict(l=56, r=56, t=56, b=72),
         bargap=0.35,
     )
-    sample, unit, n_note = _n_for_panel(
+    sample, unit, auto_note = _n_for_panel(
         plot, vol_col, title=title, value_title=vol_title,
+        sample_unit=sample_unit,
     )
-    return _panel(fig, 340, title=title, n=sample, n_unit=unit, n_note=n_note)
+    return _panel(fig, 340, title=title, n=sample, n_unit=unit, n_note=n_note or auto_note)
 
 
 def grouped_qa_csat_chart(
@@ -1668,47 +1929,63 @@ def grouped_qa_csat_chart(
 
 
 def channel_kpi_combo(df: pd.DataFrame) -> go.Figure:
-    """QA + CSAT bars, recontact as a line. Channel table replacement."""
+    """QA + CSAT bars, recontact as a line. Overall is a mix, not a third channel."""
     if df is None or df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No channel mix in this filter", showarrow=False)
         return _panel(fig, 340, title="QA, CSAT and recontact by channel")
     plot = df.copy()
+    overall = plot[plot["Segment"].astype(str).eq("Overall")] if "Segment" in plot.columns else plot.iloc[0:0]
+    channels = plot[~plot["Segment"].astype(str).eq("Overall")] if "Segment" in plot.columns else plot
     fig = make_subplots(specs=[[{"secondary_y": True}]])
+    if channels.empty:
+        fig.add_annotation(text="No Phone / Live Chat rows in this filter", showarrow=False)
+        return _panel(fig, 340, title="QA, CSAT and recontact by channel")
     fig.add_trace(go.Bar(
-        x=plot["Segment"], y=plot["QA_Score"], name="QA",
+        x=channels["Segment"], y=channels["QA_Score"], name="QA",
         marker_color=CHART_COLORS["qa"],
-        customdata=plot["Segment"].astype(str),
+        customdata=channels["Segment"].astype(str),
         hovertemplate="%{customdata}<br>QA %{y:.1f}%<extra></extra>",
     ), secondary_y=False)
     fig.add_trace(go.Bar(
-        x=plot["Segment"], y=plot["CSAT_Score"], name="CSAT",
+        x=channels["Segment"], y=channels["CSAT_Score"], name="CSAT",
         marker_color=CHART_COLORS["csat"],
-        customdata=plot["Segment"].astype(str),
+        customdata=channels["Segment"].astype(str),
         hovertemplate="%{customdata}<br>CSAT %{y:.1f}%<extra></extra>",
     ), secondary_y=False)
-    if "Recontact_Rate" in plot.columns and plot["Recontact_Rate"].notna().any():
+    if "Recontact_Rate" in channels.columns and channels["Recontact_Rate"].notna().any():
         fig.add_trace(go.Scatter(
-            x=plot["Segment"], y=plot["Recontact_Rate"], name="Recontact",
+            x=channels["Segment"], y=channels["Recontact_Rate"], name="Recontact",
             mode="lines+markers",
             line=dict(color=CHART_COLORS["recontact"], width=2.6),
             marker=dict(size=9),
-            customdata=plot["Segment"].astype(str),
+            customdata=channels["Segment"].astype(str),
             hovertemplate="%{customdata}<br>Recontact %{y:.2f}%<extra></extra>",
         ), secondary_y=True)
-    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED, annotation_text="Goal 85")
-    fig.update_yaxes(title_text="QA / CSAT %", range=[0, 108], secondary_y=False)
-    fig.update_yaxes(title_text="Recontact %", range=_rc_axis(plot), showgrid=False, secondary_y=True)
+    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
+    fig.update_yaxes(title_text="QA / CSAT %", range=[0, SCORE_LABEL_MAX], secondary_y=False)
+    fig.update_yaxes(title_text="Recontact %", range=_rc_axis(channels), showgrid=False, secondary_y=True)
+    top_pad = 52
+    if not overall.empty:
+        row = overall.iloc[0]
+        qa_txt = f"{float(row['QA_Score']):.1f}%" if pd.notna(row.get("QA_Score")) else "—"
+        cs_txt = f"{float(row['CSAT_Score']):.1f}%" if pd.notna(row.get("CSAT_Score")) else "—"
+        rc_txt = f"{float(row['Recontact_Rate']):.2f}%" if pd.notna(row.get("Recontact_Rate")) else "—"
+        fig.add_annotation(
+            text=f"Overall mix (not a channel): QA {qa_txt} · CSAT {cs_txt} · Recontact {rc_txt}",
+            xref="paper", yref="paper", x=0.5, y=1.16, showarrow=False,
+            font=dict(size=11, color=DIDI_MUTED),
+        )
+        top_pad = 72
     fig.update_layout(
         barmode="group",
         legend=LEGEND_TOP,
-        margin=dict(l=56, r=56, t=52, b=48),
+        margin=dict(l=56, r=56, t=top_pad, b=48),
         bargap=0.28,
     )
-    ch_n = plot[plot["Segment"] != "Overall"] if "Segment" in plot.columns else plot
     return _panel(
         fig, 360, title="QA, CSAT and recontact by channel",
-        n=_sum_n(ch_n, "QA_N", "n"), n_unit="audits",
+        n=_sum_n(channels, "QA_N", "n"), n_unit="audits",
     )
 
 
@@ -1752,10 +2029,13 @@ def hbar_score_chart(
         hovertemplate="%{customdata[0]}<br>Score %{x:.1f}%<br>n %{customdata[1]:.0f}<br>%{customdata[2]}<extra></extra>",
     ))
     fig.add_vline(x=goal, line_dash="dash", line_color=DIDI_MUTED)
+    _add_traffic_legend(fig)
     fig.update_layout(
-        xaxis=dict(title="QA %", range=[0, 118]),
+        xaxis=dict(title="QA %", range=[0, SCORE_LABEL_MAX]),
         yaxis=dict(title=""),
-        margin=dict(l=180, r=80, t=12, b=40),
+        showlegend=True,
+        legend=LEGEND_TOP,
+        margin=dict(l=180, r=96, t=52, b=40),
     )
     sample, unit, auto_note = _n_for_panel(
         plot, n_col, title=title, sample_unit=sample_unit,
@@ -1801,16 +2081,25 @@ def voc_bar_chart(df: pd.DataFrame) -> go.Figure:
     )
 
 
-def corr_r_bars(df: pd.DataFrame, title: str = "Pearson r") -> go.Figure:
+def corr_r_bars(df: pd.DataFrame, title: str = "R²") -> go.Figure:
     if df is None or df.empty or "Pearson_r" not in df.columns:
         fig = go.Figure()
-        fig.add_annotation(text="No overlapping names for r", showarrow=False)
+        fig.add_annotation(text="No overlapping names for R²", showarrow=False)
         return _panel(fig, 260, title=title)
     plot = df.copy()
+    if "Slice" not in plot.columns:
+        plot["Slice"] = "Lv4"
+    if "R2" not in plot.columns:
+        plot["R2"] = pd.to_numeric(plot["Pearson_r"], errors="coerce") ** 2
     plot["Label"] = plot["Pair"].astype(str) + " · " + plot["Slice"].astype(str)
-    plot = plot.sort_values("Pearson_r", ascending=True)
+    plot = plot.sort_values("R2", ascending=True)
 
-    def _pair_color(pair: object) -> str:
+    def _pair_color(pair: object, r) -> str:
+        try:
+            if pd.notna(r) and float(r) < 0:
+                return STATUS_COLORS["red"]
+        except (TypeError, ValueError):
+            pass
         p = str(pair)
         if "QA" in p:
             return CHART_COLORS["qa"]
@@ -1818,19 +2107,29 @@ def corr_r_bars(df: pd.DataFrame, title: str = "Pearson r") -> go.Figure:
             return CHART_COLORS["csat"]
         return CHART_COLORS["recontact"]
 
-    colors = [_pair_color(p) for p in plot["Pair"]]
+    colors = [_pair_color(p, r) for p, r in zip(plot["Pair"], plot["Pearson_r"])]
+    labels = []
+    for r2, r in zip(plot["R2"], plot["Pearson_r"]):
+        if pd.isna(r2):
+            labels.append("—")
+            continue
+        if pd.notna(r) and abs(float(r)) >= 0.05:
+            side = "−" if float(r) < 0 else "+"
+            labels.append(f"{float(r2):.2f} {side}")
+        else:
+            labels.append(f"{float(r2):.2f}")
     fig = go.Figure(go.Bar(
         y=[_wrap_label(x, 28) for x in plot["Label"]],
-        x=plot["Pearson_r"],
+        x=plot["R2"],
         orientation="h",
-        name="r",
+        name="R²",
         showlegend=False,
         marker_color=colors,
-        text=[f"{v:+.2f}" if pd.notna(v) else "—" for v in plot["Pearson_r"]],
+        text=labels,
         textposition="outside", textfont=dict(size=10, color=DIDI_TEXT),
         cliponaxis=False,
         customdata=plot["N_CR"] if "N_CR" in plot.columns else None,
-        hovertemplate="%{y}<br>r %{x:.2f}<br>N %{customdata}<extra></extra>",
+        hovertemplate="%{y}<br>R² %{x:.2f}<br>N %{customdata}<extra></extra>",
     ))
     for name, color in (
         ("QA", CHART_COLORS["qa"]),
@@ -1845,9 +2144,8 @@ def corr_r_bars(df: pd.DataFrame, title: str = "Pearson r") -> go.Figure:
             visible="legendonly",
             hoverinfo="skip",
         ))
-    fig.add_vline(x=0, line_dash="dot", line_color=DIDI_MUTED)
     fig.update_layout(
-        xaxis=dict(title="Pearson r", range=[-1.15, 1.15]),
+        xaxis=dict(title="R²", range=[-0.02, 1.15]),
         yaxis_title="",
         legend=LEGEND_TOP,
         margin=dict(l=200, r=64, t=52, b=40),
@@ -1856,80 +2154,336 @@ def corr_r_bars(df: pd.DataFrame, title: str = "Pearson r") -> go.Figure:
     return _panel(fig, _hbar_height(len(plot), 28, 100), title=title)
 
 
-def aht_channel_combo(df: pd.DataFrame, title: str | None = None) -> go.Figure:
-    if df is None or df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No Duration in this filter", showarrow=False)
-        return _panel(fig, 300, title=title)
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Bar(
-        x=df["Channel"], y=df["QA_Score"], name="QA",
-        marker_color=CHART_COLORS["qa"],
-        text=[f"{v:.1f}%" for v in df["QA_Score"]],
-        textposition="inside", insidetextanchor="middle",
-        textfont=dict(size=12, color="#FFFFFF"),
-        hovertemplate="%{x}<br>QA %{y:.1f}%<extra></extra>",
-    ), secondary_y=False)
-    fig.add_trace(go.Scatter(
-        x=df["Channel"], y=df["AHT_min"], name="AHT (min)",
-        mode="lines+markers",
-        line=dict(color=DIDI_ORANGE, width=2.5),
-        marker=dict(size=10, color=DIDI_ORANGE),
-        hovertemplate="%{x}<br>AHT %{y:.1f} min<extra></extra>",
-    ), secondary_y=True)
-    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
-    aht_hi = max(8.0, float(pd.to_numeric(df["AHT_min"], errors="coerce").max() or 0) * 1.25)
-    fig.update_yaxes(title_text="QA %", range=[0, 108], secondary_y=False)
-    fig.update_yaxes(title_text="AHT (min)", range=[0, aht_hi], showgrid=False, secondary_y=True)
-    fig.update_layout(legend=LEGEND_TOP, margin=dict(l=56, r=56, t=52, b=40), bargap=0.45)
-    return _panel(fig, 300, title=title, n=_sum_n(df, "n", "Audits"), n_unit="audits")
-
-
-def multimetric_risk_chart(df: pd.DataFrame) -> go.Figure:
-    if df is None or df.empty or "CR_Lv4" not in df.columns:
-        fig = go.Figure()
-        fig.add_annotation(text="No multi-metric risk patterns in this filter", showarrow=False)
-        return _panel(fig, 320, title="Contact reason Lv4 (detail) off-goal on more than one KPI")
-    plot = df.head(8).copy()
-    labels = [_wrap_label(x, 18) for x in plot["CR_Lv4"]]
+def qa_aht_combo(
+    df: pd.DataFrame,
+    cat_col: str,
+    *,
+    title: str | None = None,
+    top_n: int | None = 12,
+) -> go.Figure:
+    """QA bars + AHT (minutes) line at a contact-reason or channel grain. Association only."""
+    empty = go.Figure()
+    empty.add_annotation(text="No Duration in this filter", showarrow=False)
+    if df is None or df.empty or cat_col not in df.columns or "QA_Score" not in df.columns or "AHT_min" not in df.columns:
+        return _panel(empty, 320, title=title)
+    plot = df.copy()
+    plot["QA_Score"] = pd.to_numeric(plot["QA_Score"], errors="coerce")
+    plot["AHT_min"] = pd.to_numeric(plot["AHT_min"], errors="coerce")
+    plot = plot.dropna(subset=["QA_Score", "AHT_min"])
+    if "n" in plot.columns:
+        plot = plot.sort_values("n", ascending=False)
+    if top_n is not None:
+        plot = plot.head(int(top_n))
+    if plot.empty:
+        return _panel(empty, 320, title=title)
+    n = len(plot)
+    names = plot[cat_col].astype(str)
+    labels = [_wrap_label(x, 18) for x in names]
+    crowded = n >= 6
+    tick_angle = -55 if crowded else 0
+    hover = [
+        f"{name}<br>QA {qa:.1f}%<br>AHT {aht:.1f} min"
+        + (f"<br>{int(nn):,} audits" if pd.notna(nn) else "")
+        for name, qa, aht, nn in zip(
+            names,
+            plot["QA_Score"],
+            plot["AHT_min"],
+            plot["n"] if "n" in plot.columns else [np.nan] * n,
+        )
+    ]
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Bar(
         x=labels, y=plot["QA_Score"], name="QA",
         marker_color=CHART_COLORS["qa"],
-        cliponaxis=False,
-        customdata=plot["CR_Lv4"].astype(str),
-        hovertemplate="Contact reason Lv4 (detail) %{customdata}<br>QA %{y:.1f}%<extra></extra>",
+        text=[f"{v:.1f}%" for v in plot["QA_Score"]],
+        textposition="inside", insidetextanchor="middle",
+        textfont=dict(size=11, color="#FFFFFF"),
+        customdata=np.column_stack([names.to_numpy(), np.asarray(hover, dtype=object)]),
+        hovertemplate="%{customdata[1]}<extra></extra>",
     ), secondary_y=False)
-    if "CSAT_Score" in plot.columns:
+    fig.add_trace(go.Scatter(
+        x=labels, y=plot["AHT_min"], name="AHT (min)",
+        mode="lines+markers",
+        line=dict(color=DIDI_ORANGE, width=2.5),
+        marker=dict(size=9, color=DIDI_ORANGE),
+        customdata=np.column_stack([names.to_numpy(), np.asarray(hover, dtype=object)]),
+        hovertemplate="%{customdata[1]}<extra></extra>",
+    ), secondary_y=True)
+    fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED, secondary_y=False)
+    aht_hi = max(8.0, float(plot["AHT_min"].max() or 0) * 1.25)
+    fig.update_yaxes(title_text="QA %", range=[0, 108], secondary_y=False)
+    fig.update_yaxes(title_text="AHT (min)", range=[0, aht_hi], showgrid=False, secondary_y=True)
+    fig.update_xaxes(tickangle=tick_angle, tickfont=dict(size=10 if crowded else 11))
+    fig.update_layout(
+        legend=LEGEND_TOP,
+        margin=dict(l=56, r=56, t=52, b=120 if crowded else 48),
+        bargap=0.32,
+    )
+    return _panel(fig, 360, title=title, n=_sum_n(plot, "n", "Audits"), n_unit="audits")
+
+
+def aht_channel_combo(df: pd.DataFrame, title: str | None = None) -> go.Figure:
+    return qa_aht_combo(df, "Channel", title=title, top_n=None)
+
+
+def kpi_combo_by_cr(
+    df: pd.DataFrame,
+    cat_col: str,
+    *,
+    title: str,
+    grain: str = "contact reasons",
+    top_n: int = 12,
+    horizontal: bool = False,
+    min_qa_n: int = CR_COMBO_MIN_QA_N,
+    min_csat_n: int = RANKING_CSAT_MIN_N,
+    min_rc_n: int = RANKING_CSAT_MIN_N,
+) -> go.Figure:
+    """Grouped QA + CSAT bars at a contact-reason grain. Thin samples are not drawn."""
+    empty = go.Figure()
+    empty.add_annotation(text="No contact-reason KPI rows in this filter", showarrow=False)
+    if df is None or df.empty or cat_col not in df.columns:
+        return _panel(empty, 320, title=title)
+    plot = df.copy()
+    for col in ("QA_Score", "CSAT_Score", "CSAT_Pct", "Recontact_Rate", "QA_N", "Feedback", "Contacts"):
+        if col in plot.columns:
+            plot[col] = pd.to_numeric(plot[col], errors="coerce")
+    if "CSAT_Score" not in plot.columns and "CSAT_Pct" in plot.columns:
+        plot["CSAT_Score"] = plot["CSAT_Pct"]
+    if "QA_N" in plot.columns and "QA_Score" in plot.columns:
+        plot.loc[plot["QA_N"].fillna(0) < min_qa_n, "QA_Score"] = np.nan
+    if "Feedback" in plot.columns and "CSAT_Score" in plot.columns:
+        plot.loc[plot["Feedback"].fillna(0) < min_csat_n, "CSAT_Score"] = np.nan
+    if "Contacts" in plot.columns and "Recontact_Rate" in plot.columns:
+        plot.loc[plot["Contacts"].fillna(0) < min_rc_n, "Recontact_Rate"] = np.nan
+    vol = None
+    for cand in ("Feedback", "Contacts", "QA_N"):
+        if cand in plot.columns:
+            vol = cand
+            break
+    if vol:
+        plot = plot.sort_values(vol, ascending=False)
+    if top_n:
+        plot = plot.head(int(top_n))
+    qa_ok = plot["QA_Score"].notna() if "QA_Score" in plot.columns else pd.Series(False, index=plot.index)
+    cs_ok = plot["CSAT_Score"].notna() if "CSAT_Score" in plot.columns else pd.Series(False, index=plot.index)
+    plot = plot.loc[qa_ok | cs_ok].copy()
+    if plot.empty:
+        return _panel(empty, 320, title=title)
+    names = plot[cat_col].astype(str)
+    rc = pd.to_numeric(plot["Recontact_Rate"], errors="coerce") if "Recontact_Rate" in plot.columns else None
+    long = bool(horizontal or names.str.len().max() > 18 or len(plot) > 8)
+    if long:
+        plot = plot.iloc[::-1]
+        labels = [_wrap_label(x, 34, max_lines=2) for x in plot[cat_col]]
+        names = plot[cat_col].astype(str)
+        rc = pd.to_numeric(plot["Recontact_Rate"], errors="coerce") if "Recontact_Rate" in plot.columns else None
+        hover_rc = [f"{v:.1f}%" if pd.notna(v) else "—" for v in rc] if rc is not None else ["—"] * len(plot)
+        fig = go.Figure()
+        if "QA_Score" in plot.columns and plot["QA_Score"].notna().any():
+            fig.add_trace(go.Bar(
+                y=labels, x=plot["QA_Score"], orientation="h", name="QA",
+                marker_color=CHART_COLORS["qa"],
+                customdata=np.column_stack([names.to_numpy(), np.asarray(hover_rc, dtype=object)]),
+                hovertemplate="%{customdata[0]}<br>QA %{x:.1f}%<br>Recontact %{customdata[1]}<extra></extra>",
+            ))
+        if "CSAT_Score" in plot.columns and plot["CSAT_Score"].notna().any():
+            fig.add_trace(go.Bar(
+                y=labels, x=plot["CSAT_Score"], orientation="h", name="CSAT",
+                marker_color=CHART_COLORS["csat"],
+                customdata=np.column_stack([names.to_numpy(), np.asarray(hover_rc, dtype=object)]),
+                hovertemplate="%{customdata[0]}<br>CSAT %{x:.1f}%<br>Recontact %{customdata[1]}<extra></extra>",
+            ))
+        fig.add_vline(x=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
+        fig.update_layout(
+            barmode="group",
+            xaxis=dict(title="QA / CSAT %", range=[0, SCORE_LABEL_MAX]),
+            yaxis=dict(title=""),
+            legend=LEGEND_TOP,
+            margin=dict(l=200, r=72, t=52, b=40),
+            dragmode=False,
+        )
+        return _panel(
+            fig, _hbar_height(len(plot), 28, 90), title=title,
+            n=_len_n(plot), n_unit=grain,
+        )
+    labels = [_wrap_label(x, 22, max_lines=2) for x in plot[cat_col]]
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    if "QA_Score" in plot.columns and plot["QA_Score"].notna().any():
+        fig.add_trace(go.Bar(
+            x=labels, y=plot["QA_Score"], name="QA",
+            marker_color=CHART_COLORS["qa"],
+            customdata=names,
+            hovertemplate="%{customdata}<br>QA %{y:.1f}%<extra></extra>",
+        ), secondary_y=False)
+    if "CSAT_Score" in plot.columns and plot["CSAT_Score"].notna().any():
         fig.add_trace(go.Bar(
             x=labels, y=plot["CSAT_Score"], name="CSAT",
             marker_color=CHART_COLORS["csat"],
-            cliponaxis=False,
-            customdata=plot["CR_Lv4"].astype(str),
-            hovertemplate="Contact reason Lv4 (detail) %{customdata}<br>CSAT %{y:.1f}%<extra></extra>",
+            customdata=names,
+            hovertemplate="%{customdata}<br>CSAT %{y:.1f}%<extra></extra>",
         ), secondary_y=False)
-    if "Recontact_Rate" in plot.columns:
+    if "Recontact_Rate" in plot.columns and plot["Recontact_Rate"].notna().any():
         fig.add_trace(go.Scatter(
             x=labels, y=plot["Recontact_Rate"], name="Recontact",
             mode="lines+markers",
-            line=dict(color=CHART_COLORS["recontact"], width=2.5),
-            marker=dict(size=8),
-            customdata=plot["CR_Lv4"].astype(str),
-            hovertemplate="Contact reason Lv4 (detail) %{customdata}<br>Recontact %{y:.2f}%<extra></extra>",
+            line=dict(color=DIDI_ORANGE, width=2.5),
+            marker=dict(size=8, color=DIDI_ORANGE),
+            customdata=names,
+            hovertemplate="%{customdata}<br>Recontact %{y:.2f}%<extra></extra>",
         ), secondary_y=True)
+        fig.add_hline(y=RECONTACT_GOAL, line_dash="dot", line_color=DIDI_MUTED, secondary_y=True)
+        fig.update_yaxes(title_text="Recontact %", range=_rc_axis(plot), showgrid=False, secondary_y=True)
     fig.add_hline(y=QA_GOAL, line_dash="dash", line_color=DIDI_MUTED)
-    fig.update_yaxes(title_text="QA / CSAT %", range=[0, 108], secondary_y=False)
-    fig.update_yaxes(title_text="Recontact %", range=_rc_axis(plot), showgrid=False, secondary_y=True)
-    fig.update_xaxes(title_text="Contact reason Lv4 (detail)", tickangle=-32, tickfont=dict(size=10))
+    fig.update_yaxes(title_text="QA / CSAT %", range=[0, SCORE_LABEL_MAX], secondary_y=False)
+    fig.update_xaxes(title_text="", tickangle=-32, tickfont=dict(size=10))
     fig.update_layout(
         barmode="group",
         legend=LEGEND_TOP,
         margin=dict(l=56, r=64, t=56, b=120),
         bargap=0.28,
+        dragmode=False,
+    )
+    return _panel(fig, 460, title=title, n=_len_n(plot), n_unit=grain)
+
+
+def supervisor_gap_chart(
+    df: pd.DataFrame,
+    name_col: str,
+    score_col: str,
+    n_col: str,
+    *,
+    goal: float,
+    title: str,
+    unit: str = "audits",
+    min_n: int = 20,
+) -> go.Figure:
+    """Pareto of gap × volume. Low-n rows are held out so a single audit cannot dominate."""
+    from modules.kpis import gap_pareto_frame
+
+    empty = go.Figure()
+    empty.add_annotation(text="No supervisor below goal with a reliable sample", showarrow=False)
+    if df is None or df.empty or name_col not in df.columns or score_col not in df.columns:
+        return _panel(empty, 300, title=title)
+    work = df.copy()
+    if n_col in work.columns:
+        work = work[pd.to_numeric(work[n_col], errors="coerce").fillna(0) >= int(min_n)]
+    frame = gap_pareto_frame(work, name_col, score_col, n_col, goal)
+    if frame.empty:
+        return _panel(empty, 300, title=title)
+    sample_n = int(pd.to_numeric(frame[n_col], errors="coerce").fillna(0).sum()) if n_col in frame.columns else None
+    value_title = f"Weighted deficit (gap × {unit})"
+    return pareto_dual_axis(
+        frame, "Cat", "Gap_Impact",
+        title=title,
+        value_title=value_title,
+        sample_unit=unit,
+        universe_n=sample_n,
+    )
+
+
+def taxonomy_coverage_chart(df: pd.DataFrame) -> go.Figure:
+    """100% stacked bar: classified vs Other at each contact-reason grain."""
+    title = "Contact reason classification coverage"
+    if df is None or df.empty or "Level" not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(text="No contact-reason coverage in this filter", showarrow=False)
+        return _panel(fig, 280, title=title)
+    plot = df.iloc[::-1].copy()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=plot["Level"], x=plot["Classified_Pct"], orientation="h", name="Classified",
+        marker_color=STATUS_COLORS["green"],
+        text=[f"{v:.1f}%" for v in plot["Classified_Pct"]],
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(size=11, color="#FFFFFF"),
+        customdata=np.column_stack([
+            plot["Level"].astype(str),
+            plot["Other_N"].to_numpy() if "Other_N" in plot.columns else np.zeros(len(plot)),
+            plot["Total_N"].to_numpy() if "Total_N" in plot.columns else np.zeros(len(plot)),
+        ]),
+        hovertemplate="%{customdata[0]}<br>Classified %{x:.1f}%<extra></extra>",
+    ))
+    fig.add_trace(go.Bar(
+        y=plot["Level"], x=plot["Other_Pct"], orientation="h", name="Other / unclassified",
+        marker_color="#94A3B8",
+        text=[f"{v:.1f}%" if v >= 3 else "" for v in plot["Other_Pct"]],
+        textposition="inside",
+        textfont=dict(size=11, color=DIDI_TEXT),
+        customdata=np.column_stack([
+            plot["Level"].astype(str),
+            plot["Other_N"].to_numpy() if "Other_N" in plot.columns else np.zeros(len(plot)),
+            plot["Total_N"].to_numpy() if "Total_N" in plot.columns else np.zeros(len(plot)),
+        ]),
+        hovertemplate=(
+            "%{customdata[0]}<br>Other %{x:.1f}%"
+            "<br>%{customdata[1]:,.0f} of %{customdata[2]:,.0f} surveys<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        barmode="stack",
+        xaxis=dict(title="% of CSAT surveys", range=[0, 100], ticksuffix="%"),
+        yaxis=dict(title=""),
+        legend=LEGEND_TOP,
+        margin=dict(l=140, r=40, t=56, b=40),
+        bargap=0.32,
+    )
+    n_total = int(plot["Total_N"].iloc[0]) if "Total_N" in plot.columns and len(plot) else None
+    return _panel(fig, 280, title=title, n=n_total, n_unit="surveys")
+
+
+def fail_count_by_cr_chart(
+    df: pd.DataFrame,
+    cat_col: str = "CR_Lv4",
+    *,
+    grain: str = "contact reason Lv4 (detail)",
+) -> go.Figure:
+    """Attribute-fail counts by contact reason — all reasons, not a truncated Pareto."""
+    title = f"QA fails by {grain}"
+    if df is None or df.empty or cat_col not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(text="No attribute fails in this filter", showarrow=False)
+        return _panel(fig, 320, title=title)
+    count_col = "Fail_Count" if "Fail_Count" in df.columns else ("Count" if "Count" in df.columns else None)
+    if count_col is None:
+        fig = go.Figure()
+        fig.add_annotation(text="No attribute fails in this filter", showarrow=False)
+        return _panel(fig, 320, title=title)
+    plot = df.copy()
+    plot[count_col] = pd.to_numeric(plot[count_col], errors="coerce").fillna(0)
+    plot = plot[plot[count_col] > 0].sort_values(count_col, ascending=True)
+    if plot.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No attribute fails in this filter", showarrow=False)
+        return _panel(fig, 320, title=title)
+    labels = [_wrap_label(x, 36, max_lines=2) for x in plot[cat_col]]
+    fig = go.Figure(go.Bar(
+        y=labels, x=plot[count_col], orientation="h",
+        marker_color=DIDI_ORANGE,
+        text=[f"{int(v):,}" for v in plot[count_col]],
+        textposition="outside",
+        textfont=dict(size=10, color=DIDI_TEXT),
+        cliponaxis=False,
+        customdata=plot[cat_col].astype(str),
+        hovertemplate="%{customdata}<br>Attribute fails %{x:,.0f}<extra></extra>",
+    ))
+    fig.update_layout(
+        xaxis=dict(title="Attribute fails"),
+        yaxis=dict(title=""),
+        margin=dict(l=200, r=72, t=48, b=40),
+        showlegend=False,
     )
     return _panel(
-        fig, 460, title="Contact reason Lv4 (detail) off-goal on more than one KPI",
-        n=_len_n(df), n_unit="contact reasons Lv4 (detail)",
+        fig, _hbar_height(len(plot), 26, 90), title=title,
+        n=int(plot[count_col].sum()), n_unit="attribute fails",
+    )
+
+
+def multimetric_risk_chart(df: pd.DataFrame) -> go.Figure:
+    return kpi_combo_by_cr(
+        df, "CR_Lv4",
+        title="Contact reason Lv4 (detail) — QA, CSAT, and recontact",
+        grain="contact reasons Lv4 (detail)",
     )
 
 
@@ -1997,10 +2551,15 @@ def recontact_channel_combo_chart(df: pd.DataFrame) -> go.Figure:
     )
 
 
-def recontact_cr_combo_chart(df: pd.DataFrame) -> go.Figure:
-    """Repeat volume bars + official rate line by contact reason Lv4. Rate is ratio of sums."""
-    title = "Repeats and rate by contact reason Lv4 (detail)"
-    if df is None or df.empty or "CR_Lv4" not in df.columns:
+def recontact_cr_combo_chart(
+    df: pd.DataFrame,
+    *,
+    cat_col: str = "CR_Lv4",
+    title: str = "Repeats and rate by contact reason Lv4 (detail)",
+    bar_color: str | None = None,
+) -> go.Figure:
+    """Repeat volume bars + official rate line. Rate is ratio of sums."""
+    if df is None or df.empty or cat_col not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No recontact rows in this filter", showarrow=False)
         return _panel(fig, 380, title=title)
@@ -2015,16 +2574,17 @@ def recontact_cr_combo_chart(df: pd.DataFrame) -> go.Figure:
         fig = go.Figure()
         fig.add_annotation(text="No recontact rows in this filter", showarrow=False)
         return _panel(fig, 380, title=title)
-    labels = [_wrap_label(x, 18) for x in plot["CR_Lv4"]]
-    names = plot["CR_Lv4"].astype(str)
+    labels = [_wrap_label(x, 18) for x in plot[cat_col]]
+    names = plot[cat_col].astype(str)
     rates = pd.to_numeric(plot["Recontact_Rate"], errors="coerce") if "Recontact_Rate" in plot.columns else pd.Series([None] * len(plot))
     contacts = pd.to_numeric(plot["Contacts"], errors="coerce").fillna(0) if "Contacts" in plot.columns else pd.Series([0] * len(plot))
     repeats = pd.to_numeric(plot[vol_col], errors="coerce").fillna(0)
     hover_cd = list(zip(names.tolist(), rates.tolist(), contacts.tolist(), repeats.tolist()))
+    fill = bar_color or DIDI_ORANGE
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Bar(
         x=labels, y=plot[vol_col], name="Repeats",
-        marker_color=CHART_COLORS["recontact"],
+        marker_color=fill,
         customdata=hover_cd,
         hovertemplate=(
             "%{customdata[0]}<br>Repeats %{y:,.0f}"
@@ -2058,7 +2618,7 @@ def recontact_cr_combo_chart(df: pd.DataFrame) -> go.Figure:
             secondary_y=True,
         )
     fig.update_yaxes(title_text="Repeats", secondary_y=False)
-    fig.update_xaxes(title_text="Contact reason Lv4 (detail)", tickangle=-32, tickfont=dict(size=10))
+    fig.update_xaxes(title_text="Contact reason", tickangle=-32, tickfont=dict(size=10))
     fig.update_layout(
         legend=LEGEND_TOP,
         margin=dict(l=56, r=56, t=52, b=110),
@@ -2289,6 +2849,89 @@ def pareto_chart(pareto, top_n=8):
         return pareto_dual_axis(pd.DataFrame(), "Cat", "Count")
     df = pareto_for_display(pareto, top_n).rename(columns={"Error_Category": "Cat", "Cantidad": "Count"})
     return pareto_dual_axis(df, "Cat", "Count")
+
+
+def share_donut_chart(
+    df: pd.DataFrame,
+    name_col: str,
+    value_col: str,
+    *,
+    title: str,
+    colors: list[str] | None = None,
+    sample_unit: str = "audits",
+) -> go.Figure:
+    empty = go.Figure()
+    empty.add_annotation(text="No rows in the current filter", showarrow=False)
+    if df is None or df.empty or name_col not in df.columns or value_col not in df.columns:
+        return _panel(empty, 220, title=title)
+    plot = df.copy()
+    plot[value_col] = pd.to_numeric(plot[value_col], errors="coerce").fillna(0)
+    plot = plot[plot[value_col] > 0]
+    if plot.empty:
+        return _panel(empty, 220, title=title)
+    labels = plot[name_col].astype(str).tolist()
+    values = plot[value_col].tolist()
+    fills = colors or DONUT_PALETTE[: len(labels)]
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values, hole=0.58,
+        marker=dict(colors=fills[: len(labels)], line=dict(color=PAPER, width=1)),
+        textinfo="label+percent",
+        textfont=dict(size=11, color=DIDI_TEXT),
+        hovertemplate="%{label}<br>%{value:,.0f} " + sample_unit + " (%{percent})<extra></extra>",
+        sort=False,
+    ))
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            orientation="h", y=-0.18, x=0.5, xanchor="center",
+            font=dict(size=11, color=DIDI_TEXT), bgcolor="rgba(0,0,0,0)",
+        ),
+        margin=dict(l=8, r=8, t=8, b=48),
+    )
+    return _panel(fig, 220, title=title, n=int(plot[value_col].sum()), n_unit=sample_unit)
+
+
+def count_stack_chart(
+    df: pd.DataFrame,
+    cat_col: str,
+    series_col: str,
+    value_col: str = "n",
+    *,
+    title: str,
+    cat_order: list[str] | None = None,
+    series_order: list[str] | None = None,
+    sample_unit: str = "audits",
+) -> go.Figure:
+    empty = go.Figure()
+    empty.add_annotation(text="No rows in the current filter", showarrow=False)
+    if df is None or df.empty or cat_col not in df.columns or series_col not in df.columns:
+        return _panel(empty, 280, title=title)
+    plot = df.copy()
+    plot[value_col] = pd.to_numeric(plot[value_col], errors="coerce").fillna(0)
+    cats = cat_order or plot.groupby(cat_col)[value_col].sum().sort_values(ascending=False).index.tolist()
+    series = series_order or plot.groupby(series_col)[value_col].sum().sort_values(ascending=False).index.tolist()
+    fig = go.Figure()
+    palette = [CHART_COLORS["blue"], DIDI_ORANGE, STATUS_COLORS.get("amber", "#C9A227"), "#64748B"]
+    for i, name in enumerate(series):
+        sub = plot[plot[series_col].astype(str) == str(name)]
+        lookup = dict(zip(sub[cat_col].astype(str), sub[value_col]))
+        ys = [float(lookup.get(str(c), 0)) for c in cats]
+        fig.add_trace(go.Bar(
+            name=str(name),
+            x=[_wrap_label(c, 18) for c in cats],
+            y=ys,
+            marker_color=palette[i % len(palette)],
+            hovertemplate="%{x}<br>" + str(name) + " %{y:,.0f}<extra></extra>",
+        ))
+    fig.update_layout(
+        barmode="stack",
+        yaxis=dict(title=sample_unit.title(), rangemode="tozero"),
+        xaxis=dict(title=""),
+        legend=LEGEND_TOP,
+        margin=dict(l=56, r=28, t=52, b=64),
+        bargap=0.35,
+    )
+    return _panel(fig, 300, title=title, n=int(plot[value_col].sum()), n_unit=sample_unit)
 
 
 pareto_horizontal = pareto_chart

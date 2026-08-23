@@ -32,6 +32,11 @@ from config import (
     LABEL_GROUPS,
     LABELS,
     QA_GOAL,
+    RANKING_CSAT_MIN_N,
+    RANKING_QA_MIN_N,
+    CR_COMBO_TOP_N,
+    CR_COMBO_MIN_QA_N,
+    SUPERVISOR_GAP_MIN_N,
     RECONTACT_GOAL,
     SUPERVISOR_Q4_SHARE_ALERT,
     STATUS_COLORS,
@@ -49,10 +54,13 @@ from modules.dashboard_charts import (
     cr_group_hbar,
     critical_split_chart,
     csat_star_chart,
+    kpi_combo_by_cr,
+    fail_count_by_cr_chart,
     pareto_dual_axis,
     qa_by_cr_chart,
     qa_aht_scatter,
     aht_metric_scatter,
+    qa_aht_combo,
     qa_channel_compare_chart,
     qa_csat_scatter,
     score_volume_combo,
@@ -61,6 +69,9 @@ from modules.dashboard_charts import (
     hbar_score_chart,
     voc_bar_chart,
     manner_pie_chart,
+    share_donut_chart,
+    count_stack_chart,
+    is_pareto_remainder_label,
     corr_r_bars,
     multimetric_risk_chart,
     qa_histogram_chart,
@@ -80,7 +91,9 @@ from modules.dashboard_charts import (
     recontact_channel_combo_chart,
     recontact_cr_combo_chart,
     quartile_count_chart,
+    supervisor_gap_chart,
     supervisor_mix_chart,
+    taxonomy_coverage_chart,
 )
 from modules.chart_notes import (
     aht_outcome_notes,
@@ -138,7 +151,10 @@ from modules.kpis import (
     cr_join_coverage,
     CR_UNMAPPED,
     cr_group_lookup,
+    cr_group_metrics,
     cr_level_metrics,
+    split_cr_combo_view,
+    parse_cr_fallback_label,
     map_cr_group,
     channel_match,
     cr_match,
@@ -153,6 +169,7 @@ from modules.kpis import (
     voc_all_comments,
     filter_csat_by_supervisor,
     filter_csat_by_agent,
+    filter_csat_by_tenure,
     fail_event_totals,
     csat_control_daily,
     daily_metrics_trend,
@@ -166,7 +183,11 @@ from modules.kpis import (
     market_performance,
     qa_aht_by_cr,
     qa_aht_by_channel,
+    qa_aht_summary,
     supervisor_overview,
+    csat_supervisor_mapping,
+    cr_finest_volume,
+    cr_taxonomy_coverage,
     gap_pareto_frame,
     tenure_qa_overview,
     tenure_csat_overview,
@@ -189,6 +210,16 @@ from modules.kpis import (
     qa_control_daily,
     qa_fails_by_cr,
     qa_fails_by_cr_group,
+    qa_auditor_outcome,
+    auditor_resolution_summary,
+    qa_process_adherence_summary,
+    qa_dissatisfaction_split,
+    qa_dissatisfaction_owner,
+    qa_dissatisfaction_subreason,
+    qa_repeat_48h,
+    qa_repeat_48h_by_channel,
+    qa_auditor_quotes,
+    REPEAT_48H_ORDER,
     qa_score_by_cr,
     qa_score_histogram,
     csat_score_histogram,
@@ -612,6 +643,16 @@ section.main [data-testid="stDataFrameResizable"] [role="columnheader"] {{
 section.main [data-testid="stAlert"] {{
     margin: 0 !important;
 }}
+.didi-col-kicker {{
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: {DIDI_TEXT};
+    border-left: 3px solid {DIDI_ORANGE};
+    padding: 0.12rem 0 0.28rem 0.55rem;
+    margin: 0 0 0.55rem;
+}}
 section.main [data-testid="stMarkdownContainer"] {{
     margin: 0 !important;
 }}
@@ -850,8 +891,6 @@ section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"],
 section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"] > div,
 section.main [class*="st-key-didi_panel"] [data-testid="stVerticalBlock"],
 section.main [class*="st-key-didi_panel"] [data-testid="stElementContainer"],
-section.main [class*="st-key-didi_panel"] [data-testid="stPlotlyChart"],
-section.main [class*="st-key-didi_panel"] [data-testid="stPlotlyChart"] > div,
 section.main [class*="st-key-didi_insight"] [data-testid="stVerticalBlock"],
 section.main [class*="st-key-didi_insight"] [data-testid="stElementContainer"],
 section.main [class*="st-key-didi_action"] > div,
@@ -891,9 +930,21 @@ section.main [class*="st-key-didi_rcard"]:has(.didi-rcard-flag--on) [data-testid
     border-color: rgba({_ORANGE_RGB},.88) !important;
     box-shadow: 0 0 0 1px rgba({_ORANGE_RGB},.28), 0 12px 28px rgba(0,0,0,.32);
 }}
+section.main [class*="st-key-didi_tile_green"] [data-testid="stMetricValue"],
+[class*="st-key-didi_tile_green"] [data-testid="stMetricValue"] {{
+    color: {STATUS_COLORS["green"]} !important;
+}}
+section.main [class*="st-key-didi_tile_amber"] [data-testid="stMetricValue"],
+[class*="st-key-didi_tile_amber"] [data-testid="stMetricValue"] {{
+    color: {STATUS_COLORS["amber"]} !important;
+}}
+section.main [class*="st-key-didi_tile_red"] [data-testid="stMetricValue"],
+[class*="st-key-didi_tile_red"] [data-testid="stMetricValue"] {{
+    color: {STATUS_COLORS["red"]} !important;
+}}
 section.main [class*="st-key-didi_rcard"] [data-testid="stPlotlyChart"] {{
     min-height: 110px !important;
-    max-height: 128px !important;
+    max-height: 160px !important;
 }}
 /* Preview-card titles are Streamlit buttons. Match .didi-panel-title fill.
    Do not require section.main — Streamlit 1.61 uses stMain, not class "main". */
@@ -953,10 +1004,24 @@ section.main [class*="st-key-didi_rcard"] button:hover,
 section.main [class*="st-key-pvbtn"] button:hover,
 section[data-testid="stMain"] [class*="st-key-didi_rcard"] button:hover,
 section[data-testid="stMain"] [class*="st-key-pvbtn"] button:hover {{
-    filter: brightness(1.12);
+    background: {DIDI_ORANGE} !important;
+    background-color: {DIDI_ORANGE} !important;
+    border-color: {DIDI_ORANGE} !important;
+    border-bottom: 3px solid {DIDI_DARK} !important;
     color: #FFFFFF !important;
-    background: {DIDI_DARK} !important;
-    background-color: {DIDI_DARK} !important;
+    filter: none;
+    box-shadow: 0 8px 18px rgba({_ORANGE_RGB}, .35) !important;
+    cursor: pointer;
+}}
+[class*="st-key-didi_rcard"] button:hover p,
+[class*="st-key-pvbtn"] button:hover p,
+section.main [class*="st-key-didi_rcard"] button:hover p,
+section[data-testid="stMain"] [class*="st-key-didi_rcard"] button:hover p {{
+    color: #FFFFFF !important;
+}}
+section.main [class*="st-key-didi_rcard"] [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+    border-color: {DIDI_ORANGE} !important;
+    box-shadow: 0 0 0 1px rgba({_ORANGE_RGB},.35), 0 12px 28px rgba(0,0,0,.14);
 }}
 [class*="st-key-didi_rcard"] button p,
 [class*="st-key-pvbtn"] button p,
@@ -967,13 +1032,13 @@ section.main [class*="st-key-pvbtn"] button p {{
     font-weight: 700 !important;
     text-transform: none !important;
     letter-spacing: .01em !important;
-    font-size: 0.80rem !important;
+    font-size: 0.76rem !important;
     text-align: center !important;
     white-space: normal !important;
     line-height: 1.25 !important;
     color: #FFFFFF !important;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }}
@@ -1098,18 +1163,19 @@ button[kind="primary"]:hover,
 .didi-targets-box {{
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px;
-    background: {DIDI_WHITE};
-    border: 1px solid {DIDI_CARD_BORDER};
+    background: {DIDI_DARK};
+    border: 1px solid {DIDI_DARK};
+    border-bottom: 3px solid {DIDI_ORANGE};
     border-radius: 14px;
     padding: 16px 18px 18px;
     min-width: 0;
     width: 100%;
     flex: 1;
     box-sizing: border-box;
-    box-shadow: 0 8px 20px rgba(26,26,26,.06);
+    box-shadow: 0 10px 28px rgba(0,0,0,.34);
 }}
 .didi-targets-kicker {{
-    color: {DIDI_MUTED}; font-size: 11px; font-weight: 700;
+    color: {DIDI_WHITE}; font-size: 11px; font-weight: 700;
     letter-spacing: .14em; text-transform: uppercase; margin: 0;
     width: 100%; text-align: center;
 }}
@@ -1121,23 +1187,23 @@ button[kind="primary"]:hover,
     display: flex; align-items: center; justify-content: center;
     gap: 8px 20px; flex-wrap: wrap; width: 100%;
     padding-top: 10px;
-    border-top: 1px solid {DIDI_CARD_BORDER};
+    border-top: 1px solid rgba(255,255,255,.18);
 }}
 .didi-targets-legend .didi-light-item {{
-    color: {DIDI_MUTED}; font-size: 0.74rem;
+    color: rgba(255,255,255,.82); font-size: 0.74rem;
 }}
 .didi-tgt {{
     display: flex; align-items: center; gap: 10px;
     font-size: 1.02rem; font-weight: 600; white-space: nowrap;
-    color: {DIDI_TEXT};
+    color: {DIDI_WHITE};
 }}
 .didi-tgt-ico {{
     width: 32px; height: 32px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    background: {DIDI_GRAY};
-    color: {DIDI_TEXT};
-    border: 1px solid {DIDI_CARD_BORDER};
+    background: rgba(255,255,255,.1);
+    color: {DIDI_WHITE};
+    border: 1px solid rgba({_ORANGE_RGB},.55);
 }}
 .didi-tgt-ico svg {{ width: 16px; height: 16px; }}
 .didi-page {{
@@ -1178,6 +1244,28 @@ section.main [class*="st-key-didi_head"] [data-testid="stElementContainer"] {{
     text-align: center;
     line-height: 1.25;
     box-shadow: 0 8px 18px rgba(0,0,0,.28);
+}}
+.didi-rule-h {{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    margin: 1.4rem 0 0.75rem;
+}}
+.didi-rule-h::before,
+.didi-rule-h::after {{
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(26,26,26,.16);
+}}
+.didi-rule-h span {{
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: {DIDI_MUTED};
+    white-space: nowrap;
 }}
 .didi-section {{
     margin: 1.45rem 0 0.7rem; padding-bottom: 0;
@@ -1697,6 +1785,42 @@ header[data-testid="stHeader"] {{
 }}
 .didi-qcol li {{ margin: 0 0 2px; overflow-wrap: anywhere; }}
 .didi-qcol-more {{ color: {DIDI_MUTED}; font-weight: 650; }}
+.didi-qrange {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 10px;
+}}
+.didi-qrange-card {{
+    background: {DIDI_WHITE};
+    border: 1px solid {DIDI_CARD_BORDER};
+    border-radius: 10px;
+    padding: 8px 10px 10px;
+}}
+.didi-qrange-card--Q1 {{ border-top: 3px solid {STATUS_COLORS["green"]}; }}
+.didi-qrange-card--Q2 {{ border-top: 3px solid {STATUS_COLORS["blue"]}; }}
+.didi-qrange-card--Q3 {{ border-top: 3px solid {STATUS_COLORS["amber"]}; }}
+.didi-qrange-card--Q4 {{ border-top: 3px solid {STATUS_COLORS["red"]}; }}
+.didi-qrange-k {{
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}}
+.didi-qrange-v {{
+    margin: 4px 0 2px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: {DIDI_TEXT};
+    line-height: 1.25;
+}}
+.didi-qrange-s {{
+    margin: 0;
+    font-size: 0.7rem;
+    color: {DIDI_MUTED};
+    font-weight: 600;
+}}
 .didi-coach-copy {{
     color: {DIDI_TEXT}; font-size: 0.86rem; font-weight: 600;
     line-height: 1.4; margin: 0 0 8px;
@@ -1772,18 +1896,66 @@ section.main [class*="st-key-didi_alert_amber"] {{
 }}
 .didi-watch-group {{
     display: flex; align-items: center; gap: 8px;
-    margin: 0.55rem 0 0.35rem; padding: 0 2px;
+    margin: 0.7rem 0 0.4rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: {DIDI_GRAY};
+    border: 1px solid {DIDI_CARD_BORDER};
 }}
-.didi-watch-group:first-child {{ margin-top: 0.1rem; }}
+.didi-watch-group--QA {{
+    background: rgba(46,155,87,.10);
+    border-color: rgba(46,155,87,.22);
+}}
+.didi-watch-group--CSAT {{
+    background: rgba(46,111,190,.10);
+    border-color: rgba(46,111,190,.22);
+}}
 .didi-watch-group-dot {{
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
 }}
 .didi-watch-group-name {{
-    color: {DIDI_TEXT}; font-size: 0.72rem; font-weight: 800;
-    letter-spacing: .08em; text-transform: uppercase;
+    color: {DIDI_TEXT}; font-size: 0.78rem; font-weight: 800;
+    letter-spacing: .06em; text-transform: uppercase;
 }}
 .didi-watch-group-n {{
-    color: {DIDI_MUTED}; font-size: 0.72rem; font-weight: 600; margin-left: auto;
+    color: {DIDI_MUTED}; font-size: 0.74rem; font-weight: 650;
+}}
+.didi-watch-sub {{
+    margin: 0.15rem 0 0.35rem;
+    color: {DIDI_MUTED};
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}}
+.didi-coach {{
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; margin: 0;
+}}
+.didi-coach-main {{ min-width: 0; flex: 1; }}
+.didi-coach-name {{
+    margin: 0;
+    color: {DIDI_TEXT};
+    font-size: 0.92rem;
+    font-weight: 800;
+    line-height: 1.25;
+}}
+.didi-coach-score {{
+    margin: 0;
+    color: {DIDI_TEXT};
+    font-size: 1.28rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+    white-space: nowrap;
+}}
+.didi-coach-meta {{
+    margin: 3px 0 0;
+    color: {DIDI_MUTED};
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.35;
 }}
 .didi-watch-top {{
     display: flex; align-items: flex-start; justify-content: space-between;
@@ -1895,15 +2067,45 @@ section.main [class*="st-key-didi_alert_amber"] {{
 section.main [class*="st-key-didi_watch"] {{
     height: auto !important;
     overflow: visible !important;
+    margin-bottom: 0.28rem !important;
+}}
+section.main [class*="st-key-didi_watch"] [data-testid="stVerticalBlock"] {{
+    gap: 0.12rem !important;
+}}
+section.main [class*="st-key-didi_watch"] [data-testid="stButton"] {{
+    width: 100% !important;
 }}
 section.main [class*="st-key-didi_watch"] button {{
-    text-align: left !important; justify-content: flex-start !important;
-    white-space: normal !important; min-height: 32px !important;
-    padding: 4px 10px !important; font-size: 12px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    min-height: 34px !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    color: {DIDI_WHITE} !important;
+    background: {DIDI_ORANGE} !important;
+    border: 1px solid {DIDI_ORANGE} !important;
+    border-radius: 8px !important;
+}}
+section.main [class*="st-key-didi_watch"] button:hover {{
+    filter: brightness(0.94);
 }}
 section.main [class*="st-key-didi_watch_on"] {{
-    border-color: {STATUS_COLORS["amber"]} !important;
-    box-shadow: 0 0 0 1px {STATUS_COLORS["amber"]};
+    border-color: {DIDI_ORANGE} !important;
+}}
+section.main [class*="st-key-didi_watch_on"] button {{
+    color: {DIDI_ORANGE} !important;
+    background: {DIDI_WHITE} !important;
+    border: 2px solid {DIDI_ORANGE} !important;
+}}
+section.main [class*="st-key-didi_watch_red"],
+section.main [class*="st-key-didi_watch_on_red"] {{
+    border-left: 4px solid {STATUS_COLORS["red"]} !important;
+}}
+section.main [class*="st-key-didi_watch_amber"],
+section.main [class*="st-key-didi_watch_on_amber"] {{
+    border-left: 4px solid {STATUS_COLORS["amber"]} !important;
 }}
 section.main [class*="st-key-didi_sup_"] button,
 section.main [class*="st-key-didi_sup_"] [data-testid="stDownloadButton"] button {{
@@ -1988,8 +2190,206 @@ section.main [class*="st-key-didi_alert_amber"] {{
     font-size: 0.78rem; padding: 0.32rem 0.55rem; letter-spacing: .06em;
 }}
 
-div[data-testid="stPlotlyChart"] {{ margin: 0; background: transparent !important; }}
-div[data-testid="stPlotlyChart"] > div {{ background: transparent !important; }}
+div[data-testid="stPlotlyChart"] {{ margin: 0; }}
+.js-plotly-plot .selectlayer,
+.js-plotly-plot .zoomlayer {{
+    pointer-events: none !important;
+}}
+/* Popup — Streamlit 1.61 is NOT Baseweb. Overlay is .stDialog[data-testid=stDialog]
+   (flex, full viewport). The white panel is its first child (emotion e1mymz5c1)
+   with width: theme.sizes.dialogLargeWidth = 80rem. [role=dialog] is the INNER
+   wrapper (e1mymz5c2), so width rules on [role=dialog] left a ~880px chart
+   left-aligned inside an 80rem panel. Size the PANEL, fill the inner column,
+   and center Plotly if the SVG stays fixed-pixel. */
+div[data-testid="stDialog"] > div,
+section[data-testid="stDialog"] > div,
+.stDialog > div,
+div[data-testid="stDialog"] [class*="e1mymz5c1"],
+div[data-testid="stModal"] > div,
+[data-baseweb="modal"],
+[data-baseweb="modal"] > div {{
+    position: relative !important;
+    width: min(92vw, 960px) !important;
+    min-width: min(92vw, 560px) !important;
+    max-width: 96vw !important;
+    height: min(86vh, 760px) !important;
+    min-height: 420px !important;
+    max-height: 94vh !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 32px !important;
+    box-sizing: border-box !important;
+    background: {DIDI_WHITE} !important;
+    border: 1px solid {DIDI_CARD_BORDER} !important;
+    border-radius: 14px !important;
+    overflow: auto !important;
+}}
+.didi-dialog-grip {{
+    position: fixed !important;
+    width: 28px;
+    height: 28px;
+    cursor: nwse-resize;
+    z-index: 2147483646;
+    touch-action: none;
+    pointer-events: auto;
+}}
+.didi-dialog-grip::before,
+.didi-dialog-grip::after {{
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    border-style: solid;
+    border-color: transparent;
+    border-right-color: {DIDI_ORANGE};
+    border-bottom-color: {DIDI_ORANGE};
+}}
+.didi-dialog-grip::before {{
+    width: 16px; height: 16px;
+    border-width: 0 3px 3px 0;
+}}
+.didi-dialog-grip::after {{
+    width: 9px; height: 9px;
+    border-width: 0 3px 3px 0;
+}}
+div[data-testid="stDialog"] [role="dialog"],
+div[data-testid="stDialog"] [class*="e1mymz5c2"],
+div[data-testid="stModal"] [role="dialog"] {{
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+}}
+div[data-testid="stDialog"] [slot="title"],
+div[data-testid="stDialog"] [class*="e1mymz5c4"],
+div[data-testid="stModal"] [slot="title"] {{
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0 2.75rem 0.85rem 2.75rem !important;
+    margin: 0 !important;
+    text-align: center !important;
+}}
+div[data-testid="stDialog"] [slot="title"] p,
+div[data-testid="stDialog"] [slot="title"] [data-testid="stHeading"],
+div[data-testid="stDialog"] [slot="title"] [data-testid="stMarkdownContainer"],
+div[data-testid="stDialog"] [slot="title"] [data-testid="stMarkdownContainer"] p,
+div[data-testid="stDialog"] [class*="e1mymz5c4"] p,
+div[data-testid="stDialog"] [class*="e1mymz5c4"] [data-testid="stHeading"],
+div[data-testid="stDialog"] [class*="e1mymz5c4"] [data-testid="stMarkdownContainer"],
+div[data-testid="stDialog"] [class*="e1mymz5c4"] [data-testid="stMarkdownContainer"] p {{
+    width: 100% !important;
+    text-align: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+}}
+div[data-testid="stDialog"] button[kind="headerNoPadding"],
+div[data-testid="stDialog"] button[kind="header"],
+div[data-testid="stDialog"] [aria-label="Close"],
+div[data-testid="stDialog"] [aria-label="Close dialog"] {{
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    z-index: 2 !important;
+}}
+div[data-testid="stDialog"] [class*="e1mymz5c5"] {{
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}}
+div[data-testid="stDialog"] [data-testid="stVerticalBlock"],
+div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stDialog"] [data-testid="stElementContainer"],
+div[data-testid="stDialog"] [data-testid="element-container"],
+div[data-testid="stDialog"] [data-testid="stExpander"],
+div[data-testid="stDialog"] [data-testid="stCaptionContainer"],
+div[data-testid="stDialog"] [data-testid="stMarkdown"],
+div[data-testid="stDialog"] [class*="st-key-didi_dialog_body"] {{
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}}
+div[data-testid="stDialog"] [class*="st-key-didi_dialog_body"] {{
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+}}
+div[data-testid="stDialog"] [data-testid="stPlotlyChart"] {{
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}}
+div[data-testid="stDialog"] [data-testid="stPlotlyChart"] > div,
+div[data-testid="stDialog"] .js-plotly-plot,
+div[data-testid="stDialog"] .plot-container,
+div[data-testid="stDialog"] .svg-container {{
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+}}
+div[data-testid="stDialog"] .didi-dialog-n,
+div[data-testid="stDialog"] .didi-note,
+div[data-testid="stDialog"] [data-testid="stExpander"] {{
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}}
+div[data-testid="stDialog"] .didi-dialog-n {{
+    margin: 0 0 0.35rem;
+    font-size: 0.82rem;
+    color: {DIDI_MUTED};
+    font-weight: 600;
+}}
+div[data-testid="stDialog"] .didi-note {{
+    font-size: 0.92rem;
+    font-weight: 650;
+    line-height: 1.4;
+    color: {DIDI_TEXT} !important;
+    background: {DIDI_GRAY} !important;
+    border: none !important;
+    border-left: 4px solid {DIDI_ORANGE} !important;
+    border-radius: 0 8px 8px 0 !important;
+    padding: 0.65rem 0.9rem !important;
+    margin: 0 0 0.85rem !important;
+    -webkit-line-clamp: unset;
+    display: block;
+    overflow: visible;
+}}
+div[data-testid="stDialog"] .didi-note--off {{
+    border-left-color: {STATUS_COLORS["red"]} !important;
+}}
+div[data-testid="stDialog"] .didi-note--ok {{
+    border-left-color: {STATUS_COLORS["green"]} !important;
+}}
+div[data-testid="stDialog"] .didi-note--info {{
+    border-left-color: {STATUS_COLORS["blue"]} !important;
+}}
+[class*="st-key-didi_below_"] {{
+    background: #FFF4EC !important;
+    border: 1.5px solid {DIDI_ORANGE} !important;
+    border-radius: 10px !important;
+    padding: 0.35rem 0.7rem 0.15rem !important;
+    margin: 0 0 0.55rem !important;
+}}
+[class*="st-key-didi_below_"] [data-testid="stWidgetLabel"] p,
+[class*="st-key-didi_below_"] label p {{
+    font-weight: 700 !important;
+    color: {DIDI_DARK} !important;
+}}
 #didi-theme-sync {{ display: none !important; height: 0 !important; }}
 div[data-testid="stHtml"]:has(#didi-theme-sync) {{
     height: 0 !important; min-height: 0 !important; margin: 0 !important;
@@ -1998,7 +2398,84 @@ div[data-testid="stHtml"]:has(#didi-theme-sync) {{
 """
 st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
 st.html(
-    f"<style>{_CSS}</style><div id='didi-theme-sync'></div>",
+    "<div id='didi-theme-sync'></div>"
+    "<script>"
+    "(function(){"
+    "if(window.__didiDialogGrip)return;"
+    "window.__didiDialogGrip=true;"
+    "var MIN_W=560,MIN_H=420;"
+    "var activeEl=null,grip=null;"
+    "var resizePlots=function(root){"
+    "if(!window.Plotly||!Plotly.Plots)return;"
+    "var plots=(root&&root.querySelectorAll&&root!==document)"
+    "?root.querySelectorAll('.js-plotly-plot')"
+    ":document.querySelectorAll('[data-testid=\"stDialog\"] .js-plotly-plot,.stDialog .js-plotly-plot');"
+    "plots.forEach(function(p){try{Plotly.Plots.resize(p);}catch(e){}});"
+    "};"
+    "var findPanel=function(){"
+    "var dlg=document.querySelector('[data-testid=\"stDialog\"], .stDialog');"
+    "if(!dlg)return null;"
+    "var kids=Array.prototype.slice.call(dlg.children||[]);"
+    "return kids.find(function(k){return k.offsetWidth>240&&k.offsetHeight>200;})||kids[0]||null;"
+    "};"
+    "var placeGrip=function(){"
+    "if(!grip)return;"
+    "if(!activeEl||!activeEl.isConnected){grip.style.display='none';return;}"
+    "var r=activeEl.getBoundingClientRect();"
+    "if(r.width<40||r.height<40){grip.style.display='none';return;}"
+    "grip.style.display='block';"
+    "grip.style.left=Math.round(r.right-24)+'px';"
+    "grip.style.top=Math.round(r.bottom-24)+'px';"
+    "};"
+    "var ensureGrip=function(){"
+    "if(grip)return grip;"
+    "grip=document.createElement('div');"
+    "grip.className='didi-dialog-grip';"
+    "grip.title='Drag the orange corner to resize';"
+    "grip.setAttribute('aria-label','Drag to resize');"
+    "document.body.appendChild(grip);"
+    "grip.addEventListener('pointerdown',function(ev){"
+    "if(!activeEl)return;"
+    "ev.preventDefault();ev.stopPropagation();"
+    "var startX=ev.clientX,startY=ev.clientY;"
+    "var startW=activeEl.offsetWidth,startH=activeEl.offsetHeight;"
+    "try{grip.setPointerCapture(ev.pointerId);}catch(e){}"
+    "var move=function(e){"
+    "var maxW=Math.round(window.innerWidth*0.96);"
+    "var maxH=Math.round(window.innerHeight*0.94);"
+    "var w=Math.max(MIN_W,Math.min(maxW,startW+(e.clientX-startX)));"
+    "var h=Math.max(MIN_H,Math.min(maxH,startH+(e.clientY-startY)));"
+    "activeEl.style.setProperty('width',w+'px','important');"
+    "activeEl.style.setProperty('height',h+'px','important');"
+    "activeEl.style.setProperty('max-width','96vw','important');"
+    "activeEl.style.setProperty('max-height','94vh','important');"
+    "placeGrip();"
+    "resizePlots(activeEl);"
+    "};"
+    "var up=function(){"
+    "grip.removeEventListener('pointermove',move);"
+    "grip.removeEventListener('pointerup',up);"
+    "grip.removeEventListener('pointercancel',up);"
+    "placeGrip();"
+    "resizePlots(activeEl);"
+    "};"
+    "grip.addEventListener('pointermove',move);"
+    "grip.addEventListener('pointerup',up);"
+    "grip.addEventListener('pointercancel',up);"
+    "});"
+    "return grip;"
+    "};"
+    "var scan=function(){"
+    "var el=findPanel();"
+    "activeEl=el;"
+    "if(el){ensureGrip();placeGrip();resizePlots(el);}"
+    "else if(grip){grip.style.display='none';}"
+    "};"
+    "new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});"
+    "window.addEventListener('resize',function(){placeGrip();resizePlots(document);});"
+    "setTimeout(scan,50);setTimeout(scan,200);setTimeout(scan,500);"
+    "})();"
+    "</script>",
     unsafe_allow_javascript=True,
 )
 
@@ -2095,20 +2572,45 @@ def apply_filters(audits, errors, csat, recontact, f, audits_all):
         if "CR_Lv4" in r.columns:
             r = r[cr_match(r["CR_Lv4"], f["cr"])]
 
+    sub_cr = f.get("sub_cr", "All")
+    if sub_cr != "All":
+        if "SUB_CR" in a.columns:
+            a = a[cr_match(a["SUB_CR"], sub_cr)]
+        if "SUB_CR" in e.columns:
+            e = e[cr_match(e["SUB_CR"], sub_cr)]
+        if "SUB_CR" in c.columns:
+            c = c[cr_match(c["SUB_CR"], sub_cr)]
+        if "SUB_CR" in r.columns and r["SUB_CR"].notna().any():
+            r = r[cr_match(r["SUB_CR"], sub_cr)]
+
     if f.get("audit_type", "All") != "All" and "Type_of_audit" in a.columns:
         a = a[a["Type_of_audit"] == f["audit_type"]]
 
     if f.get("special_project", "All") != "All" and "Special_project" in a.columns:
         a = a[a["Special_project"] == f["special_project"]]
 
-    if f.get("business_type", "All") != "All" and "Business_Type" in c.columns:
-        c = c[c["Business_Type"] == f["business_type"]]
+    if f.get("business_type", "All") != "All":
+        bt = f["business_type"]
+        cr_keys: set[str] = set()
+        if "Business_Type" in c.columns:
+            hit = c[c["Business_Type"] == bt]
+            if "CR_Lv4" in hit.columns:
+                cr_keys = set(hit["CR_Lv4"].dropna().astype(str).str.strip().str.casefold()) - {"", "nan"}
+            c = hit
+        if cr_keys:
+            def _in_bt(s: pd.Series) -> pd.Series:
+                return s.astype(str).str.strip().str.casefold().isin(cr_keys)
+            if "CR_Lv4" in a.columns:
+                a = a[_in_bt(a["CR_Lv4"])]
+            if "CR_Lv4" in e.columns:
+                e = e[_in_bt(e["CR_Lv4"])]
 
     if f.get("requester", "All") != "All" and "Requester" in a.columns:
         a, e = a[a["Requester"] == f["requester"]], e[e["Requester"] == f["requester"]]
 
     if f.get("tenure", "All") != "All" and "Tenure_Cohort" in a.columns:
         a = a[a["Tenure_Cohort"] == f["tenure"]]
+        c = filter_csat_by_tenure(c, audits_all, f["tenure"])
 
     if f.get("supervisor", "All") != "All":
         if "Supervisor_ID" in a.columns:
@@ -2271,8 +2773,8 @@ def _next_didi_key(prefix: str) -> str:
     return f"{prefix}_{_didi_box_n}"
 
 
-def panel(title: str | None = None, subtitle: str | None = None):
-    box = st.container(border=True, key=_next_didi_key("didi_panel"))
+def panel(title: str | None = None, subtitle: str | None = None, *, key: str | None = None):
+    box = st.container(border=True, key=key or _next_didi_key("didi_panel"))
     if title:
         box.markdown(f"<p class='didi-panel-title'>{html_escape(title)}</p>", unsafe_allow_html=True)
     return box
@@ -2329,10 +2831,8 @@ def render_chip(item: dict | str | None, *, tone: str = "info", icon: str = "") 
     if not text:
         return
     words = text.split()
-    if len(words) > 15:
-        text = " ".join(words[:15])
-    if tone == "risk" and not text.startswith("×"):
-        text = "× " + text
+    if len(words) > 22:
+        text = " ".join(words[:22])
     cls = {"risk": "off", "ok": "ok", "info": "info"}.get(tone, "info")
     st.markdown(
         f'<div class="didi-note didi-note--{cls}">{html_escape(text)}</div>',
@@ -2391,6 +2891,44 @@ def render_quartile_pill(q1: float, q2: float, q3: float, q4: float) -> None:
     )
 
 
+def render_quartile_range_cards(summary: dict, *, metric: str) -> None:
+    """Mini cards with the actual score bands used for Q1–Q4 in this filter."""
+    bands = (summary or {}).get("bands") or {}
+    roles = {
+        "Q1": "Top 25% · highest scores",
+        "Q2": "Next 25%",
+        "Q3": "Next 25%",
+        "Q4": "Bottom 25% · lowest scores",
+    }
+    cards = []
+    for q in ("Q1", "Q2", "Q3", "Q4"):
+        info = bands.get(q) or {}
+        lo, hi = info.get("lo"), info.get("hi")
+        if lo is None or hi is None:
+            rng = "—"
+        elif abs(float(hi) - float(lo)) < 0.05:
+            rng = f"{float(lo):.1f}%"
+        else:
+            rng = f"{float(lo):.1f}–{float(hi):.1f}%"
+        n = int(info.get("n") or 0)
+        cards.append(
+            f'<div class="didi-qrange-card didi-qrange-card--{q}">'
+            f'<p class="didi-qrange-k">{q} · {html_escape(metric)}</p>'
+            f'<p class="didi-qrange-v">{html_escape(rng)}</p>'
+            f'<p class="didi-qrange-s">{html_escape(roles[q])} · {n} agents</p>'
+            "</div>"
+        )
+    st.markdown(
+        '<div class="didi-qrange">' + "".join(cards) + "</div>"
+        '<p class="didi-qrange-s" style="margin:0 0 8px">'
+        "Equal-count split of ranked agents in this filter. "
+        "Q1 is the top quarter by score, Q4 the bottom quarter. "
+        "The edges move when you change the filter — they are not the 85 goal."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_quartile_bands(summary: dict) -> None:
     bands = (summary or {}).get("bands") or {}
     cols = st.columns(4)
@@ -2408,6 +2946,76 @@ def render_quartile_bands(summary: dict) -> None:
                 f"<ul>{items}{more}{empty}</ul></div>",
                 unsafe_allow_html=True,
             )
+
+
+def _below_target_toggle(key: str, *, goal: float, metric: str) -> None:
+    with st.container(key=f"didi_below_{key}"):
+        st.toggle(
+            f"Below {goal:g}% only",
+            key=key,
+            help=f"On = {metric} under the {goal:g} target. Off = every slice in this filter.",
+        )
+
+
+def _below_on(key: str) -> bool:
+    return bool(st.session_state.get(key, False))
+
+
+def _render_csat_unmapped_note(stats: dict) -> None:
+    if not stats or not int(stats.get("n_surveys") or 0):
+        return
+    pct = float(stats.get("pct_unmapped") or 0)
+    n_un = int(stats.get("n_unmapped") or 0)
+    n_map = int(stats.get("n_mapped") or 0)
+    st.caption(
+        f"{pct:.1f}% of CSAT surveys (n={n_un:,}) could not be mapped to a QA-audited supervisor. "
+        "These are excluded from supervisor-level conclusions and shown separately."
+    )
+    show_df(pd.DataFrame({
+        "Slice": ["Mapped to a QA supervisor", "Unmapped — no matching QA agent"],
+        "Surveys": [n_map, n_un],
+        "% of surveys": [f"{100.0 - pct:.1f}%", f"{pct:.1f}%"],
+    }))
+    st.caption(
+        "Possible causes: (a) new agents not yet audited in QA, "
+        "(b) ID mismatch between CSAT and QA, "
+        "(c) channels or shifts outside audit scope."
+    )
+
+
+_DIALOG_SIZE_CSS = {
+    "Default": ("min(92vw, 960px)", "min(86vh, 760px)"),
+    "Wide": ("min(96vw, 1400px)", "min(90vh, 900px)"),
+    "Full": ("min(98vw, 1800px)", "94vh"),
+}
+
+
+def _dialog_size_control(state_key: str) -> None:
+    """Clickable size presets — CSS resize:both cannot override Streamlit's !important panel rules."""
+    choice = st.segmented_control(
+        "Popup size",
+        options=list(_DIALOG_SIZE_CSS),
+        default="Default",
+        key=f"didi_dlg_size_{state_key}",
+        help="Default / Wide / Full. You can also drag the orange corner.",
+        label_visibility="collapsed",
+        width="stretch",
+    )
+    w, h = _DIALOG_SIZE_CSS.get(choice or "Default", _DIALOG_SIZE_CSS["Default"])
+    st.markdown(
+        f"""<style>
+        div[data-testid="stDialog"] > div,
+        section[data-testid="stDialog"] > div,
+        .stDialog > div,
+        div[data-testid="stDialog"] [class*="e1mymz5c1"] {{
+            width: {w} !important;
+            height: {h} !important;
+            max-width: 98vw !important;
+            max-height: 96vh !important;
+        }}
+        </style>""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_corr_scatter(
@@ -2484,7 +3092,11 @@ def render_ticket_card(ticket, tickets_key: str) -> None:
         )
 
 
-def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spark=None, spark_key=None, caption=None, size="primary", traffic=None):
+def _col_kicker(text: str) -> None:
+    st.markdown(f'<div class="didi-col-kicker">{html_escape(text)}</div>', unsafe_allow_html=True)
+
+
+def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spark=None, spark_key=None, caption=None, size="primary", traffic=None, traffic_label=True):
     prefix = "didi_tile" if size == "primary" else "didi_tile_sm"
     tone = traffic if traffic in {"green", "amber", "red"} else "neutral"
     tile_key = f"{prefix}_{tone}_{spark_key}" if spark_key else _next_didi_key(f"{prefix}_{tone}")
@@ -2501,7 +3113,7 @@ def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spar
             label, value, delta=delta, delta_color=delta_color,
             help=help_text, label_visibility="collapsed",
         )
-        if tone in {"green", "amber", "red"}:
+        if traffic_label and tone in {"green", "amber", "red"}:
             tag = {"green": "On goal", "amber": "Within 5 points", "red": "More than 5 points off"}[tone]
             st.markdown(
                 f'<p class="didi-light-tag didi-light-tag--{tone}"><span></span>{html_escape(tag)}</p>',
@@ -2513,6 +3125,132 @@ def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spar
             st.plotly_chart(spark, width="stretch", config=CHART_CFG, key=spark_key)
 
 
+def _fmt_qa(v) -> str:
+    return "—" if v is None else f"{v:.1f}%"
+
+
+def render_resolution_kpi(spark_key: str) -> None:
+    """Secondary tile: auditor-judged case resolution. Not FCR, not the QA score."""
+    res = auditor_resolution_summary(audits)
+    caption = (
+        f"{L('caption_resolution')}  \n"
+        f"Official QA: resolved {_fmt_qa(res.get('qa_resolved'))} · "
+        f"not resolved {_fmt_qa(res.get('qa_not_resolved'))}."
+    )
+    if not res["n_assessed"] or res["rate"] is None:
+        render_kpi(
+            L("kpi_resolution"), "—",
+            "No assessed resolution in this filter",
+            "off",
+            help_text=L("note_resolution"),
+            caption=caption,
+            traffic_label=False,
+            size="secondary",
+            spark_key=spark_key,
+        )
+        return
+    render_kpi(
+        L("kpi_resolution"),
+        f"{res['rate']:.1f}%",
+        f"{res['n_resolved']:,} resolved · {res['n_not_resolved']:,} not resolved",
+        "off",
+        help_text=L("note_resolution"),
+        caption=caption,
+        spark=spark_hbar_fig(
+            ["Resolved", "Not resolved"],
+            [float(res["n_resolved"]), float(res["n_not_resolved"])],
+        ),
+        spark_key=spark_key,
+        traffic_label=False,
+        size="secondary",
+    )
+
+
+def render_abandoned_kpi(spark_key: str) -> None:
+    """Secondary tile: caller abandoned the interaction. Not recontact."""
+    res = auditor_resolution_summary(audits)
+    caption = (
+        "Auditor option: user abandoned. Excluded from resolution rate. Not recontact.  \n"
+        f"Official QA: abandoned {_fmt_qa(res.get('qa_abandoned'))} · "
+        f"assessed {_fmt_qa(res.get('qa_assessed'))}."
+    )
+    if not res["n_audits"] or res["abandon_rate"] is None:
+        render_kpi(
+            L("kpi_abandoned"), "—",
+            "No audits in this filter",
+            "off",
+            help_text=L("note_abandoned"),
+            caption=caption,
+            traffic_label=False,
+            size="secondary",
+            spark_key=spark_key,
+        )
+        return
+    render_kpi(
+        L("kpi_abandoned"),
+        f"{res['abandon_rate']:.1f}%",
+        f"{res['n_abandoned']:,} of {res['n_audits']:,} audits had the caller abandon the interaction",
+        "off",
+        help_text=L("note_abandoned"),
+        caption=caption,
+        spark=spark_hbar_fig(
+            ["Abandoned", "Assessed"],
+            [float(res["n_abandoned"]), float(res["n_assessed"])],
+        ),
+        spark_key=spark_key,
+        traffic_label=False,
+        size="secondary",
+    )
+
+
+def render_unresolved_owner_kpi(spark_key: str) -> None:
+    """Among not-resolved audits: process followed vs agent missed the process."""
+    res = auditor_resolution_summary(audits)
+    caption = (
+        f"{L('caption_unresolved_process')}  \n"
+        f"Official QA: process followed {_fmt_qa(res.get('qa_unres_process'))} · "
+        f"process not followed {_fmt_qa(res.get('qa_unres_agent'))}."
+    )
+    if not res["n_not_resolved"] or res["pct_unres_process"] is None:
+        render_kpi(
+            L("kpi_unresolved_process"), "—",
+            "No not-resolved audits in this filter",
+            "off",
+            help_text=L("note_unresolved_process"),
+            caption=caption,
+            traffic_label=False,
+            size="secondary",
+            spark_key=spark_key,
+        )
+        return
+    render_kpi(
+        L("kpi_unresolved_process"),
+        f"{res['pct_unres_process']:.1f}%",
+        f"{res['n_unres_process']:,} of {res['n_not_resolved']:,} not-resolved audits followed process",
+        "off",
+        help_text=L("note_unresolved_process"),
+        caption=caption,
+        spark=spark_hbar_fig(
+            ["Process followed", "Process not followed"],
+            [float(res["n_unres_process"]), float(res["n_unres_agent"])],
+        ),
+        spark_key=spark_key,
+        traffic_label=False,
+        size="secondary",
+    )
+
+
+def _fail_light(n, *, critical: bool) -> str:
+    """Lower-is-better fail counts: 0 is the only green."""
+    try:
+        val = float(n or 0)
+    except (TypeError, ValueError):
+        val = 0
+    if val <= 0:
+        return "green"
+    return "red" if critical else "amber"
+
+
 def show_df(df: pd.DataFrame) -> None:
     if df is None or df.empty:
         return
@@ -2520,6 +3258,116 @@ def show_df(df: pd.DataFrame) -> None:
         st.dataframe(_status_style(df), hide_index=True, width="stretch")
     except Exception:
         st.dataframe(df, hide_index=True, width="stretch")
+
+
+def _pareto_tail_extra(
+    df: pd.DataFrame,
+    name_col: str,
+    count_col: str,
+    *,
+    grain: str,
+    volume_label: str,
+) -> None:
+    """Explain the last Pareto bar: leftover after the 80% vital few, not a cause."""
+    from modules.kpis import PARETO_VITAL_PCT, pareto_named_and_tail
+
+    if df is None or df.empty or name_col not in df.columns or count_col not in df.columns:
+        return
+    named, tail, vital = pareto_named_and_tail(df, count_col)
+    n_all = int(len(named) + len(tail))
+    if tail.empty:
+        st.caption(
+            f"{n_all} {grain} in this filter — the named bars already cover "
+            f"{int(PARETO_VITAL_PCT):.0f}% (or everything)."
+        )
+        return
+    n_more = int(len(tail))
+    n_named = int(len(named))
+    vol = float(pd.to_numeric(tail[count_col], errors="coerce").fillna(0).sum())
+    tot = float(pd.to_numeric(df[count_col], errors="coerce").fillna(0).sum())
+    tail_pct = (vol / tot * 100) if tot else 0.0
+    if n_named >= vital:
+        st.caption(
+            f"Work the {n_named} named bars — they reach {int(PARETO_VITAL_PCT):.0f}% of {volume_label}. "
+            f"Remaining reasons is the leftover {tail_pct:.0f}% across {n_more} other {grain} "
+            f"({vol:,.0f}) — not one cause. "
+            "Click a named bar to filter; the last bar does not filter."
+        )
+    else:
+        st.caption(
+            f"{int(PARETO_VITAL_PCT):.0f}% takes {vital} {grain}; the chart names {n_named} so labels stay readable. "
+            f"Remaining reasons is {n_more} other {grain} totalling {vol:,.0f}. "
+            "Click a named bar to filter; the last bar does not filter."
+        )
+    shown = tail[[name_col, count_col]].copy().rename(columns={
+        name_col: grain,
+        count_col: volume_label[:1].upper() + volume_label[1:],
+    })
+    if "CSAT_Score" in tail.columns:
+        shown["CSAT %"] = tail["CSAT_Score"].values
+    with st.expander(f"Leftover {min(20, n_more)} of {n_more} {grain} after the {int(PARETO_VITAL_PCT):.0f}% cut"):
+        show_df(shown.head(20))
+
+
+def show_fail_attr_table(df: pd.DataFrame) -> None:
+    """CRITICAL vs Non-critical attribute fails — heatmap-style table."""
+    if df is None or df.empty:
+        st.caption("No attribute fails in this filter.")
+        return
+    work = df.copy()
+    if "Kind" in work.columns:
+        work["_k"] = work["Kind"].astype(str).map(lambda v: 0 if v == "CRITICAL" else 1)
+        ascending = [True]
+        cols = ["_k"]
+        if "Fails" in work.columns:
+            cols.append("Fails")
+            ascending.append(False)
+        work = work.sort_values(cols, ascending=ascending).drop(columns="_k")
+    keep = [c for c in ("Kind", "Attribute", "Fails") if c in work.columns]
+    if keep:
+        work = work[keep]
+    crit_row, non_row = "#F8D4D0", "#DCE8F6"
+    crit_fg, non_fg = "#7A1610", "#1B3A63"
+
+    def row_tint(row):
+        kind = str(row.get("Kind") or "")
+        if kind == "CRITICAL":
+            return [f"background-color: {crit_row}; color: {crit_fg}"] * len(row)
+        return [f"background-color: {non_row}; color: {non_fg}"] * len(row)
+
+    def kind_cell(val):
+        raw = str(val)
+        if raw == "CRITICAL":
+            return f"background-color: {STATUS_COLORS['red']}; color: #FFFFFF; font-weight: 700; text-align: center"
+        return (
+            f"background-color: {STATUS_COLORS['blue']}; color: #FFFFFF; "
+            "font-weight: 650; text-align: center"
+        )
+
+    styler = work.style
+    styler = styler.set_table_styles(
+        [
+            {
+                "selector": "th.col_heading",
+                "props": [
+                    ("background-color", DIDI_DARK),
+                    ("color", DIDI_WHITE),
+                    ("font-weight", "700"),
+                    ("border-bottom", f"2px solid {DIDI_ORANGE}"),
+                ],
+            },
+        ],
+        overwrite=False,
+    )
+    styler = styler.apply(row_tint, axis=1)
+    if "Kind" in work.columns:
+        styler = styler.map(kind_cell, subset=["Kind"])
+    if "Fails" in work.columns:
+        try:
+            styler = styler.background_gradient(subset=["Fails"], cmap="Reds")
+        except Exception:
+            pass
+    st.dataframe(styler, hide_index=True, width="stretch")
 
 
 def channel_mix_display(df: pd.DataFrame) -> pd.DataFrame:
@@ -2691,6 +3539,10 @@ def _filter_widget_key(dim: str) -> str:
     if dim == "cr":
         lv1 = st.session_state.get(f"flt_cr1_{_fn}", "All")
         return f"flt_cr_{_fn}_{lv1}"
+    if dim == "sub_cr":
+        lv1 = st.session_state.get(f"flt_cr1_{_fn}", "All")
+        cr = st.session_state.get(f"flt_cr_{_fn}_{lv1}", "All")
+        return f"flt_subcr_{_fn}_{lv1}_{cr}"
     return keys[dim]
 
 
@@ -2713,6 +3565,14 @@ def _apply_pending_sidebar_filters() -> None:
         current = str(st.session_state.get(cr_all_key) or st.session_state.get(_filter_widget_key("cr")) or "All")
         st.session_state[f"flt_cr1_{_fn}"] = "All"
         st.session_state[cr_all_key] = "All" if current == str(value) else str(value)
+        st.session_state[f"flt_subcr_{_fn}_All_All"] = "All"
+        return
+    if mode == "sub_cr_toggle":
+        sub_key = f"flt_subcr_{_fn}_All_All"
+        current = str(st.session_state.get(sub_key) or st.session_state.get(_filter_widget_key("sub_cr")) or "All")
+        st.session_state[f"flt_cr1_{_fn}"] = "All"
+        st.session_state[f"flt_cr_{_fn}_All"] = "All"
+        st.session_state[sub_key] = "All" if current == str(value) else str(value)
         return
     widget_key = _filter_widget_key(dim)
     if value is None or str(value) == "All":
@@ -2753,6 +3613,24 @@ def _copy_sidebar_filter_state(old_fn: int, new_fn: int) -> None:
     old_cr = f"flt_cr_{old_fn}_{lv1}"
     if old_cr in st.session_state:
         st.session_state[f"flt_cr_{new_fn}_{lv1}"] = st.session_state[old_cr]
+    cr_val = st.session_state.get(old_cr, "All")
+    old_sub = f"flt_subcr_{old_fn}_{lv1}_{cr_val}"
+    if old_sub in st.session_state:
+        st.session_state[f"flt_subcr_{new_fn}_{lv1}_{cr_val}"] = st.session_state[old_sub]
+    old_page = st.session_state.get(f"page_{old_fn}")
+    if old_page is not None:
+        st.session_state[f"page_{new_fn}"] = old_page
+    for prefix in (
+        "tickets", "hub_q4_only", "watch_pipe",
+        "ov_preview", "qa_preview", "csat_preview", "rc_preview",
+        "qa_agent_view", "csat_agent_view",
+        "csat_sup_below85", "qa_cr_below", "qa_sub_below", "qa_agent_below",
+        "qa_sup_below", "csat_lv1_below", "csat_lv4_below", "csat_sub_below",
+        "csat_agent_below",
+    ):
+        old_key = f"{prefix}_{old_fn}"
+        if old_key in st.session_state:
+            st.session_state[f"{prefix}_{new_fn}"] = st.session_state[old_key]
 
 
 cr_lookup = cr_group_lookup(csat_all)
@@ -2767,6 +3645,22 @@ def _cr_detail_opts(lv1: str) -> list[str]:
     if lv1 != "All":
         s = s[map_cr_group(s, cr_lookup) == lv1]
     return filter_opts(s)
+
+
+def _sub_cr_opts(lv1: str, lv4: str) -> list[str]:
+    parts = []
+    for df in (audits_all, csat_all):
+        if df is None or df.empty or "SUB_CR" not in df.columns:
+            continue
+        work = df
+        if lv4 != "All" and "CR_Lv4" in work.columns:
+            work = work[cr_match(work["CR_Lv4"], lv4)]
+        elif lv1 != "All" and "CR_Lv4" in work.columns:
+            work = work[map_cr_group(work["CR_Lv4"], cr_lookup) == lv1]
+        parts.append(work["SUB_CR"])
+    if not parts:
+        return []
+    return filter_opts(pd.concat(parts, ignore_index=True))
 
 
 weeks = sorted(audits_all["Week"].dropna().astype(str).unique())
@@ -2809,11 +3703,6 @@ with st.sidebar:
             label_visibility="collapsed",
             key=f"page_{_fn}",
         )
-        see_all = st.toggle(
-            "See all slices",
-            key="see_all_slices",
-            help="Show every category, including small samples. Off = reliable slices (min n / lowest scores). Does not change the headline KPI cards.",
-        )
     present = set(audits_all["Tenure_Cohort"].dropna().astype(str)) if "Tenure_Cohort" in audits_all.columns else set()
     tenure_opts = [t for t in TENURE_SOURCE_ORDER if t in present]
     extra = sorted(x for x in present if x not in set(tenure_opts) and x != "Unknown")
@@ -2827,7 +3716,7 @@ with st.sidebar:
                 key=f"flt_weeks_{_fn}",
                 help="ISO week. All weeks on = official May snapshot. CSAT and recontact use their own calendar, not QA audit weekdays.",
             )
-            day_opts = calendar_days_in_scope(audits_all, csat_all, rc_all, sel_weeks, weeks)
+            day_opts = calendar_days_in_scope(audits_all, csat_all, rc_all, sel_weeks, weeks) if sel_weeks else []
             sel_day = st.selectbox(
                 "Day",
                 ["All"] + day_opts,
@@ -2861,7 +3750,13 @@ with st.sidebar:
                 L("filter_cr"),
                 ["All"] + _cr_detail_opts(sel_cr_lv1),
                 key=f"flt_cr_{_fn}_{sel_cr_lv1}",
-                help="Contact reason Lv4 (detail) is the most specific reason name.",
+                help="Contact reason Lv4 (detail) is the most specific reason name on the hierarchy above SUB_CR.",
+            )
+            sel_sub_cr = st.selectbox(
+                L("filter_sub_cr"),
+                ["All"] + _sub_cr_opts(sel_cr_lv1, sel_cr),
+                key=f"flt_subcr_{_fn}_{sel_cr_lv1}_{sel_cr}",
+                help="Finest contact reason. Cuts QA and CSAT. Recontact has no native SUB_CR, so this filter does not change the recontact KPI.",
             )
             sel_requester = st.selectbox(
                 "Requester Type", ["All"] + filter_opts(audits_all["Requester"]), key=f"flt_req_{_fn}",
@@ -2870,7 +3765,7 @@ with st.sidebar:
                 "Agent tenure (QA only)",
                 ["All"] + tenure_opts,
                 key=f"flt_ten_{_fn}",
-                help="Cuts QA audits only. CSAT and Recontact have no matching agent-tenure field.",
+                help="Cuts QA by the Excel Tenure field. CSAT is cut to agents with that QA tenure (name match). Recontact has no tenure.",
             )
             sel_supervisor = st.selectbox(
                 "Supervisor",
@@ -2880,7 +3775,7 @@ with st.sidebar:
             )
             agent_pre = dict(
                 weeks=sel_weeks, day=sel_day, channel=sel_channel, lob=sel_lob,
-                cr=sel_cr, cr_lv1=sel_cr_lv1, requester=sel_requester,
+                cr=sel_cr, cr_lv1=sel_cr_lv1, sub_cr=sel_sub_cr, requester=sel_requester,
                 country=sel_country, tenure=sel_tenure, supervisor=sel_supervisor,
                 audit_type="All", special_project="All", business_type="All",
                 agent="All", cr_lookup=cr_lookup,
@@ -2917,7 +3812,7 @@ with st.sidebar:
             bt_opts = filter_opts(csat_all["Business_Type"]) if "Business_Type" in csat_all.columns else []
             sel_business = st.selectbox(
                 "Business type", ["All"] + bt_opts, key=f"flt_bt_{_fn}",
-                help="Cuts CSAT only. QA and Recontact have no Business Type field.",
+                help="Cuts CSAT natively. QA is cut to contact reason Lv4 names that carry this Business Type in CSAT. Recontact is not cut.",
             )
 
     if st.button("Reset filters", type="primary", key=f"reset_{_fn}", width="stretch"):
@@ -2929,9 +3824,19 @@ with st.sidebar:
         help="Change titles, notes, and theme colors. Click Save to keep them after refresh.",
     )
 
+if st.session_state.get("_last_nav_page") != page:
+    for k in list(st.session_state.keys()):
+        if isinstance(k, str) and "_preview_" in k:
+            st.session_state[k] = None
+    st.session_state["_last_nav_page"] = page
+
+if not sel_weeks:
+    st.warning("Select at least one week in the sidebar.")
+    st.stop()
+
 filters = dict(
     weeks=sel_weeks, day=sel_day, channel=sel_channel, lob=sel_lob, cr=sel_cr, cr_lv1=sel_cr_lv1,
-    requester=sel_requester, country=sel_country,
+    sub_cr=sel_sub_cr, requester=sel_requester, country=sel_country,
     tenure=sel_tenure, supervisor=sel_supervisor, agent=sel_agent,
     audit_type=sel_audit_type, special_project=sel_special, business_type=sel_business,
     cr_lookup=cr_lookup,
@@ -2943,12 +3848,16 @@ audits, errors, csat, recontact = apply_filters(
 scope_filters = {**filters, "channel": "All"}
 _, _, _, rc_scope_src = apply_filters(audits_all, errors_all, csat_all, rc_all, scope_filters, audits_all)
 
-# See all: drop reliability floors and "lowest N" caps on score-by-category charts.
-# Headline KPIs (QA mean, CSAT 4★+5★ / surveys, recontact ratio of sums) stay official.
-_slice_qa_n = 1 if see_all else 5
-_slice_csat_n = 1 if see_all else 20
-_slice_qa_cr_n = 1 if see_all else 3
-_slice_top = None if see_all else 12
+# Score-by-slice charts default to every row (n ≥ 1). Each chart has its own below-target toggle.
+_qa_cr_below_k = f"qa_cr_below_{_fn}"
+_qa_sub_below_k = f"qa_sub_below_{_fn}"
+_qa_agent_below_k = f"qa_agent_below_{_fn}"
+_qa_sup_below_k = f"qa_sup_below_{_fn}"
+_csat_lv1_below_k = f"csat_lv1_below_{_fn}"
+_csat_lv4_below_k = f"csat_lv4_below_{_fn}"
+_csat_sub_below_k = f"csat_sub_below_{_fn}"
+_csat_agent_below_k = f"csat_agent_below_{_fn}"
+_csat_sup_below_k = f"csat_sup_below85_{_fn}"
 
 summary = kpi_summary(audits, csat, recontact)
 trends = weekly_trends(audits)
@@ -2969,14 +3878,29 @@ qa_special = qa_by_special_project(audits)
 qa_audit_type = qa_by_audit_type(audits)
 qa_aht = qa_aht_by_channel(audits)
 aht_points = qa_aht_by_cr(audits)
+aht_cr_lv1 = qa_aht_by_cr(audits, cat_col="CR_Lv1", lookup=cr_lookup, by_channel=False)
+aht_cr_lv4 = qa_aht_by_cr(audits, cat_col="CR_Lv4", by_channel=False)
+aht_cr_sub = qa_aht_by_cr(audits, cat_col="SUB_CR", by_channel=False)
 aht_joined = aht_joined_outcomes(audits, csat, recontact)
 aht_corr = aht_correlation_summary(aht_joined)
 csat_unsat = csat_unsatisfied_by_cr(csat)
+csat_unsat_sub = csat_unsatisfied_by_cr(csat, cat_col="SUB_CR")
 csat_scr_lv1 = csat_score_by_cr(
-    csat, level="lv1", lookup=cr_lookup, min_n=_slice_csat_n, top_n=_slice_top,
+    csat, level="lv1", lookup=cr_lookup, min_n=1, top_n=None,
+    below_goal_only=_below_on(_csat_lv1_below_k),
 )
-csat_scr_lv4 = csat_score_by_cr(csat, level="lv4", min_n=_slice_csat_n, top_n=_slice_top)
-csat_scr_sup = csat_by_supervisor(csat, audits, min_n=_slice_csat_n, top_n=_slice_top)
+csat_scr_lv4 = csat_score_by_cr(
+    csat, level="lv4", min_n=1, top_n=None,
+    below_goal_only=_below_on(_csat_lv4_below_k),
+)
+csat_scr_sub = csat_score_by_cr(
+    csat, level="sub", min_n=1, top_n=None,
+    below_goal_only=_below_on(_csat_sub_below_k),
+)
+csat_scr_sup = csat_by_supervisor(
+    csat, audits, min_n=1, top_n=None,
+    below_goal_only=_below_on(_csat_sup_below_k),
+)
 rc_vol_lv1 = contact_volume_by_cr(recontact, level="lv1", lookup=cr_lookup, top_n=8)
 rc_vol_lv4 = contact_volume_by_cr(recontact, level="lv4", top_n=8)
 csat_bt = csat_by_business_type(csat)
@@ -2985,11 +3909,11 @@ csat_ten = csat_by_user_tenure(csat)
 slices = kpi_by_channel(audits, csat, recontact)
 coverage = slice_coverage_table()
 req_perf = requester_performance(audits, csat, recontact)
-ov_sup = supervisor_overview(audits, csat, min_n=_slice_qa_n)
+ov_sup = supervisor_overview(audits, csat, min_n=1)
 ov_ten_qa = tenure_qa_overview(audits)
 ov_ten_csat = tenure_csat_overview(audits, csat)
 ov_agents_gap = agents_below_qa_goal(
-    audits, min_n=_slice_qa_n, below_goal_only=not see_all,
+    audits, min_n=1, below_goal_only=False,
 )
 rank_filters = {**filters, "supervisor": "All", "agent": "All"}
 if sel_supervisor == "All" and sel_agent == "All":
@@ -2998,8 +3922,8 @@ else:
     audits_rank, _, csat_rank, _ = apply_filters(
         audits_all, errors_all, csat_all, rc_all, rank_filters, audits_all,
     )
-qa_q_agents = qa_agent_quartiles(audits_rank, min_n=_slice_qa_n)
-csat_q_agents = csat_agent_quartiles(csat_rank, audits_rank, min_n=_slice_csat_n)
+qa_q_agents = qa_agent_quartiles(audits_rank, min_n=RANKING_QA_MIN_N)
+csat_q_agents = csat_agent_quartiles(csat_rank, audits_rank, min_n=RANKING_CSAT_MIN_N)
 _sup_kpis = ov_sup if sel_supervisor == "All" else supervisor_overview(audits_rank, csat_rank)
 qa_mix = supervisor_quartile_mix(qa_q_agents, _sup_kpis)
 csat_mix = supervisor_quartile_mix(csat_q_agents, _sup_kpis)
@@ -3021,14 +3945,21 @@ crit_attr = (
     top_failing_attributes(crit_errors, audits, top_n=10)
     if not crit_errors.empty else pd.DataFrame()
 )
-qa_cr = qa_score_by_cr(audits, top_n=_slice_top, min_n=_slice_qa_cr_n)
+qa_cr = qa_score_by_cr(
+    audits, top_n=None, min_n=1, below_goal_only=_below_on(_qa_cr_below_k),
+)
+qa_sub = qa_score_by_cr(
+    audits, top_n=None, min_n=1, cat_col="SUB_CR", below_goal_only=_below_on(_qa_sub_below_k),
+)
 rc_cr = recontact_by_cr(recontact, top_n=12)
+rc_sub = recontact_by_cr(recontact, top_n=12, cat_col="SUB_CR", csat=csat)
 rc_ch_vol = recontact_by_std_channel(recontact)
 if not rc_ch_vol.empty:
     rc_ch_vol = rc_ch_vol.copy()
     rc_ch_vol["Cat"] = rc_ch_vol["Cat"].map(normalize_channel_label)
 rc_ch_tbl = recontact_channel_table(recontact)
-qa_cr_fails = qa_fails_by_cr(errors, top_n=12)
+qa_cr_fails = qa_fails_by_cr(errors)
+qa_sub_fails = qa_fails_by_cr(errors, cat_col="SUB_CR")
 qa_cr_groups = qa_fails_by_cr_group(errors, cr_lookup)
 rc_cr_groups = recontact_by_cr_group(recontact, cr_lookup)
 qa_cr_pair = attach_cr_group(qa_cr_fails, cr_lookup)
@@ -3043,8 +3974,9 @@ _star_lo = int(pd.to_numeric(_stars_lo["Count"], errors="coerce").fillna(0).sum(
 _star_n = int(pd.to_numeric(stars["Count"], errors="coerce").fillna(0).sum()) if not stars.empty else 0
 voc = voc_themes_negative(csat)
 comments = voc_all_comments(csat)
-csat_seg = csat_segmentation(csat, top_n=_slice_top, min_n=_slice_csat_n)
+csat_seg = csat_segmentation(csat, top_n=None, min_n=1)
 scatter_df = cr_level_metrics(audits, csat, recontact)
+lv1_metrics = cr_group_metrics(audits, csat, recontact, cr_lookup)
 weekly = weekly_kpi_table(audits, csat, recontact)
 qa_spc = qa_control_daily(audits)
 csat_spc = csat_control_daily(csat)
@@ -3087,6 +4019,7 @@ def _active_filters_label(f: dict) -> str:
         "lob": "LOB",
         "cr": L("filter_cr"),
         "cr_lv1": L("filter_cr_lv1"),
+        "sub_cr": L("filter_sub_cr"),
         "requester": "Requester",
         "country": "Market",
         "tenure": "Tenure",
@@ -3348,6 +4281,13 @@ def render_banner(title: str) -> None:
     )
 
 
+def render_rule_heading(title: str) -> None:
+    st.markdown(
+        f'<div class="didi-rule-h"><span>{html_escape(title)}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_section(kicker: str, title: str, hint: str | None = None) -> None:
     render_banner(title)
 
@@ -3367,6 +4307,8 @@ def _filter_allowed(dim: str) -> set[str] | None:
         return set(cr_lv1_opts)
     if dim == "cr":
         return set(_cr_detail_opts("All"))
+    if dim == "sub_cr":
+        return set(_sub_cr_opts("All", "All"))
     if dim == "requester":
         return set(filter_opts(audits_all["Requester"])) if "Requester" in audits_all.columns else set()
     if dim == "tenure":
@@ -3447,7 +4389,7 @@ def _click_category(event) -> str | None:
         "CRITICAL", "Non-critical", "Cumulative %", "QA", "CSAT", "Recontact",
         "Average", "Upper usual range", "Lower usual range",
         "Goal 5.44", "Rate %", "Repeats", "Contacts",
-        "Trend", "Contact reasons",
+        "Trend", "Contact reasons", "AHT (min)",
     }
 
     def _as_label(value, *, allow_int: bool = False) -> str | None:
@@ -3514,17 +4456,49 @@ def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
     raw = _click_category(event)
     if not raw:
         return
+    if is_pareto_remainder_label(raw):
+        return
+    parsed = parse_cr_fallback_label(raw)
+    if parsed:
+        parent, parent_dim = parsed
+        if parent_dim != dim:
+            allowed_p = _filter_allowed(parent_dim)
+            value_p = _canonical_filter_value(parent, allowed_p)
+            if value_p:
+                if parent_dim == "cr":
+                    st.session_state[_PENDING_SIDEBAR_FILTER] = {
+                        "dim": "cr", "value": value_p, "mode": "cr_toggle",
+                    }
+                    st.rerun(scope="app")
+                    return
+                if parent_dim == "sub_cr":
+                    st.session_state[_PENDING_SIDEBAR_FILTER] = {
+                        "dim": "sub_cr", "value": value_p, "mode": "sub_cr_toggle",
+                    }
+                    st.rerun(scope="app")
+                    return
+                if parent_dim == "cr_lv1":
+                    st.session_state[_PENDING_SIDEBAR_FILTER] = {
+                        "dim": "cr_lv1", "value": value_p, "mode": "toggle",
+                    }
+                    st.rerun(scope="app")
+                    return
+        raw = parent
     allowed = _filter_allowed(dim)
     value = _canonical_filter_value(raw, allowed)
     if not value:
         return
     if dim == "weeks":
         st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": "weeks", "value": value, "mode": "weeks_single"}
-        st.rerun()
+        st.rerun(scope="app")
         return
     if dim == "cr":
         st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": "cr", "value": value, "mode": "cr_toggle"}
-        st.rerun()
+        st.rerun(scope="app")
+        return
+    if dim == "sub_cr":
+        st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": "sub_cr", "value": value, "mode": "sub_cr_toggle"}
+        st.rerun(scope="app")
         return
     widget_key = _filter_widget_key(dim)
     current = st.session_state.get(widget_key, "All")
@@ -3534,10 +4508,10 @@ def _apply_chart_filter(event, *, chart_key: str, dim: str) -> None:
     if str(current) == str(value):
         if dim == "country":
             st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": "All"}
-            st.rerun()
+            st.rerun(scope="app")
         return
     st.session_state[_PENDING_SIDEBAR_FILTER] = {"dim": dim, "value": value}
-    st.rerun()
+    st.rerun(scope="app")
 
 
 def _set_people_filter(dim: str, value: str | None) -> None:
@@ -3583,8 +4557,139 @@ def _plotly_chart(fig, *, key: str, drill: str | None = None, **kwargs):
     return event
 
 
-def render_preview_board(items: list[dict], *, state_key: str, columns: int = 2) -> None:
-    """KPI-style cards in pairs. Title button is source of truth; empty Plotly selects are no-ops."""
+_DIALOG_CHART_CFG = {**CHART_CFG, "responsive": True}
+
+
+def _pop_n_annotation(fig):
+    """Lift N out of Plotly so it cannot collide with the legend inside the popup."""
+    if fig is None:
+        return fig, None
+    anns = list(fig.layout.annotations or [])
+    n_bits = []
+    keep = []
+    for ann in anns:
+        name = getattr(ann, "name", None)
+        if name and str(name).startswith("didi_n"):
+            bit = str(getattr(ann, "text", "") or "").replace("<br>", " · ").strip()
+            if bit:
+                n_bits.append(bit)
+        else:
+            keep.append(ann)
+    fig.update_layout(annotations=keep)
+    return fig, " · ".join(n_bits) if n_bits else None
+
+
+def _fit_dialog_fig(fig, *, n_lifted: bool = False):
+    """Let Plotly fill the dialog: autosize, no fixed layout.width (that locked ~700–880px)."""
+    if fig is None:
+        return fig
+    prev = fig.layout.margin
+    top = int(prev.t) if prev is not None and prev.t is not None else 56
+    bottom = int(prev.b) if prev is not None and prev.b is not None else 56
+    left = int(prev.l) if prev is not None and prev.l is not None else 56
+    right = int(prev.r) if prev is not None and prev.r is not None else 56
+    if n_lifted:
+        top = max(52, top - 48)
+    fig.update_layout(
+        autosize=True,
+        margin=dict(
+            l=left,
+            r=max(right, 56),
+            t=top,
+            b=max(bottom, 48),
+        ),
+    )
+    fig.layout.width = None
+    return fig
+
+
+def _dismiss_preview_dialog() -> None:
+    key = st.session_state.pop("_preview_dialog_key", None)
+    if key:
+        st.session_state[key] = None
+
+
+def _fill_preview_dialog(chosen: dict, state_key: str) -> None:
+    toolbar = chosen.get("toolbar")
+    if callable(toolbar):
+        t_left, t_right = st.columns([3, 2], vertical_alignment="center")
+        with t_left:
+            toolbar()
+        with t_right:
+            _dialog_size_control(state_key)
+    else:
+        _dialog_size_control(state_key)
+    extra = chosen.get("extra")
+    fig = chosen.get("fig")
+    if callable(fig):
+        fig = fig()
+    drill_dim = chosen.get("drill")
+    below_key = chosen.get("below_key")
+    suffix = f"_b{int(_below_on(below_key))}" if below_key else ""
+    size_tag = str(st.session_state.get(f"didi_dlg_size_{state_key}") or "Default")[:1]
+    full_key = f"{state_key}_full{suffix}_{size_tag}"
+    lead = chosen.get("insight")
+    if callable(lead):
+        lead = lead()
+    if lead:
+        render_chip(lead)
+    n_text = None
+    if fig is not None and chosen.get("kind") != "pie":
+        fig, n_text = _pop_n_annotation(fig)
+        fig = _fit_dialog_fig(fig, n_lifted=bool(n_text))
+    if n_text:
+        st.markdown(f'<p class="didi-dialog-n">{html_escape(n_text)}</p>', unsafe_allow_html=True)
+    if chosen.get("kind") == "pie":
+        table = chosen.get("table")
+        pie_fig = square_pie_fig(fig) if fig is not None else fig
+        pie_fig = _fit_dialog_fig(pie_fig)
+        if table is not None and not getattr(table, "empty", True):
+            pie_col, tbl_col = st.columns([1.05, 1])
+            with pie_col:
+                _plotly_chart(
+                    pie_fig, key=full_key, drill=drill_dim, config=_DIALOG_CHART_CFG,
+                )
+                if drill_dim:
+                    st.caption("Click a slice to apply that filter.")
+                if callable(extra):
+                    extra()
+            with tbl_col:
+                st.markdown("<p class='didi-panel-title'>QA fail type and attribute</p>", unsafe_allow_html=True)
+                show_fail_attr_table(table)
+            return
+        _plotly_chart(pie_fig, key=full_key, drill=drill_dim, config=_DIALOG_CHART_CFG)
+        if drill_dim:
+            st.caption("Click a slice to apply that filter.")
+        if callable(extra):
+            extra()
+        return
+    _plotly_chart(fig, key=full_key, drill=drill_dim, config=_DIALOG_CHART_CFG)
+    if drill_dim:
+        st.caption("Click a bar or point to apply that filter.")
+    if callable(extra):
+        extra()
+
+
+def _show_preview_dialog(chosen: dict, state_key: str) -> None:
+    """Modal window for the open preview chart — same overlay idea as a popup."""
+    st.session_state["_preview_dialog_key"] = state_key
+    title = str(chosen.get("title") or "Chart")
+
+    @st.dialog(title, width="large", on_dismiss=_dismiss_preview_dialog)
+    def _body() -> None:
+        with st.container(
+            key="didi_dialog_body",
+            width="stretch",
+            horizontal_alignment="center",
+        ):
+            _fill_preview_dialog(chosen, state_key)
+
+    _body()
+
+
+@st.fragment
+def _preview_board_fragment(items: list[dict], state_key: str, columns: int) -> None:
+    """Cards stay on the page. Title clicks open the chart in a modal; only this fragment reruns."""
     if state_key not in st.session_state:
         st.session_state[state_key] = None
     for i in range(0, len(items), columns):
@@ -3601,9 +4706,14 @@ def render_preview_board(items: list[dict], *, state_key: str, columns: int = 2)
                         f'<span class="didi-rcard-flag didi-rcard-flag--{"on" if is_on else "off"}"></span>',
                         unsafe_allow_html=True,
                     )
-                    if st.button(item["title"], key=f"pvbtn_{item_id}", width="stretch"):
+                    if st.button(
+                        f"{item['title']}  (click to open)",
+                        key=f"pvbtn_{item_id}",
+                        width="stretch",
+                        help="Open the full chart",
+                    ):
                         st.session_state[state_key] = None if is_on else item_id
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     st.metric(
                         item["title"],
                         item.get("value") or "—",
@@ -3613,53 +4723,21 @@ def render_preview_board(items: list[dict], *, state_key: str, columns: int = 2)
                     )
                     spark = item.get("spark")
                     if spark is not None:
-                        event = st.plotly_chart(
+                        st.plotly_chart(
                             spark, width="stretch", config=CHART_CFG,
-                            key=f"{item_id}_mini", theme=None,
-                            on_select="rerun", selection_mode="points",
+                            key=f"{state_key}_{item_id}_mini", theme=None,
                         )
-                        points = []
-                        try:
-                            points = list(event.selection.points or [])
-                        except Exception:
-                            points = []
-                        sig_key = f"{item_id}_minisel"
-                        sig = repr(points)
-                        prev = st.session_state.get(sig_key)
-                        if not points:
-                            st.session_state[sig_key] = sig
-                        elif sig != prev:
-                            st.session_state[sig_key] = sig
-                            if st.session_state.get(state_key) != item_id:
-                                st.session_state[state_key] = item_id
-                                st.rerun()
-        open_id = st.session_state.get(state_key)
-        chosen = next((item for item in chunk if item["id"] == open_id), None)
-        if chosen is None:
-            continue
-        extra = chosen.get("extra")
-        fig = chosen["fig"]
-        drill_dim = chosen.get("drill")
-        if chosen.get("kind") == "pie":
-            _gutter, mid, _right = st.columns([1, 1.15, 1])
-            with mid:
-                with panel(chosen["title"]):
-                    _plotly_chart(
-                        square_pie_fig(fig),
-                        key=f"{chosen['id']}_full",
-                        drill=drill_dim,
-                    )
-                    if drill_dim:
-                        st.caption("Click a slice to apply that filter.")
-                    if callable(extra):
-                        extra()
-            continue
-        with panel(chosen["title"]):
-            _plotly_chart(fig, key=f"{chosen['id']}_full", drill=drill_dim)
-            if drill_dim:
-                st.caption("Click a bar or point to apply that filter.")
-            if callable(extra):
-                extra()
+    open_id = st.session_state.get(state_key)
+    chosen = next((item for item in items if item["id"] == open_id), None)
+    if chosen is None:
+        return
+    _show_preview_dialog(chosen, state_key)
+
+
+def render_preview_board(items: list[dict], *, state_key: str, columns: int = 2) -> None:
+    """KPI-style cards in pairs. Open/close is a fragment rerun so filters and KPIs do not recompute."""
+    with st.container(key=f"didi_pvboard_{state_key}"):
+        _preview_board_fragment(items, state_key, columns)
 
 
 def aht_corr_display(df: pd.DataFrame) -> pd.DataFrame:
@@ -3668,13 +4746,16 @@ def aht_corr_display(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({
         "Pair": df["Pair"],
         "Slice": df["Slice"],
-        "r": df["Pearson_r"].map(lambda v: "—" if pd.isna(v) else f"{float(v):+.2f}"),
+        "R²": df["Pearson_r"].map(lambda v: "—" if pd.isna(v) else f"{float(v)**2:.2f}"),
+        "Direction": df["Pearson_r"].map(
+            lambda v: "—" if pd.isna(v) else ("negative" if float(v) < 0 else ("flat" if abs(float(v)) < 0.05 else "positive"))
+        ),
         "N (shared contact reason Lv4 (detail))": df["N_CR"].astype(int),
     })
 
 
 def render_aht_quality_block(chart_prefix: str, *, include_qa_scatter: bool = True) -> None:
-    """Handle-time scatters + Pearson r. Association only."""
+    """Handle-time scatters + R². Association only."""
     n_surveys = volumes.get("surveys")
     n_audits = volumes.get("evaluations")
     qa_r, qa_n = _pair_r(aht_corr, "AHT vs QA", "All")
@@ -3783,6 +4864,10 @@ def render_filter_effects() -> None:
         )
     if sel_cr != "All":
         msgs.append(f"Contact reason Lv4 (detail) = {sel_cr}. All three sources are cut to this name.")
+    if sel_sub_cr != "All":
+        msgs.append(
+            f"Contact reason SUB_CR (finest) = {sel_sub_cr}. Cuts QA and CSAT. Recontact is not cut."
+        )
     sig = tuple(msgs)
     if sig != st.session_state.get("filter_fx_sig"):
         st.session_state["filter_fx_sig"] = sig
@@ -3861,7 +4946,7 @@ def corr_findings(tbl: pd.DataFrame) -> pd.DataFrame:
         if pd.isna(r):
             n_val = int(n) if pd.notna(n) else 0
             meaning = (
-                f"Need at least 5 shared contact reason Lv4 (detail) names to compute r. "
+                f"Need at least 5 shared contact reason Lv4 (detail) names to compute R². "
                 f"This pair currently has {n_val} in the active filter."
             )
             finding = (
@@ -3869,6 +4954,7 @@ def corr_findings(tbl: pd.DataFrame) -> pd.DataFrame:
                 "The KPI cards still use this filter; this row is only the association test."
             )
         else:
+            r2 = float(r) ** 2
             mag = abs(float(r))
             if mag < 0.20:
                 strength = "Very weak"
@@ -3880,7 +4966,7 @@ def corr_findings(tbl: pd.DataFrame) -> pd.DataFrame:
                 strength = "Strong"
             direction = "positive" if r > 0 else "negative"
             meaning = (
-                f"{strength} {direction} link (r={float(r):.2f}). "
+                f"{strength} {direction} link (R²={r2:.2f}). "
                 f"N={n_txt} contact reason Lv4 (detail) values appear in both series. "
                 "N is not surveys and not audits."
             )
@@ -3910,12 +4996,38 @@ def corr_findings(tbl: pd.DataFrame) -> pd.DataFrame:
                     finding = "Higher CSAT with higher recontact — likely a mix/volume effect, not a simple quality story."
         rows.append({
             "Pair": pair,
-            "r": f"{float(r):.3f}" if pd.notna(r) else "—",
+            "R²": f"{float(r)**2:.2f}" if pd.notna(r) else "—",
             "N": n_txt,
-            "What r and N mean": meaning,
+            "What R² and N mean": meaning,
             "Finding": finding,
         })
     return pd.DataFrame(rows)
+
+
+def render_r_n_meaning(*, chart_key: str = "qa_corr_r_full") -> None:
+    corr_plot = corr_tbl.copy() if corr_tbl is not None else pd.DataFrame()
+    if not corr_plot.empty and "Slice" not in corr_plot.columns:
+        corr_plot["Slice"] = "Lv4"
+    with st.expander("What R² and N mean"):
+        st.plotly_chart(
+            corr_r_bars(corr_plot), width="stretch", config=CHART_CFG,
+            key=chart_key, theme=None,
+        )
+        cov = pd.DataFrame({
+            "Source in this filter": [
+                f"QA (contact reason Lv4 (detail) with ≥ {corr_cov['min_qa']} audits)",
+                "CSAT",
+                "Recontact",
+            ],
+            "Distinct contact reason Lv4 (detail)": [corr_cov["qa_n"], corr_cov["csat_n"], corr_cov["rc_n"]],
+            "Shared with the other KPIs": [
+                f"QA and CSAT {corr_cov['qa_csat']} · QA and recontact {corr_cov['qa_rc']}",
+                f"QA and CSAT {corr_cov['qa_csat']} · CSAT and recontact {corr_cov['csat_rc']}",
+                f"QA and recontact {corr_cov['qa_rc']} · CSAT and recontact {corr_cov['csat_rc']}",
+            ],
+        })
+        show_df(cov)
+        show_df(corr_findings(corr_tbl))
 
 
 def weekly_display() -> pd.DataFrame:
@@ -3958,7 +5070,7 @@ def perf_display(df: pd.DataFrame, segment_col: str = "Segment") -> pd.DataFrame
 def ov_supervisor_display(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
-    top = df if see_all else df.head(10)
+    top = df
 
     def _fb(v):
         return f"{int(v):,}" if pd.notna(v) else "—"
@@ -3980,7 +5092,7 @@ def ov_supervisor_display(df: pd.DataFrame) -> pd.DataFrame:
 def agents_tenure_display(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
-    top = df if see_all else df.head(12)
+    top = df
     tenure = top["Tenure_Cohort"] if "Tenure_Cohort" in top.columns else "—"
     supervisor = top["Supervisor_ID"] if "Supervisor_ID" in top.columns else "—"
     return pd.DataFrame({
@@ -4192,8 +5304,30 @@ render_header(PAGE_TITLES.get(page, page))
 render_filter_effects()
 
 if page == "Overview":
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
+    top1 = rc_vol_lv1.iloc[0] if not rc_vol_lv1.empty else None
+    top4 = rc_vol_lv4.iloc[0] if not rc_vol_lv4.empty else None
+    top_sub = None
+    sub_spark_names, sub_spark_vals = [], []
+    if csat is not None and not csat.empty and "SUB_CR" in csat.columns and "Feedback CNT" in csat.columns:
+        _sub_vol = (
+            csat.groupby(csat["SUB_CR"].astype(str).str.strip(), dropna=False)["Feedback CNT"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        _sub_vol = _sub_vol[_sub_vol > 0]
+        if not _sub_vol.empty:
+            _sub_total = float(_sub_vol.sum())
+            top_sub = (
+                str(_sub_vol.index[0]),
+                int(_sub_vol.iloc[0]),
+                float(_sub_vol.iloc[0] / _sub_total * 100) if _sub_total else 0.0,
+            )
+            sub_spark_names = [str(x)[:28] for x in _sub_vol.head(5).index]
+            sub_spark_vals = [float(v) for v in _sub_vol.head(5).tolist()]
+
+    ov1, ov_rest = st.columns([1, 2], gap="medium")
+    with ov1:
+        _col_kicker("CX Quality Performance")
         render_kpi(
             L("kpi_qa"), f"{summary['qa_score']:.2f}%", qa_vs, "normal",
             spark=sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
@@ -4201,129 +5335,220 @@ if page == "Overview":
             caption=qa_disp,
             traffic=qa_light,
         )
-    with k2:
         render_kpi(
             L("kpi_csat"), f"{summary['csat']:.2f}%", cs_vs, "normal",
             spark=sparkline_fig(csat_spark_vals, CHART_COLORS["csat"], csat_spark_lbl, "%", "CSAT %"),
             spark_key="ov_spark_csat",
             traffic=cs_light,
         )
-    with k3:
         render_kpi(
-            L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
-            spark=sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
-            spark_key="ov_spark_rc",
-            traffic=rc_light,
+            L("kpi_crit_fails"), f"{crit['n_crit_fails']:,}",
+            f"{crit['pct_fails_critical']:.1f}% of attribute fails", "off",
+            traffic=_fail_light(crit["n_crit_fails"], critical=True),
+            traffic_label=False,
+            size="secondary",
         )
-    with k4:
         render_kpi(
-            L("kpi_fcr"), f"{fcr_rate:.2f}%",
-            fcr_vs,
+            L("kpi_noncrit_fails"),
+            f"{crit['n_noncrit_fails']:,}",
+            f"{crit['pct_fails_noncritical']:.1f}% of attribute fails",
             "off",
-            spark=sparkline_fig(fcr_spark_vals, CHART_COLORS["qa"], rc_spark_lbl, "%", "FCR %"),
-            spark_key="ov_spark_fcr",
-            help_text="FCR is 100 minus this page’s recontact rate. The business case scores recontact (≤5.44%), not FCR.",
-            caption="Companion to recontact. No CX Quality target.",
-        )
-    v1, v2, v3 = st.columns(3)
-    with v1:
-        render_kpi(
-            L("kpi_contacts"), f"{volumes['contacts']:,}", c_txt, c_dcol,
-            spark=sparkbar_fig(vol_series["contacts"] or [volumes["contacts"]], CHART_COLORS["blue"],
-                               vol_series.get("contacts_labels") or None, "", "Contacts"),
-            spark_key="ov_spark_contacts",
+            traffic=_fail_light(crit["n_noncrit_fails"], critical=False),
+            traffic_label=False,
             size="secondary",
         )
-    with v2:
-        render_kpi(
-            L("kpi_surveys"), f"{volumes['surveys']:,}", s_txt, s_dcol,
-            spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["csat"],
-                               vol_series.get("surveys_labels") or None, "", "Surveys"),
-            spark_key="ov_spark_surveys",
-            size="secondary",
-        )
-    with v3:
-        render_kpi(
-            L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
-            spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
-                               vol_series.get("evals_labels") or None, "", "Audits"),
-            spark_key="ov_spark_evals",
-            size="secondary",
-        )
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        top1 = rc_vol_lv1.iloc[0] if not rc_vol_lv1.empty else None
-        render_kpi(
-            "Contact reason Lv1",
-            f"{int(top1['Contacts']):,}" if top1 is not None else "—",
-            (
-                f"{str(top1['CR_Lv1'])[:36]} · {float(top1['Pct']):.1f}% of contacts"
-                if top1 is not None else None
-            ),
-            "off",
-            spark=spark_hbar_fig(
-                rc_vol_lv1.head(5)["CR_Lv1"].astype(str).tolist(),
-                rc_vol_lv1.head(5)["Contacts"].fillna(0).tolist(),
-            ) if not rc_vol_lv1.empty else None,
-            spark_key="ov_spark_cr1",
-            size="secondary",
-        )
-    with c2:
-        top4 = rc_vol_lv4.iloc[0] if not rc_vol_lv4.empty else None
-        render_kpi(
-            "Contact reason Lv4",
-            f"{int(top4['Contacts']):,}" if top4 is not None else "—",
-            (
-                f"{str(top4['CR_Lv4'])[:36]} · {float(top4['Pct']):.1f}% of contacts"
-                if top4 is not None else None
-            ),
-            "off",
-            spark=spark_hbar_fig(
-                rc_vol_lv4.head(5)["CR_Lv4"].astype(str).tolist(),
-                rc_vol_lv4.head(5)["Contacts"].fillna(0).tolist(),
-            ) if not rc_vol_lv4.empty else None,
-            spark_key="ov_spark_cr4",
-            size="secondary",
-        )
-    with c3:
-        render_kpi(
-            "4–5 star surveys",
-            f"{_star_hi:,}",
-            (
-                f"{(_star_hi / _star_n * 100):.1f}% of surveys"
-                if _star_n else "% of surveys rated 4 or 5 stars"
-            ),
-            "off",
-            spark=spark_donut_fig(
-                _stars_hi["Rating"].astype(str).tolist(),
-                _stars_hi["Count"].fillna(0).tolist(),
-            ) if not _stars_hi.empty else None,
-            spark_key="ov_spark_stars_hi",
-            size="secondary",
-        )
-    with c4:
-        render_kpi(
-            "1–3 star surveys",
-            f"{_star_lo:,}",
-            (
-                f"{(_star_lo / _star_n * 100):.1f}% of surveys"
-                if _star_n else "surveys rated 1 to 3 stars"
-            ),
-            "off",
-            spark=spark_donut_fig(
-                _stars_lo["Rating"].astype(str).tolist(),
-                _stars_lo["Count"].fillna(0).tolist(),
-            ) if not _stars_lo.empty else None,
-            spark_key="ov_spark_stars_lo",
-            size="secondary",
-        )
-    ic1, ic2, ic3 = st.columns(3)
-    with ic1:
-        render_notes(qa_chip(summary["qa_score"]))
-    with ic2:
-        render_notes(csat_chip(summary["csat"]))
-    with ic3:
-        render_notes(rate_chip("Recontact", rc_rate, RECONTACT_GOAL, True))
+        aht_sum = qa_aht_summary(audits)
+        if aht_sum["aht_min"] is not None:
+            render_kpi(
+                L("kpi_aht"),
+                f"{aht_sum['aht_min']:.1f} min",
+                f"median {aht_sum['aht_p50_min']:.1f} min · {aht_sum['n']:,} audits",
+                "off",
+                help_text=L("note_aht"),
+                traffic_label=False,
+                size="secondary",
+            )
+        else:
+            render_kpi(
+                L("kpi_aht"),
+                "—",
+                "No Duration in this filter",
+                "off",
+                help_text=L("note_aht"),
+                traffic_label=False,
+                size="secondary",
+            )
+        render_resolution_kpi("ov_spark_resolution")
+        render_unresolved_owner_kpi("ov_spark_unresolved")
+    with ov_rest:
+        ov2, ov3 = st.columns(2, gap="medium")
+        with ov2:
+            _col_kicker("Operational Flow & Volumes")
+            render_kpi(
+                L("kpi_contacts"), f"{volumes['contacts']:,}", c_txt, c_dcol,
+                spark=sparkbar_fig(vol_series["contacts"] or [volumes["contacts"]], CHART_COLORS["blue"],
+                                   vol_series.get("contacts_labels") or None, "", "Contacts"),
+                spark_key="ov_spark_contacts",
+                size="secondary",
+            )
+            render_kpi(
+                L("kpi_surveys"), f"{volumes['surveys']:,}", s_txt, s_dcol,
+                spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["csat"],
+                                   vol_series.get("surveys_labels") or None, "", "Surveys"),
+                spark_key="ov_spark_surveys",
+                size="secondary",
+            )
+            render_kpi(
+                L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
+                spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
+                                   vol_series.get("evals_labels") or None, "", "Audits"),
+                spark_key="ov_spark_evals",
+                size="secondary",
+            )
+            render_kpi(
+                L("kpi_recontacts"), f"{volumes.get('recontacts', 0):,}", r_txt, r_dcol,
+                spark=sparkbar_fig(
+                    vol_series.get("recontacts") or [volumes.get("recontacts", 0)],
+                    CHART_COLORS["recontact"],
+                    vol_series.get("recontacts_labels") or None, "", "Repeats",
+                ),
+                spark_key="ov_spark_repeats",
+                caption="Σ Recontact Volume · numerator of the official rate.",
+                size="secondary",
+            )
+            render_abandoned_kpi("ov_spark_abandoned")
+        with ov3:
+            _col_kicker("Customer Efficiency & Sentiment")
+            render_kpi(
+                L("kpi_recontact"), f"{rc_rate:.2f}%", rc_vs, "inverse",
+                spark=sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
+                spark_key="ov_spark_rc",
+                traffic=rc_light,
+            )
+            star_l, star_r = st.columns(2, gap="small")
+            with star_l:
+                render_kpi(
+                    "4–5 star surveys",
+                    f"{_star_hi:,}",
+                    (
+                        f"{(_star_hi / _star_n * 100):.1f}% of surveys"
+                        if _star_n else "% of surveys rated 4 or 5 stars"
+                    ),
+                    "off",
+                    spark=spark_donut_fig(
+                        _stars_hi["Rating"].astype(str).tolist(),
+                        _stars_hi["Count"].fillna(0).tolist(),
+                    ) if not _stars_hi.empty else None,
+                    spark_key="ov_spark_stars_hi",
+                    size="secondary",
+                )
+            with star_r:
+                render_kpi(
+                    "1–3 star surveys",
+                    f"{_star_lo:,}",
+                    (
+                        f"{(_star_lo / _star_n * 100):.1f}% of surveys"
+                        if _star_n else "surveys rated 1 to 3 stars"
+                    ),
+                    "off",
+                    spark=spark_donut_fig(
+                        _stars_lo["Rating"].astype(str).tolist(),
+                        _stars_lo["Count"].fillna(0).tolist(),
+                    ) if not _stars_lo.empty else None,
+                    spark_key="ov_spark_stars_lo",
+                    size="secondary",
+                )
+            cr_l, cr_r = st.columns(2, gap="small")
+            with cr_l:
+                render_kpi(
+                    "Contact reason Lv1",
+                    f"{int(top1['Contacts']):,}" if top1 is not None else "—",
+                    (
+                        f"{str(top1['CR_Lv1'])[:36]} · {float(top1['Pct']):.1f}% of contacts"
+                        if top1 is not None else None
+                    ),
+                    "off",
+                    spark=spark_hbar_fig(
+                        rc_vol_lv1.head(5)["CR_Lv1"].astype(str).tolist(),
+                        rc_vol_lv1.head(5)["Contacts"].fillna(0).tolist(),
+                    ) if not rc_vol_lv1.empty else None,
+                    spark_key="ov_spark_cr1",
+                    size="secondary",
+                )
+            with cr_r:
+                render_kpi(
+                    "Contact reason Lv4",
+                    f"{int(top4['Contacts']):,}" if top4 is not None else "—",
+                    (
+                        f"{str(top4['CR_Lv4'])[:36]} · {float(top4['Pct']):.1f}% of contacts"
+                        if top4 is not None else None
+                    ),
+                    "off",
+                    spark=spark_hbar_fig(
+                        rc_vol_lv4.head(5)["CR_Lv4"].astype(str).tolist(),
+                        rc_vol_lv4.head(5)["Contacts"].fillna(0).tolist(),
+                    ) if not rc_vol_lv4.empty else None,
+                    spark_key="ov_spark_cr4",
+                    size="secondary",
+                )
+            render_kpi(
+                "Contact reason SUB_CR",
+                f"{int(top_sub[1]):,}" if top_sub is not None else "—",
+                (
+                    f"{top_sub[0][:36]} · {top_sub[2]:.1f}% of surveys"
+                    if top_sub is not None else "Finest contact reason on CSAT"
+                ),
+                "off",
+                spark=spark_hbar_fig(sub_spark_names, sub_spark_vals) if sub_spark_vals else None,
+                spark_key="ov_spark_sub",
+                size="secondary",
+            )
+            _pie_names, _pie_vals = [], []
+            if rc_ch_vol is not None and not rc_ch_vol.empty and "Contacts" in rc_ch_vol.columns:
+                _ch_key = rc_ch_vol["Cat"].map(normalize_channel_label)
+                for _ch in ("Phone", "Live Chat"):
+                    _n = int(pd.to_numeric(rc_ch_vol.loc[_ch_key.eq(_ch), "Contacts"], errors="coerce").fillna(0).sum())
+                    if _n > 0:
+                        _pie_names.append(_ch)
+                        _pie_vals.append(_n)
+            _pie_total = int(sum(_pie_vals))
+            _pie_caption = "Phone and Live Chat contacts · not the 12-channel mix"
+            if _pie_total and len(_pie_vals) >= 2:
+                _pie_caption = (
+                    f"Phone {_pie_vals[0] / _pie_total * 100:.0f}% · "
+                    f"Live Chat {_pie_vals[1] / _pie_total * 100:.0f}% of Phone+Chat"
+                )
+            elif _pie_total and len(_pie_names) == 1:
+                _pie_caption = f"{_pie_names[0]} · 100% of Phone+Chat in this filter"
+            render_kpi(
+                "Contact number by channel",
+                f"{_pie_total:,}" if _pie_total else "—",
+                _pie_caption,
+                "off",
+                spark=spark_donut_fig(
+                    _pie_names,
+                    _pie_vals,
+                    legend=True,
+                    colors=[
+                        CHART_COLORS["qa"] if n == "Phone" else CHART_COLORS["csat"]
+                        for n in _pie_names
+                    ],
+                ) if _pie_vals else None,
+                spark_key="ov_spark_ch_pie",
+                size="secondary",
+            )
+
+        render_rule_heading("Week by week")
+        with panel("Week-over-week trend"):
+            _plotly_chart(
+                weekly_kpi_chart(weekly, height=240),
+                key="ov_weekly_full",
+                drill="weeks",
+            )
+            st.caption(
+                "QA and CSAT on the left axis, official recontact on the right. "
+                "Click a week to filter."
+            )
 
     n_filter_audits = int(len(audits)) if audits is not None else 0
     n_filter_surveys = (
@@ -4331,79 +5556,35 @@ if page == "Overview":
         if csat is not None and not csat.empty and "Feedback CNT" in csat.columns
         else 0
     )
-    fig_ov_sup = grouped_qa_csat_chart(
-        ov_sup if not ov_sup.empty else ov_sup,
-        "Supervisor_ID", n_col="n", title="Supervisor QA vs CSAT",
-        top_n=None,
-        universe_n=n_filter_audits or None,
+    fig_ov_combo_head, fig_ov_combo_tail = split_cr_combo_view(
+        scatter_df, top_n=CR_COMBO_TOP_N,
+        min_qa_n=CR_COMBO_MIN_QA_N, min_csat_n=RANKING_CSAT_MIN_N,
     )
-    fig_ov_sup_qa = _gap_fig(
-        sup_qa_gap, "Supervisor QA gap", "Weighted deficit (gap × audits)", "audits",
-        universe_n=n_filter_audits or None,
+    fig_ov_combo = kpi_combo_by_cr(
+        fig_ov_combo_head, "CR_Lv4",
+        title="Performance by contact reason Lv4 (detail)",
+        grain="contact reasons Lv4 (detail)",
+        top_n=CR_COMBO_TOP_N,
+        horizontal=True,
+        min_qa_n=CR_COMBO_MIN_QA_N,
+        min_csat_n=RANKING_CSAT_MIN_N,
     )
-    fig_ov_sup_cs = _gap_fig(
-        sup_csat_gap, "Supervisor CSAT gap", "Weighted deficit (gap × surveys)", "surveys",
-        universe_n=n_filter_surveys or None,
+    fig_ov_combo_lv1 = kpi_combo_by_cr(
+        lv1_metrics, "CR_Lv1",
+        title="Performance by contact reason Lv1 (group)",
+        grain="contact reasons Lv1 (group)",
     )
-    fig_ov_ten_qa = score_volume_combo(
-        ov_ten_qa if not ov_ten_qa.empty else pd.DataFrame(columns=["Tenure_Cohort", "QA_Score", "n"]),
-        "Tenure_Cohort", "QA_Score", "n",
-        goal=QA_GOAL, title="QA by agent tenure",
-        score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
-    )
-    fig_ov_ten_cs = score_volume_combo(
-        ov_ten_csat if not ov_ten_csat.empty else pd.DataFrame(columns=["Tenure_Cohort", "CSAT_Score", "Feedback"]),
-        "Tenure_Cohort", "CSAT_Score", "Feedback",
-        goal=CSAT_GOAL, title="CSAT by agent tenure",
-        score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
-    )
-    fig_ov_agents = hbar_score_chart(
-        ov_agents_gap if see_all or ov_agents_gap.empty else ov_agents_gap.head(12),
-        "Agent_ID", "QA_Score", "n",
-        title="QA by agent" if see_all else "Agents below QA 85",
-        extra_col="Tenure_Cohort" if not ov_agents_gap.empty and "Tenure_Cohort" in ov_agents_gap.columns else None,
-        universe_n=n_filter_audits or None,
-    )
-    fig_ov_weekly = weekly_kpi_chart(weekly)
-    fig_ov_ch = channel_kpi_combo(ch_perf)
-    fig_ov_combo = multimetric_risk_chart(combined)
-    fig_ov_qacs = qa_csat_scatter(scatter_df)
-    fig_ov_qarc = qa_recontact_scatter(scatter_df)
-    corr_plot = corr_tbl.copy()
-    if not corr_plot.empty and "Slice" not in corr_plot.columns:
-        corr_plot["Slice"] = "Lv4"
-    fig_ov_corr = corr_r_bars(corr_plot)
-    qa_cs_r, qa_cs_n = _pair_r(corr_tbl, "QA vs CSAT")
-    qa_rc_r, qa_rc_n = _pair_r(corr_tbl, "QA vs Recontact")
-    csat_rc_r, csat_rc_n = _pair_r(corr_tbl, "CSAT vs Recontact")
-    aht_r_ov, aht_n_ov = _pair_r(aht_corr, "AHT vs Recontact", "All")
-    fig_ov_csrc = csat_recontact_scatter(scatter_df)
 
     def extra_ov_sup() -> None:
         n_bar = int(ov_sup["n"].sum()) if not ov_sup.empty and "n" in ov_sup.columns else 0
         st.caption(_supervisor_n_caption(
-            n_bar, n_filter_audits, _n_supervisor_teams_under_min(audits, _slice_qa_n),
-            min_n=_slice_qa_n,
+            n_bar, n_filter_audits, _n_supervisor_teams_under_min(audits, 1),
+            min_n=1,
         ))
         render_notes(gap_chip(sup_qa_gap, "supervisor QA"))
         if not ov_sup.empty:
             with st.expander("Supervisor names and volumes"):
                 show_df(ov_supervisor_display(ov_sup))
-
-    def extra_ov_agents() -> None:
-        empty_txt = (
-            "No agent in this filter."
-            if see_all else "No agent with ≥ 5 audits is below QA 85."
-        )
-        render_notes(gap_chip(
-            ov_agents_gap.rename(columns={"Agent_ID": "Cat"}) if not ov_agents_gap.empty and "Cat" not in ov_agents_gap.columns else ov_agents_gap,
-            "agent QA",
-        ) if not ov_agents_gap.empty else {"text": empty_txt, "tone": "ok"})
-        if see_all:
-            st.caption("See all is on — every agent with ≥1 audit is shown. Official QA is still the mean of Score_Pct.")
-        if not ov_agents_gap.empty:
-            with st.expander("Agent names"):
-                show_df(agents_tenure_display(ov_agents_gap))
 
     def extra_ov_weekly() -> None:
         render_notes(weekly_chip(weekly))
@@ -4416,9 +5597,6 @@ if page == "Overview":
         if len(req_perf) > 1:
             _plotly_chart(channel_kpi_combo(req_perf), key="ov_req_combo", drill="requester")
             st.caption("Click a requester bar to apply that filter.")
-
-    def extra_ov_aht() -> None:
-        render_aht_quality_block("ov_aht")
 
     if sel_country == "All":
         mkt_audits, mkt_csat = audits, csat
@@ -4475,7 +5653,21 @@ if page == "Overview":
             footnote="No country field — region is always SSL. This is the official mix, not a by-market rate.",
         )
         + "</div>"
-    )
+        )
+
+    render_rule_heading("Performance trends")
+    ov_tr_l, ov_tr_r = st.columns(2, gap="medium")
+    with ov_tr_l:
+        with panel("QA score by day"):
+            _plotly_chart(control_i_chart(qa_spc, "Target 85"), key="ov_spc_full", drill="day")
+            st.caption("Click a day to apply that filter.")
+    with ov_tr_r:
+        with panel("QA score histogram"):
+            st.plotly_chart(
+                qa_histogram_chart(hist_qa) if hist_qa is not None else qa_histogram_chart(pd.DataFrame()),
+                width="stretch", config=CHART_CFG, key="ov_hist_full", theme=None,
+            )
+            st.caption(f"{crit['n_fatal']:,} audits scored 0 · N = {crit['n_audits']:,} audits")
 
     render_banner(L("section_market"))
     map_col, box_col = st.columns([1.35, 1], gap="medium")
@@ -4494,166 +5686,203 @@ if page == "Overview":
         st.markdown(mkt_html, unsafe_allow_html=True)
 
     render_banner(L("section_combined"))
-    render_corr_scatter(
-        "QA vs CSAT", fig_ov_qacs,
-        key="ov_qacs_full",
-        r_args=(qa_cs_r, qa_cs_n, "QA vs CSAT"),
-        r_kwargs={"surveys": volumes.get("surveys"), "audits": volumes.get("evaluations")},
-    )
-    render_corr_scatter(
-        "QA vs recontact", fig_ov_qarc,
-        key="ov_qarc_full",
-        r_args=(qa_rc_r, qa_rc_n, "QA vs recontact"),
-        r_kwargs={"audits": volumes.get("evaluations")},
-    )
-    render_corr_scatter(
-        "CSAT vs recontact", fig_ov_csrc,
-        key="ov_csrc_full",
-        r_args=(csat_rc_r, csat_rc_n, "CSAT vs recontact"),
-        r_kwargs={"surveys": volumes.get("surveys")},
-    )
-    with panel("Contact reason Lv4 (detail) failing more than one KPI"):
-        st.plotly_chart(fig_ov_combo, width="stretch", config=CHART_CFG, key="ov_combo_full", theme=None)
-        render_notes(combined_chip(combined))
-        if not combined.empty:
-            show_df(combo_display(combined))
-    with st.expander("What r and N mean"):
-        st.plotly_chart(fig_ov_corr, width="stretch", config=CHART_CFG, key="ov_corr_full", theme=None)
-        cov = pd.DataFrame({
-            "Source in this filter": [
-                f"QA (contact reason Lv4 (detail) with ≥ {corr_cov['min_qa']} audits)",
-                "CSAT",
-                "Recontact",
-            ],
-            "Distinct contact reason Lv4 (detail)": [corr_cov["qa_n"], corr_cov["csat_n"], corr_cov["rc_n"]],
-            "Shared with the other KPIs": [
-                f"QA and CSAT {corr_cov['qa_csat']} · QA and recontact {corr_cov['qa_rc']}",
-                f"QA and CSAT {corr_cov['qa_csat']} · CSAT and recontact {corr_cov['csat_rc']}",
-                f"QA and recontact {corr_cov['qa_rc']} · CSAT and recontact {corr_cov['csat_rc']}",
-            ],
-        })
-        show_df(cov)
-        show_df(corr_findings(corr_tbl))
+    with panel("Performance by contact reason Lv1 (group)"):
+        _plotly_chart(fig_ov_combo_lv1, key="ov_combo_lv1", drill="cr_lv1")
+        st.caption(
+            "Official QA (mean of audit scores), CSAT (4★+5★ / surveys), and recontact "
+            "(Σ repeats / Σ contacts) at contact reason Lv1 (group). "
+            "QA and recontact inherit Lv1 from the CSAT hierarchy via the Lv4 name. "
+            "These are not the same ticket."
+        )
+    with panel("Performance by contact reason Lv4 (detail)"):
+        _plotly_chart(fig_ov_combo, key="ov_combo_lv4", drill="cr")
+        st.caption(
+            f"Top {CR_COMBO_TOP_N} by survey/contact volume. "
+            f"QA bars need ≥{CR_COMBO_MIN_QA_N} audits; CSAT bars need ≥{RANKING_CSAT_MIN_N} surveys. "
+            "Sorted by volume, not by the raw file order. Recontact is in the hover, not a third bar. "
+            "Click a reason to filter."
+        )
+        if not fig_ov_combo_tail.empty:
+            with st.expander(
+                f"Lower-volume contact reasons ({len(fig_ov_combo_tail)} not in the chart)"
+            ):
+                tail = fig_ov_combo_tail.copy()
+                show = pd.DataFrame({"Contact reason Lv4": tail["CR_Lv4"].astype(str)})
+                if "QA_Score" in tail.columns:
+                    show["QA %"] = tail["QA_Score"].round(1)
+                if "QA_N" in tail.columns:
+                    show["Audits"] = tail["QA_N"]
+                if "CSAT_Score" in tail.columns:
+                    show["CSAT %"] = tail["CSAT_Score"].round(1)
+                elif "CSAT_Pct" in tail.columns:
+                    show["CSAT %"] = tail["CSAT_Pct"].round(1)
+                if "Feedback" in tail.columns:
+                    show["Surveys"] = tail["Feedback"]
+                if "Recontact_Rate" in tail.columns:
+                    show["Recontact %"] = tail["Recontact_Rate"].round(2)
+                if "Contacts" in tail.columns:
+                    show["Contacts"] = tail["Contacts"]
+                show_df(show)
+                st.caption(
+                    "Held out because n is below the chart floor, or the reason is outside the top "
+                    f"{CR_COMBO_TOP_N} by volume. Official KPIs at the top of the page still use every row."
+                )
 
-    render_preview_board(
-        [
-            {
-                "id": "ov_sup", "btn": "btnch",
-                "title": "Supervisors: QA vs CSAT",
-                "value": f"{ov_sup.iloc[0]['QA_Score']:.1f}%" if not ov_sup.empty else "—",
-                "delta": _n_delta(ov_sup.iloc[0] if not ov_sup.empty else None, "n", unit="audits"),
-                "spark": spark_hbar_fig(
-                    ov_sup.head(5)["Supervisor_ID"].astype(str).tolist(),
-                    ov_sup.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
-                ) if not ov_sup.empty else None,
-                "fig": fig_ov_sup, "extra": extra_ov_sup, "drill": "supervisor",
-            },
-            {
-                "id": "ov_sup_qa", "btn": "btncr",
-                "title": "Supervisors furthest from QA 85",
-                "value": f"{sup_qa_gap.iloc[0]['Gap_Impact']:.0f}" if not sup_qa_gap.empty else "—",
-                "delta": _gap_card_delta(sup_qa_gap, "audits"),
-                "spark": _gap_spark(sup_qa_gap),
-                "fig": fig_ov_sup_qa,
-                "extra": lambda: render_notes(gap_chip(sup_qa_gap, "supervisor QA")),
-                "drill": "supervisor",
-            },
-            {
-                "id": "ov_sup_cs", "btn": "btncr",
-                "title": "Supervisors furthest from CSAT 85",
-                "value": f"{sup_csat_gap.iloc[0]['Gap_Impact']:.0f}" if not sup_csat_gap.empty else "—",
-                "delta": _gap_card_delta(sup_csat_gap, "surveys"),
-                "spark": _gap_spark(sup_csat_gap),
-                "fig": fig_ov_sup_cs,
-                "extra": lambda: render_notes(gap_chip(sup_csat_gap, "supervisor CSAT")),
-                "drill": "supervisor",
-            },
-            {
-                "id": "ov_ten_qa", "btn": "btngroup",
-                "title": "QA by agent tenure",
-                "value": f"{ov_ten_qa.iloc[0]['QA_Score']:.1f}%" if not ov_ten_qa.empty else "—",
-                "delta": _n_delta(ov_ten_qa.iloc[0] if not ov_ten_qa.empty else None, "n", "QA_Evaluations", unit="audits"),
-                "spark": spark_hbar_fig(
-                    ov_ten_qa["Tenure_Cohort"].astype(str).tolist(),
-                    ov_ten_qa["QA_Score"].fillna(0).tolist(), unit="%",
-                ) if not ov_ten_qa.empty else None,
-                "fig": fig_ov_ten_qa,
-                "extra": lambda: render_notes(tenure_chip(ov_ten_qa, "QA_Score", "Tenure_Cohort", QA_GOAL)),
-                "drill": "tenure",
-            },
-            {
-                "id": "ov_ten_cs", "btn": "btngroup",
-                "title": "CSAT by agent tenure",
-                "value": f"{ov_ten_csat.iloc[0]['CSAT_Score']:.1f}%" if not ov_ten_csat.empty else "—",
-                "delta": _n_delta(ov_ten_csat.iloc[0] if not ov_ten_csat.empty else None, "Feedback", unit="surveys"),
-                "spark": spark_hbar_fig(
-                    ov_ten_csat["Tenure_Cohort"].astype(str).tolist(),
-                    ov_ten_csat["CSAT_Score"].fillna(0).tolist(), unit="%",
-                ) if not ov_ten_csat.empty else None,
-                "fig": fig_ov_ten_cs,
-                "extra": lambda: render_notes(tenure_chip(ov_ten_csat, "CSAT_Score", "Tenure_Cohort", CSAT_GOAL)),
-            },
-            {
-                "id": "ov_agents", "btn": "btndaily",
-                "title": "QA by agent" if see_all else "Agents below QA 85",
-                "value": f"{len(ov_agents_gap)}" if not ov_agents_gap.empty else "0",
-                "delta": (
-                    "all agents in this filter (small n included)"
-                    if see_all else "agents < 85 (≥ 5 audits)"
+    cr_cov = cr_taxonomy_coverage(csat)
+    cr_finest = cr_finest_volume(csat, top_n=12)
+    cov_col, fine_col = st.columns(2, gap="medium")
+    with cov_col:
+        with panel("Contact reason classification coverage"):
+            st.plotly_chart(
+                taxonomy_coverage_chart(cr_cov),
+                width="stretch", config=CHART_CFG, key="ov_cr_cover", theme=None,
+            )
+            st.caption(
+                "Share of CSAT surveys that still land in Other / Not mapped at each grain. "
+                "When Lv4 and SUB_CR are both Other, that slice cannot be drilled."
+            )
+    with fine_col:
+        with panel("Top contact reasons (SUB_CR)"):
+            _plotly_chart(
+                pareto_dual_axis(
+                    cr_finest, "Cat", "Feedback",
+                    title="Top contact reasons (SUB_CR)",
+                    value_title="Surveys",
+                    sample_unit="surveys",
+                ) if not cr_finest.empty else pareto_dual_axis(
+                    pd.DataFrame(), "Cat", "Feedback",
+                    title="Top contact reasons (SUB_CR)",
                 ),
-                "spark": spark_hbar_fig(
-                    ov_agents_gap.head(5)["Agent_ID"].astype(str).tolist(),
-                    ov_agents_gap.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
-                ) if not ov_agents_gap.empty else None,
-                "fig": fig_ov_agents, "extra": extra_ov_agents, "drill": "agent",
-            },
-            {
-                "id": "ov_weekly", "btn": "btndaily",
-                "title": "Week by week",
-                "value": f"{weekly.iloc[-1]['QA_Score']:.1f}%" if not weekly.empty and pd.notna(weekly.iloc[-1].get("QA_Score")) else "—",
-                "delta": "latest week QA",
-                "spark": sparkline_fig(
-                    weekly["QA_Score"].tolist() if not weekly.empty and "QA_Score" in weekly.columns else [],
-                    CHART_COLORS["qa"],
-                    weekly["Week"].astype(str).tolist() if not weekly.empty and "Week" in weekly.columns else None,
-                    "%", "QA %",
-                ),
-                "fig": fig_ov_weekly, "extra": extra_ov_weekly, "drill": "weeks",
-            },
-            {
-                "id": "ov_ch", "btn": "btnch",
-                "title": "QA, CSAT and recontact by channel",
-                "value": f"{ch_perf.iloc[0]['Recontact_Rate']:.2f}%" if not ch_perf.empty and pd.notna(ch_perf.iloc[0].get("Recontact_Rate")) else "—",
-                "delta": str(ch_perf.iloc[0]["Segment"])[:42] if not ch_perf.empty else None,
-                "spark": spark_hbar_fig(
-                    ch_perf.head(5)["Segment"].astype(str).tolist(),
-                    ch_perf.head(5)["Recontact_Rate"].fillna(0).tolist(), unit="%",
-                ) if not ch_perf.empty else None,
-                "fig": fig_ov_ch, "extra": extra_ov_ch, "drill": "channel",
-            },
-            {
-                "id": "ov_aht", "btn": "btnscat",
-                "title": "Handle time vs quality",
-                "value": f"{aht_r_ov:+.2f}" if aht_r_ov is not None else "—",
-                "delta": f"N = {aht_n_ov} shared Lv4" if aht_n_ov else None,
-                "spark": spark_r_fig(aht_r_ov),
-                "fig": aht_metric_scatter(
-                    aht_joined, "Recontact_Rate",
-                    y_title="Recontact rate %", title="Recontact vs AHT",
-                    y_goal=RECONTACT_GOAL, lower_better=True,
-                    empty_text=aht_overlap_empty_text(
-                        aht_n_ov, "recontact",
-                        audits=volumes.get("evaluations"),
-                        min_audits=AHT_CR_MIN_AUDITS,
-                    ),
-                ),
-                "extra": extra_ov_aht,
-                "drill": "cr",
-            },
-        ],
-        state_key=f"ov_preview_{_fn}",
-        columns=2,
+                key="ov_cr_finest",
+            )
+            st.caption(
+                "CSAT survey volume at SUB_CR (finest grain). "
+                "If SUB_CR is Other, the bar uses the parent Lv4; if Lv4 is also Other, it uses Lv3. "
+                "Not a Lv3-only or Lv4-only chart."
+            )
+
+    csat_map = csat_supervisor_mapping(csat, audits)
+    n_qa_thin = (
+        int((pd.to_numeric(ov_sup["n"], errors="coerce").fillna(0) < SUPERVISOR_GAP_MIN_N).sum())
+        if not ov_sup.empty and "n" in ov_sup.columns else 0
     )
+    n_cs_thin = (
+        int((pd.to_numeric(ov_sup["Feedback"], errors="coerce").fillna(0) < SUPERVISOR_GAP_MIN_N).sum())
+        if not ov_sup.empty and "Feedback" in ov_sup.columns else 0
+    )
+    gqa, gcs = st.columns(2)
+    with gqa:
+        with panel("Supervisor QA impact Pareto"):
+            _plotly_chart(
+                supervisor_gap_chart(
+                    ov_sup, "Supervisor_ID", "QA_Score", "n",
+                    goal=QA_GOAL, title="Supervisor QA impact Pareto", unit="audits",
+                    min_n=SUPERVISOR_GAP_MIN_N,
+                ),
+                key="ov_gap_qa",
+                drill="supervisor",
+            )
+            st.caption(
+                f"Bars are gap × audits (how far below 85, weighted by sample). "
+                f"The cumulative line shows how much of the deficit the top teams explain. "
+                f"{n_qa_thin} supervisor(s) with n < {SUPERVISOR_GAP_MIN_N} audits are held out as insufficient sample. "
+                "Click a supervisor to filter."
+            )
+        render_preview_board(
+            [
+                {
+                    "id": "ov_sup", "btn": "btnch",
+                    "title": "Supervisors: QA vs CSAT",
+                    "value": f"{ov_sup.iloc[0]['QA_Score']:.1f}%" if not ov_sup.empty else "—",
+                    "delta": _n_delta(ov_sup.iloc[0] if not ov_sup.empty else None, "n", unit="audits"),
+                    "spark": spark_hbar_fig(
+                        ov_sup.head(5)["Supervisor_ID"].astype(str).tolist(),
+                        ov_sup.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                    ) if not ov_sup.empty else None,
+                    "fig": lambda: grouped_qa_csat_chart(
+                        ov_sup if not ov_sup.empty else ov_sup,
+                        "Supervisor_ID", n_col="n", title="Supervisor QA vs CSAT",
+                        top_n=None,
+                        universe_n=n_filter_audits or None,
+                    ),
+                    "extra": extra_ov_sup, "drill": "supervisor",
+                },
+                {
+                    "id": "ov_ch", "btn": "btnch",
+                    "title": "QA, CSAT and recontact by channel",
+                    "value": f"{ch_perf.iloc[0]['Recontact_Rate']:.2f}%" if not ch_perf.empty and pd.notna(ch_perf.iloc[0].get("Recontact_Rate")) else "—",
+                    "delta": str(ch_perf.iloc[0]["Segment"])[:42] if not ch_perf.empty else None,
+                    "spark": spark_hbar_fig(
+                        ch_perf[ch_perf["Segment"] != "Overall"].head(5)["Segment"].astype(str).tolist(),
+                        ch_perf[ch_perf["Segment"] != "Overall"].head(5)["Recontact_Rate"].fillna(0).tolist(), unit="%",
+                    ) if not ch_perf.empty and (ch_perf["Segment"] != "Overall").any() else None,
+                    "fig": lambda: channel_kpi_combo(ch_perf),
+                    "extra": extra_ov_ch, "drill": "channel",
+                },
+            ],
+            state_key=f"ov_preview_{_fn}",
+            columns=1,
+        )
+    with gcs:
+        with panel("Supervisor CSAT impact Pareto"):
+            n_cs = "Feedback" if not ov_sup.empty and "Feedback" in ov_sup.columns else "n"
+            _plotly_chart(
+                supervisor_gap_chart(
+                    ov_sup, "Supervisor_ID", "CSAT_Score", n_cs,
+                    goal=CSAT_GOAL, title="Supervisor CSAT impact Pareto", unit="surveys",
+                    min_n=SUPERVISOR_GAP_MIN_N,
+                ),
+                key="ov_gap_csat",
+                drill="supervisor",
+            )
+            st.caption(
+                f"Bars are gap × surveys. A 5-point miss on 4,000 surveys outranks an 85-point miss on n=1. "
+                f"{n_cs_thin} supervisor(s) with n < {SUPERVISOR_GAP_MIN_N} mapped surveys are held out. "
+                "Click a supervisor to filter."
+            )
+            _render_csat_unmapped_note(csat_map)
+
+    aht_note = (
+        "Bars are official QA (mean of audit scores). The line is mean QA Duration in minutes. "
+        "Handle time is from audits only — CSAT has no AHT field. Not an official KPI. "
+        f"A slice needs ≥{AHT_CR_MIN_AUDITS} audits with Duration."
+    )
+    with panel("QA and AHT by contact reason Lv1 (group)"):
+        _plotly_chart(
+            qa_aht_combo(
+                aht_cr_lv1, "CR_Lv1",
+                title="QA and AHT by contact reason Lv1 (group)",
+                top_n=None,
+            ),
+            key="ov_aht_lv1",
+            drill="cr_lv1",
+        )
+        st.caption(aht_note + " Click a reason to filter.")
+    with panel("QA and AHT by contact reason Lv4 (detail)"):
+        _plotly_chart(
+            qa_aht_combo(
+                aht_cr_lv4, "CR_Lv4",
+                title="QA and AHT by contact reason Lv4 (detail)",
+                top_n=CR_COMBO_TOP_N,
+            ),
+            key="ov_aht_lv4",
+            drill="cr",
+        )
+        st.caption(aht_note + " Click a reason to filter.")
+    with panel("QA and AHT by contact reason SUB_CR"):
+        _plotly_chart(
+            qa_aht_combo(
+                aht_cr_sub, "SUB_CR",
+                title="QA and AHT by contact reason SUB_CR",
+                top_n=CR_COMBO_TOP_N,
+            ),
+            key="ov_aht_sub",
+            drill="sub_cr",
+        )
+        st.caption(
+            aht_note
+            + " If SUB_CR is Other, the bar uses the parent Lv4. Click a reason to filter."
+        )
     with st.expander("Week-over-week numbers"):
         show_df(weekly_display())
 
@@ -4672,68 +5901,18 @@ if page == "Overview":
             "**Agent:** QA and CSAT. CSAT keeps surveys whose agent name matches the QA Agent_ID. Recontact has no agent field.\n\n"
             "**Contact reason Lv1 (group):** native on CSAT. QA and Recontact inherit it via the contact reason Lv4 (detail) name.\n\n"
             "**Contact reason Lv4 (detail):** all three sources.\n\n"
-            "**Tenure:** QA uses the Excel `Tenure` field (New hire, 30–90 days, 3–6 months, 6–12 months, More than 1 year). CSAT has a different field `user_tenure`. Recontact has none.\n\n"
+            "**Tenure:** QA uses the Excel `Tenure` field. CSAT is joined to that same agent tenure by agent name. The CSAT `user_tenure` field is not used. Recontact has none.\n\n"
+            "**Business Type:** native on CSAT. QA is cut to contact reason Lv4 names that carry that Business Type in CSAT. Recontact is not cut.\n\n"
             "**Day:** all three sources, each on its own Fecha. QA may have no audits on a CSAT/recontact calendar day."
         )
 
 elif page == "QA Score":
     render_banner(L("section_qa"))
-    qk1, qk_mid, qk4 = st.columns([1, 2, 1])
-    with qk1:
-        render_kpi(
-            L("kpi_qa"), f"{summary['qa_score']:.2f}%", qa_vs, "normal",
-            spark=sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"), spark_key="qa_spark_qa",
-            caption=qa_disp,
-            traffic=qa_light,
-        )
-    with qk_mid:
-        with st.container(key="didi_qa_fail_grid"):
-            qk2, qk3 = st.columns(2)
-            with qk2:
-                render_kpi(
-                    L("kpi_critical_rate"), f"{crit['pct_fatal']:.1f}%",
-                    f"{crit['n_fatal']:,} of {crit['n_audits']:,} audits scored 0",
-                    "off",
-                    help_text=L("note_crit_kpi"),
-                )
-            with qk3:
-                render_kpi(
-                    L("kpi_crit_fails"), f"{crit['n_crit_fails']:,}",
-                    f"{crit['pct_fails_critical']:.1f}% of attribute fails", "off",
-                )
-            qk5, qk6 = st.columns(2)
-            with qk5:
-                render_kpi(
-                    L("kpi_audits_noncrit"), f"{crit['pct_audits_noncrit']:.1f}%",
-                    f"{crit['n_audits_noncrit']:,} of {crit['n_audits']:,} audits",
-                    "off",
-                    help_text=L("note_noncrit_audits"),
-                )
-            with qk6:
-                render_kpi(
-                    L("kpi_audits_any_fail"), f"{crit['pct_audits_any_fail']:.1f}%",
-                    f"{crit['n_audits_any_fail']:,} of {crit['n_audits']:,} audits",
-                    "off",
-                    help_text=L("note_any_fail_audits"),
-                    caption="Unique evaluations with ≥1 attribute fail — not the number of fail marks.",
-                )
-    with qk4:
-        render_kpi(
-            L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
-            spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
-                               vol_series.get("evals_labels") or None, "", "Audits"),
-            spark_key="qa_spark_evals",
-        )
-    qn1, qn2 = st.columns(2)
-    with qn1:
-        render_notes(qa_chip(summary["qa_score"]))
-    with qn2:
-        render_notes(attr_chip(top_attr, crit))
-
     src_attr = top_attr.rename(columns={"Fail_Count": "Count", "Error_Category": "Cat"}) if not top_attr.empty else top_attr
     src_crit = crit_attr.rename(columns={"Fail_Count": "Count", "Error_Category": "Cat"}) if not crit_attr.empty else crit_attr
     src_qa_cr = qa_cr_fails.rename(columns={"Fail_Count": "Count", "CR_Lv4": "Cat"}) if not qa_cr_fails.empty else qa_cr_fails
-    qa_roster = qa_agent_roster(audits, errors, min_n=_slice_qa_n)
+    src_qa_sub = qa_sub_fails.rename(columns={"Fail_Count": "Count", "SUB_CR": "Cat"}) if not qa_sub_fails.empty else qa_sub_fails
+    qa_roster = qa_agent_roster(audits, errors, min_n=1)
     n_roster = 0 if qa_roster.empty else len(qa_roster)
     n_roster_below = (
         0 if qa_roster.empty else int((qa_roster["QA_Score"] < QA_GOAL).sum())
@@ -4749,14 +5928,19 @@ elif page == "QA Score":
     )
     n_filter_audits_qa = int(len(audits)) if audits is not None else 0
     if audits.empty:
-        qa_sup = pd.DataFrame()
+        qa_sup_all = pd.DataFrame()
     else:
-        qa_sup = (
+        qa_sup_all = (
             audits.groupby("Supervisor_ID", as_index=False)
             .agg(QA_Score=("Score_Pct", "mean"), n=("Audit_ID", "count"),
                  Fatal_Rate=("Fatal_Flag", "mean"), Agents=("Agent_ID", "nunique"))
+            .sort_values("QA_Score")
         )
-        qa_sup = qa_sup[qa_sup["n"] >= _slice_qa_n].sort_values("QA_Score")
+    qa_sup = (
+        qa_sup_all[qa_sup_all["QA_Score"] < QA_GOAL]
+        if (not qa_sup_all.empty and _below_on(_qa_sup_below_k))
+        else qa_sup_all
+    )
     ch_names, ch_vals = [], []
     for _ch in ("Phone", "Live Chat"):
         _d = ch_qa.get(_ch) or {}
@@ -4794,20 +5978,29 @@ elif page == "QA Score":
         render_notes({"text": f"{float(share):.1f}% of QA fails are CRITICAL.", "tone": "risk"})
 
     def extra_qa_crit_p() -> None:
-        render_notes(attr_chip(crit_attr if not crit_attr.empty else top_attr, crit))
+        st.caption("CRITICAL attribute fails only. Share is of all attribute fails in this filter.")
 
     def extra_qa_attr() -> None:
         st.caption(
             "Bars count attribute-fail events. One audit can contribute more than one fail. "
             f"This filter: {n_fail_events:,} attribute fails · {n_fail_audits:,} audits."
         )
-        render_notes(attr_chip(top_attr, crit))
 
     def extra_qa_cr() -> None:
-        if qa_cr.empty:
-            render_notes({"text": "No contact reason Lv4 (detail) QA scores in this filter.", "tone": "info"})
+        frame = qa_score_by_cr(
+            audits, top_n=None, min_n=1, below_goal_only=_below_on(_qa_cr_below_k),
+        )
+        if frame.empty:
+            render_notes({
+                "text": (
+                    "No contact reason Lv4 (detail) below QA 85 in this filter."
+                    if _below_on(_qa_cr_below_k)
+                    else "No contact reason Lv4 (detail) QA scores in this filter."
+                ),
+                "tone": "info",
+            })
             return
-        row = qa_cr.iloc[0]
+        row = frame.iloc[0]
         n = int(row["N"]) if "N" in row and pd.notna(row["N"]) else None
         tone = "risk" if float(row["QA_Score"]) < QA_GOAL else "info"
         n_txt = f" on {n:,} audits" if n is not None else ""
@@ -4815,11 +6008,43 @@ elif page == "QA Score":
             "text": f"Lowest bar is {float(row['QA_Score']):.1f}%{n_txt}.",
             "tone": tone,
         })
-        if see_all:
-            st.caption("See all is on — every contact reason Lv4 with ≥1 audit is shown. Official QA is still the mean of Score_Pct.")
+        st.caption("Official QA is still the mean of Score_Pct. Toggle below 85% only vs every contact reason with ≥1 audit.")
+
+    def extra_qa_sub() -> None:
+        frame = qa_score_by_cr(
+            audits, top_n=None, min_n=1, cat_col="SUB_CR",
+            below_goal_only=_below_on(_qa_sub_below_k),
+        )
+        if frame.empty:
+            render_notes({
+                "text": (
+                    "No contact reason SUB_CR (finest) below QA 85 in this filter."
+                    if _below_on(_qa_sub_below_k)
+                    else "No contact reason SUB_CR (finest) QA scores in this filter."
+                ),
+                "tone": "info",
+            })
+            return
+        row = frame.iloc[0]
+        n = int(row["N"]) if "N" in row and pd.notna(row["N"]) else None
+        tone = "risk" if float(row["QA_Score"]) < QA_GOAL else "info"
+        n_txt = f" on {n:,} audits" if n is not None else ""
+        render_notes({
+            "text": f"Lowest bar is {float(row['QA_Score']):.1f}%{n_txt}.",
+            "tone": tone,
+        })
+        st.caption(
+            "Finest contact reason on QA (auditor-corrected SUB_CR). "
+            "Other / Non sub cr falls back to the parent Lv4. Official QA is still the mean of Score_Pct."
+        )
 
     def extra_qa_aht() -> None:
         render_r_box(aht_r_qa, aht_n_qa, "QA vs handle time", audits=volumes.get("evaluations"))
+        st.caption(
+            "The All bar is not Phone R² plus Chat R². It is one association on the pooled Phone+Chat cloud. "
+            "Phone calls are longer by nature, so All can look strongly positive while each channel is flat or negative. "
+            "Coach the channel rows, not All."
+        )
         render_aht_quality_block("qa_aht", include_qa_scatter=False)
 
     fig_qa_crit_p = pareto_dual_axis(
@@ -4843,21 +6068,35 @@ elif page == "QA Score":
             with st.expander("Contact reason Lv4 (detail) inside each Lv1 (group)"):
                 show_df(pair)
 
+    def extra_qa_cr_p() -> None:
+        st.caption(
+            "Pareto of attribute-fail events by contact reason Lv4 (detail). "
+            "Phone and Live Chat keep their own attributes."
+        )
+        _pareto_tail_extra(
+            src_qa_cr, "Cat", "Count",
+            grain="Lv4 reasons", volume_label="attribute fails",
+        )
+
+    def extra_qa_sub_p() -> None:
+        st.caption(
+            "Pareto of attribute-fail events by contact reason SUB_CR (finest). "
+            "If SUB_CR is Other or Non sub cr, the bar uses the parent Lv4 "
+            "labeled like 'reason Lv4 (other SUB_CR)'."
+        )
+        _pareto_tail_extra(
+            src_qa_sub, "Cat", "Count",
+            grain="SUB_CRs", volume_label="attribute fails",
+        )
+
     def extra_qa_agents() -> None:
         st.caption(
-            f"N = {n_fail_events:,} attribute fails · {n_fail_audits:,} audits. "
-            "Bars are fail events, not unique audits, and include agents with fewer than 5 audits. "
-            + (
-                "See all is on — the coaching roster includes every agent with ≥1 audit."
-                if see_all else "below 85 · 5+ audits is the coaching roster only."
-            )
+            f"N = {n_filter_audits_qa:,} audits. Official QA is the mean of Score_Pct. "
+            "Toggle below 85% only vs every agent with ≥1 audit in this filter."
         )
         if qa_fail_top.empty and qa_roster.empty:
             render_notes({
-                "text": (
-                    "No agent with a QA fail or ≥ 1 audit in this filter."
-                    if see_all else "No agent with a QA fail or ≥ 5 audits in this filter."
-                ),
+                "text": "No agent with a QA fail or ≥ 1 audit in this filter.",
                 "tone": "info",
             })
             return
@@ -4874,33 +6113,20 @@ elif page == "QA Score":
                 f"{uniq_txt}{attr_txt})."
             )
         roster_txt = (
-            f"{n_roster_below} of {n_roster} agents "
-            f"{'in this filter' if see_all else 'with ≥ 5 audits'} are below QA 85. "
+            f"{n_roster_below} of {n_roster} agents in this filter are below QA 85. "
             "The table is grouped by supervisor."
-        ) if n_roster else (
-            "No agents in this filter." if see_all else "No agent with ≥ 5 audits in this filter."
-        )
+        ) if n_roster else "No agents in this filter."
         render_notes({
             "text": f"{roster_txt}{top_txt}",
             "tone": "risk" if n_roster_below else "ok",
         })
         if qa_roster.empty:
             return
-        view = st.radio(
-            "Agent roster",
-            ("All agents", "Below QA 85"),
-            horizontal=True,
-            key=f"qa_agent_view_{_fn}",
-            label_visibility="collapsed",
-        )
         shown = qa_roster
-        if view == "Below QA 85":
+        if _below_on(_qa_agent_below_k):
             shown = qa_roster[qa_roster["QA_Score"] < QA_GOAL]
         if shown.empty:
-            st.caption(
-                "No agent below QA 85 in this filter."
-                if see_all else "No agent below QA 85 with ≥ 5 audits."
-            )
+            st.caption("No agent below QA 85 in this filter.")
             return
         st.caption(
             "Supervisor repeats on purpose — that is the team. Worst team first, then attribute-fail events. "
@@ -4911,31 +6137,242 @@ elif page == "QA Score":
     def extra_qa_sup() -> None:
         n_bar = int(qa_sup["n"].sum()) if not qa_sup.empty and "n" in qa_sup.columns else 0
         st.caption(_supervisor_n_caption(
-            n_bar, n_filter_audits_qa, _n_supervisor_teams_under_min(audits, _slice_qa_n),
+            n_bar, n_filter_audits_qa, _n_supervisor_teams_under_min(audits, 1),
             lowest_first=True,
-            min_n=_slice_qa_n,
+            min_n=1,
         ))
+
+    qa_cs_r, qa_cs_n = _pair_r(corr_tbl, "QA vs CSAT")
+    qa_rc_r, qa_rc_n = _pair_r(corr_tbl, "QA vs Recontact")
+    ch_vol_names, ch_vol_vals = [], []
+    for _ch in ("Phone", "Live Chat"):
+        _d = ch_qa.get(_ch) or {}
+        n_ch = int(_d.get("audit_count") or 0)
+        if n_ch:
+            ch_vol_names.append(_ch)
+            ch_vol_vals.append(n_ch)
+    fail_list = pd.DataFrame()
+    if errors is not None and not errors.empty and "Error_Category" in errors.columns:
+        fl = errors.copy()
+        if "Is_Critical" in fl.columns:
+            fl["Kind"] = fl["Is_Critical"].fillna(False).astype(bool).map({True: "CRITICAL", False: "Non-critical"})
+        else:
+            fl["Kind"] = "Fail"
+        fail_list = (
+            fl.groupby(["Kind", "Error_Category"], as_index=False)
+            .size()
+            .rename(columns={"size": "Fails", "Error_Category": "Attribute"})
+            .sort_values(["Kind", "Fails"], ascending=[True, False])
+        )
+    qa_agents_plot = qa_roster.copy() if not qa_roster.empty else qa_roster
+    if not qa_agents_plot.empty and _below_on(_qa_agent_below_k):
+        qa_agents_plot = qa_agents_plot[qa_agents_plot["QA_Score"] < QA_GOAL]
+
+    q1, q2, q3 = st.columns(3, gap="medium")
+    with q1:
+        render_kpi(
+            L("kpi_qa"), f"{summary['qa_score']:.2f}%", qa_vs, "normal",
+            spark=sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
+            spark_key="qa_spark_qa",
+            caption=qa_disp,
+            traffic=qa_light,
+        )
+    with q2:
+        render_kpi(
+            L("kpi_evals"), f"{volumes['evaluations']:,}", e_txt, e_dcol,
+            spark=sparkbar_fig(vol_series["evals"] or [volumes["evaluations"]], CHART_COLORS["blue"],
+                               vol_series.get("evals_labels") or None, "", "Audits"),
+            spark_key="qa_spark_evals",
+        )
+    with q3:
+        render_kpi(
+            "QA by Special project",
+            f"{qa_special.iloc[0]['QA_Score']:.1f}%" if not qa_special.empty else "—",
+            _n_delta(qa_special.iloc[0] if not qa_special.empty else None, "n", unit="audits"),
+            "off",
+            spark=spark_hbar_fig(
+                qa_special.head(5)["Special_project"].astype(str).tolist(),
+                qa_special.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+            ) if not qa_special.empty else None,
+            spark_key="qa_spark_special",
+        )
+
+    render_rule_heading("Audits summary")
+    as1, as2, as3, as4 = st.columns(4, gap="medium")
+    with as1:
+        render_kpi(
+            L("kpi_critical_rate"), f"{crit['pct_fatal']:.1f}%",
+            f"{crit['n_fatal']:,} of {crit['n_audits']:,} audits scored 0",
+            "off",
+            help_text=L("note_crit_kpi"),
+            traffic=_fail_light(crit["n_fatal"], critical=True),
+            traffic_label=False,
+            size="secondary",
+        )
+    with as2:
+        render_kpi(
+            L("kpi_audits_noncrit"), f"{crit['pct_audits_noncrit']:.1f}%",
+            f"{crit['n_audits_noncrit']:,} of {crit['n_audits']:,} audits",
+            "off",
+            help_text=L("note_noncrit_audits"),
+            traffic=_fail_light(crit["n_audits_noncrit"], critical=False),
+            traffic_label=False,
+            size="secondary",
+        )
+    with as3:
+        render_kpi(
+            L("kpi_crit_fails"), f"{crit['n_crit_fails']:,}",
+            f"{crit['pct_fails_critical']:.1f}% of attribute fails", "off",
+            traffic=_fail_light(crit["n_crit_fails"], critical=True),
+            traffic_label=False,
+            size="secondary",
+        )
+    with as4:
+        render_kpi(
+            L("kpi_audits_any_fail"), f"{crit['pct_audits_any_fail']:.1f}%",
+            f"{crit['n_audits_any_fail']:,} of {crit['n_audits']:,} audits",
+            "off",
+            help_text=L("note_any_fail_audits"),
+            caption="Unique evaluations with ≥1 attribute fail — not the number of fail marks.",
+            traffic=_fail_light(
+                crit["n_audits_any_fail"],
+                critical=bool(crit.get("n_fatal")),
+            ),
+            traffic_label=False,
+            size="secondary",
+        )
+    as5, as_right = st.columns([1, 3], gap="medium")
+    with as5:
+        render_kpi(
+            L("kpi_noncrit_fails"),
+            f"{crit['n_noncrit_fails']:,}",
+            f"{crit['pct_fails_noncritical']:.1f}% of attribute fails",
+            "off",
+            traffic=_fail_light(crit["n_noncrit_fails"], critical=False),
+            traffic_label=False,
+            size="secondary",
+            spark_key="qa_spark_noncrit_n",
+        )
+        render_resolution_kpi("qa_spark_resolution")
+        render_unresolved_owner_kpi("qa_spark_unresolved")
+    with as_right:
+        as6, as7, as8 = st.columns(3, gap="medium")
+        with as6:
+            render_kpi(
+                "Audit volume by channel",
+                f"{sum(ch_vol_vals):,}" if ch_vol_vals else "—",
+                "Phone vs Live Chat audits",
+                "off",
+                spark=spark_donut_fig(ch_vol_names, ch_vol_vals) if ch_vol_vals else None,
+                spark_key="qa_spark_ch_vol",
+                size="secondary",
+            )
+        with as7:
+            render_kpi(
+                "QA score by channel",
+                f"{ch_vals[0]:.1f}%" if ch_vals else "—",
+                ch_names[0] if ch_names else None,
+                "off",
+                spark=spark_hbar_fig(ch_names, ch_vals, unit="%") if ch_vals else None,
+                spark_key="qa_spark_ch_score",
+                size="secondary",
+            )
+        with as8:
+            render_kpi(
+                "QA by Type of audit",
+                f"{qa_audit_type.iloc[0]['QA_Score']:.1f}%" if not qa_audit_type.empty else "—",
+                _n_delta(qa_audit_type.iloc[0] if not qa_audit_type.empty else None, "n", unit="audits"),
+                "off",
+                spark=spark_hbar_fig(
+                    qa_audit_type.head(5)["Type_of_audit"].astype(str).tolist(),
+                    qa_audit_type.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_audit_type.empty else None,
+                spark_key="qa_spark_type",
+                size="secondary",
+            )
+        with panel("QA by day"):
+            _plotly_chart(
+                control_i_chart(qa_spc, "Target 85", height=260),
+                key="qa_spc_full",
+                drill="day",
+            )
+            st.caption("Click a day to apply that filter.")
+
+    render_rule_heading("Performance trends")
+    with panel("QA score histogram"):
+        st.plotly_chart(
+            qa_histogram_chart(hist_qa) if hist_qa is not None else qa_histogram_chart(pd.DataFrame()),
+            width="stretch", config=CHART_CFG, key="qa_hist_full", theme=None,
+        )
+        st.caption(f"{crit['n_fatal']:,} audits scored 0 · N = {crit['n_audits']:,} audits")
+
+    render_rule_heading("Detail by category")
+    det_l, det_r = st.columns(2, gap="medium")
+    with det_l:
+        with panel("QA by Special project"):
+            _plotly_chart(
+                score_volume_combo(
+                    qa_special if not qa_special.empty else pd.DataFrame(
+                        columns=["Special_project", "QA_Score", "n"]
+                    ),
+                    "Special_project", "QA_Score", "n",
+                    goal=QA_GOAL, title="QA by Special project",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ),
+                key="qa_special_full",
+                drill="special_project",
+            )
+            st.caption("Click a bar to apply that filter.")
+    with det_r:
+        with panel("QA by Type of audit"):
+            _plotly_chart(
+                score_volume_combo(
+                    qa_audit_type if not qa_audit_type.empty else pd.DataFrame(
+                        columns=["Type_of_audit", "QA_Score", "n"]
+                    ),
+                    "Type_of_audit", "QA_Score", "n",
+                    goal=QA_GOAL, title="QA by Type of audit",
+                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
+                ),
+                key="qa_type_full",
+                drill="audit_type",
+            )
+            st.caption("Click a bar to apply that filter.")
+
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        render_corr_scatter(
+            "QA vs CSAT",
+            qa_csat_scatter(scatter_df),
+            key="qa_qacs_full",
+            r_args=(qa_cs_r, qa_cs_n, "QA vs CSAT"),
+            r_kwargs={"surveys": volumes.get("surveys"), "audits": volumes.get("evaluations")},
+        )
+    with sc2:
+        render_corr_scatter(
+            "QA vs recontact",
+            qa_recontact_scatter(scatter_df),
+            key="qa_qarc_full",
+            r_args=(qa_rc_r, qa_rc_n, "QA vs recontact"),
+            r_kwargs={"audits": volumes.get("evaluations")},
+        )
+    render_r_n_meaning()
 
     render_preview_board(
         [
-            {
-                "id": "qa_spc", "btn": "btndaily",
-                "title": "QA by day",
-                "value": f"{qa_day:.1f}%" if qa_day is not None else "—",
-                "delta": qa_day_delta,
-                "delta_color": qa_day_color,
-                "spark": sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
-                "fig": control_i_chart(qa_spc, "Target 85"),
-                "drill": "day",
-            },
             {
                 "id": "qa_crit", "kind": "pie", "btn": "btnpie",
                 "title": "CRITICAL vs Non-critical",
                 "value": f"{crit['pct_fails_critical']:.1f}%",
                 "delta": f"{crit['n_crit_fails']:,} CRITICAL fails",
-                "spark": spark_donut_fig(["CRITICAL", "Non-critical"], [crit["n_crit_fails"], crit["n_noncrit_fails"]]),
+                "spark": spark_donut_fig(
+                    ["CRITICAL", "Non-critical"],
+                    [crit["n_crit_fails"], crit["n_noncrit_fails"]],
+                    legend=True,
+                ),
                 "fig": critical_split_chart(crit["n_crit_fails"], crit["n_noncrit_fails"]),
                 "extra": extra_qa_crit,
+                "table": fail_list,
             },
             {
                 "id": "qa_crit_p", "btn": "btncr",
@@ -4948,27 +6385,6 @@ elif page == "QA Score":
                 ) if not crit_attr.empty else None,
                 "fig": fig_qa_crit_p,
                 "extra": extra_qa_crit_p,
-            },
-            {
-                "id": "qa_hist", "btn": "btnscope",
-                "title": "How QA scores are spread",
-                "value": f"{summary['qa_score']:.2f}%",
-                "delta": f"{crit['n_fatal']:,} audits scored 0",
-                "spark": sparkline_fig(qa_spark_vals, CHART_COLORS["qa"], qa_spark_lbl, "%", "QA %"),
-                "fig": qa_histogram_chart(hist_qa),
-            },
-            {
-                "id": "qa_ch", "btn": "btnch",
-                "title": "QA by channel",
-                "value": f"{ch_vals[0]:.1f}%" if ch_vals else "—",
-                "delta": (
-                    f"{int((ch_qa.get(ch_names[0]) or {}).get('audit_count') or 0):,} audits"
-                    if ch_names else None
-                ),
-                "spark": spark_hbar_fig(ch_names, ch_vals, unit="%") if ch_vals else None,
-                "fig": qa_channel_compare_chart(ch_qa),
-                "extra": extra_qa_ch,
-                "drill": "channel",
             },
             {
                 "id": "qa_attr", "btn": "btncr",
@@ -4993,9 +6409,36 @@ elif page == "QA Score":
                 "spark": spark_hbar_fig(
                     qa_cr.head(5)["CR_Lv4"].tolist(), qa_cr.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
                 ) if not qa_cr.empty else None,
-                "fig": qa_by_cr_chart(qa_cr),
+                "fig": lambda: qa_by_cr_chart(
+                    qa_score_by_cr(
+                        audits, top_n=None, min_n=1,
+                        below_goal_only=_below_on(_qa_cr_below_k),
+                    ),
+                ),
+                "toolbar": lambda: _below_target_toggle(_qa_cr_below_k, goal=QA_GOAL, metric="QA"),
+                "below_key": _qa_cr_below_k,
                 "extra": extra_qa_cr,
                 "drill": "cr",
+            },
+            {
+                "id": "qa_sub", "btn": "btncr",
+                "title": "QA by contact reason SUB_CR (finest)",
+                "value": f"{qa_sub.iloc[0]['QA_Score']:.1f}%" if not qa_sub.empty else "—",
+                "delta": _n_delta(qa_sub.iloc[0] if not qa_sub.empty else None, "N", unit="audits"),
+                "spark": spark_hbar_fig(
+                    qa_sub.head(5)["SUB_CR"].tolist(), qa_sub.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
+                ) if not qa_sub.empty else None,
+                "fig": lambda: qa_by_cr_chart(
+                    qa_score_by_cr(
+                        audits, top_n=None, min_n=1, cat_col="SUB_CR",
+                        below_goal_only=_below_on(_qa_sub_below_k),
+                    ),
+                    cat_col="SUB_CR", grain="contact reason SUB_CR (finest)",
+                ),
+                "toolbar": lambda: _below_target_toggle(_qa_sub_below_k, goal=QA_GOAL, metric="QA"),
+                "below_key": _qa_sub_below_k,
+                "extra": extra_qa_sub,
+                "drill": "sub_cr",
             },
             {
                 "id": "qa_lv1", "btn": "btngroup",
@@ -5017,19 +6460,39 @@ elif page == "QA Score":
             },
             {
                 "id": "qa_cr_p", "btn": "btncr",
-                "title": "QA fails by contact reason Lv4 (detail)",
+                "title": "QA fail Pareto by contact reason Lv4",
                 "value": f"{qa_cr_fails.iloc[0]['Fail_Count']:,.0f}" if not qa_cr_fails.empty else "—",
                 "delta": _n_delta(qa_cr_fails.iloc[0] if not qa_cr_fails.empty else None, "Fail_Count", unit="fails"),
                 "spark": spark_hbar_fig(
                     qa_cr_fails.head(5)["CR_Lv4"].tolist(), qa_cr_fails.head(5)["Fail_Count"].fillna(0).tolist(),
                 ) if not qa_cr_fails.empty else None,
-                "fig": pareto_dual_axis(
+                "fig": lambda: pareto_dual_axis(
                     src_qa_cr if not src_qa_cr.empty else pd.DataFrame(),
-                    "Cat", "Count", title="QA fails by contact reason Lv4 (detail)",
+                    "Cat", "Count",
+                    title="QA fail Pareto by contact reason Lv4 (detail)",
+                    bucket_other=True,
                     **fail_kw,
                 ),
-                "extra": lambda: render_notes(pareto_chip(src_qa_cr, "Cat", "Count", "attribute fails")),
+                "extra": extra_qa_cr_p,
                 "drill": "cr",
+            },
+            {
+                "id": "qa_sub_p", "btn": "btncr",
+                "title": "QA fail Pareto by SUB_CR",
+                "value": f"{qa_sub_fails.iloc[0]['Fail_Count']:,.0f}" if not qa_sub_fails.empty else "—",
+                "delta": _n_delta(qa_sub_fails.iloc[0] if not qa_sub_fails.empty else None, "Fail_Count", unit="fails"),
+                "spark": spark_hbar_fig(
+                    qa_sub_fails.head(5)["SUB_CR"].tolist(), qa_sub_fails.head(5)["Fail_Count"].fillna(0).tolist(),
+                ) if not qa_sub_fails.empty else None,
+                "fig": lambda: pareto_dual_axis(
+                    src_qa_sub if not src_qa_sub.empty else pd.DataFrame(),
+                    "Cat", "Count",
+                    title="QA fail Pareto by contact reason SUB_CR (finest)",
+                    bucket_other=True,
+                    **fail_kw,
+                ),
+                "extra": extra_qa_sub_p,
+                "drill": "sub_cr",
             },
             {
                 "id": "qa_ten", "btn": "btngroup",
@@ -5049,40 +6512,32 @@ elif page == "QA Score":
                     goal=QA_GOAL, title="QA by agent tenure",
                     score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
                 ),
-                "extra": lambda: render_notes(tenure_chip(tenure_qa, "QA_Score", "Tenure_Cohort", QA_GOAL)),
+                "insight": tenure_chip(tenure_qa, "QA_Score", "Tenure_Cohort", QA_GOAL),
                 "drill": "tenure",
             },
             {
                 "id": "qa_agents", "btn": "btndaily",
                 "title": "QA by agent",
                 "value": f"{n_roster_below} / {n_roster}" if n_roster else "0",
-                "delta": "all agents in this filter" if see_all else "below 85 · 5+ audits",
+                "delta": "below 85" if _below_on(_qa_agent_below_k) else "all agents in this filter",
                 "spark": spark_hbar_fig(
-                    qa_fail_top.head(5)["Agent_ID"].astype(str).tolist(),
-                    qa_fail_top.head(5)["Fail_Count"].fillna(0).tolist(),
-                ) if not qa_fail_top.empty and int(qa_fail_top["Fail_Count"].sum() or 0) > 0 else (
-                    spark_hbar_fig(
-                        qa_roster.nsmallest(5, "QA_Score")["Agent_ID"].astype(str).tolist(),
-                        qa_roster.nsmallest(5, "QA_Score")["QA_Score"].fillna(0).tolist(),
-                        unit="%",
-                    ) if not qa_roster.empty else None
+                    qa_agents_plot.nsmallest(5, "QA_Score")["Agent_ID"].astype(str).tolist(),
+                    qa_agents_plot.nsmallest(5, "QA_Score")["QA_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not qa_agents_plot.empty else None,
+                "fig": lambda: hbar_score_chart(
+                    (
+                        qa_roster[qa_roster["QA_Score"] < QA_GOAL]
+                        if (not qa_roster.empty and _below_on(_qa_agent_below_k))
+                        else qa_roster
+                    ),
+                    "Agent_ID", "QA_Score", "Audit_Count",
+                    title="QA by agent",
+                    extra_col="Supervisor_ID" if not qa_roster.empty and "Supervisor_ID" in qa_roster.columns else None,
+                    universe_n=n_filter_audits_qa or None,
                 ),
-                "fig": (
-                    pareto_dual_axis(
-                        qa_fail_top.rename(columns={"Agent_ID": "Cat", "Fail_Count": "Count"}),
-                        "Cat", "Count",
-                        title="QA fails by agent",
-                        **fail_kw,
-                    )
-                    if not qa_fail_top.empty and int(qa_fail_top["Fail_Count"].sum() or 0) > 0
-                    else hbar_score_chart(
-                        qa_roster if see_all or qa_roster.empty else qa_roster.nsmallest(12, "QA_Score"),
-                        "Agent_ID", "QA_Score", "Audit_Count",
-                        title="QA by agent",
-                        extra_col="Supervisor_ID" if not qa_roster.empty else None,
-                        universe_n=n_filter_audits_qa or None,
-                    )
-                ),
+                "toolbar": lambda: _below_target_toggle(_qa_agent_below_k, goal=QA_GOAL, metric="QA"),
+                "below_key": _qa_agent_below_k,
                 "extra": extra_qa_agents,
                 "drill": "agent",
             },
@@ -5094,51 +6549,25 @@ elif page == "QA Score":
                 "spark": spark_hbar_fig(
                     qa_sup.head(5)["Supervisor_ID"].astype(str).tolist(), qa_sup.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
                 ) if not qa_sup.empty else None,
-                "fig": hbar_score_chart(
-                    qa_sup if not qa_sup.empty else qa_sup,
+                "fig": lambda: hbar_score_chart(
+                    (
+                        qa_sup_all[qa_sup_all["QA_Score"] < QA_GOAL]
+                        if (not qa_sup_all.empty and _below_on(_qa_sup_below_k))
+                        else qa_sup_all
+                    ),
                     "Supervisor_ID", "QA_Score", "n",
                     title="QA by supervisor",
                     universe_n=n_filter_audits_qa or None,
                 ),
+                "toolbar": lambda: _below_target_toggle(_qa_sup_below_k, goal=QA_GOAL, metric="QA"),
+                "below_key": _qa_sup_below_k,
                 "extra": extra_qa_sup,
                 "drill": "supervisor",
             },
             {
-                "id": "qa_special", "btn": "btnscope",
-                "title": "QA by Special project",
-                "value": f"{qa_special.iloc[0]['QA_Score']:.1f}%" if not qa_special.empty else "—",
-                "delta": _n_delta(qa_special.iloc[0] if not qa_special.empty else None, "n", unit="audits"),
-                "spark": spark_hbar_fig(
-                    qa_special.head(5)["Special_project"].astype(str).tolist(), qa_special.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
-                ) if not qa_special.empty else None,
-                "fig": score_volume_combo(
-                    qa_special if not qa_special.empty else pd.DataFrame(columns=["Special_project", "QA_Score", "n"]),
-                    "Special_project", "QA_Score", "n",
-                    goal=QA_GOAL, title="QA by Special project",
-                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
-                ),
-                "drill": "special_project",
-            },
-            {
-                "id": "qa_type", "btn": "btnscope",
-                "title": "QA by Type of audit",
-                "value": f"{qa_audit_type.iloc[0]['QA_Score']:.1f}%" if not qa_audit_type.empty else "—",
-                "delta": _n_delta(qa_audit_type.iloc[0] if not qa_audit_type.empty else None, "n", unit="audits"),
-                "spark": spark_hbar_fig(
-                    qa_audit_type.head(5)["Type_of_audit"].astype(str).tolist(), qa_audit_type.head(5)["QA_Score"].fillna(0).tolist(), unit="%",
-                ) if not qa_audit_type.empty else None,
-                "fig": score_volume_combo(
-                    qa_audit_type if not qa_audit_type.empty else pd.DataFrame(columns=["Type_of_audit", "QA_Score", "n"]),
-                    "Type_of_audit", "QA_Score", "n",
-                    goal=QA_GOAL, title="QA by Type of audit",
-                    score_title="QA %", vol_title="Audits", bar_color=CHART_COLORS["qa"],
-                ),
-                "drill": "audit_type",
-            },
-            {
                 "id": "qa_aht", "btn": "btnscat",
                 "title": "Handle time vs quality",
-                "value": f"{aht_r_qa:+.2f}" if aht_r_qa is not None else "—",
+                "value": f"{float(aht_r_qa)**2:.2f}" if aht_r_qa is not None else "—",
                 "delta": f"N = {aht_n_qa} shared Lv4" if aht_n_qa else None,
                 "spark": spark_r_fig(aht_r_qa),
                 "fig": qa_aht_scatter(aht_points),
@@ -5150,11 +6579,150 @@ elif page == "QA Score":
         columns=2,
     )
 
+    has_notes = (
+        audits is not None
+        and not audits.empty
+        and "Auditor_Outcome" in audits.columns
+        and "Dissatisfaction_Flag" in audits.columns
+    )
+    if has_notes:
+        qa_outcome = qa_auditor_outcome(audits)
+        qa_proc = qa_process_adherence_summary(audits)
+        qa_dissat = qa_dissatisfaction_split(audits)
+        qa_owner = qa_dissatisfaction_owner(audits)
+        qa_sub_r = qa_dissatisfaction_subreason(audits)
+        qa_48h = qa_repeat_48h(audits)
+        qa_48h_ch = qa_repeat_48h_by_channel(audits)
+        qa_quotes = qa_auditor_quotes(audits)
+        n_yes = int(qa_dissat.loc[qa_dissat["Dissatisfaction_Flag"].eq("Yes"), "n"].sum()) if not qa_dissat.empty else 0
+        pct_yes = float(qa_dissat.loc[qa_dissat["Dissatisfaction_Flag"].eq("Yes"), "Pct"].sum()) if not qa_dissat.empty else 0.0
+        n_rep = int(qa_48h.loc[qa_48h["Repeat_48h"].eq("Repeat (≥2)"), "n"].sum()) if not qa_48h.empty else 0
+        pct_rep = (n_rep / int(len(audits)) * 100) if len(audits) else 0.0
+        dissat_colors = [
+            STATUS_COLORS["red"] if str(v) == "Yes" else ("#64748B" if str(v) == "No" else STATUS_COLORS["amber"])
+            for v in (qa_dissat["Dissatisfaction_Flag"].tolist() if not qa_dissat.empty else [])
+        ]
+
+        def extra_qa_outcome() -> None:
+            st.caption(L("sub_qa_outcome"))
+            st.caption(L("note_qa_notes"))
+
+        def extra_qa_dissat() -> None:
+            st.caption(L("sub_qa_dissat"))
+            if not qa_owner.empty:
+                _plotly_chart(
+                    cr_group_hbar(
+                        qa_owner, "Dissatisfaction_Owner", "n", "Pct", "Audits",
+                        title="Dissatisfaction owner",
+                        sample_unit="audits",
+                    ),
+                    key=f"qa_notes_owner_{_fn}",
+                    config=_DIALOG_CHART_CFG,
+                )
+            if not qa_sub_r.empty:
+                _plotly_chart(
+                    cr_group_hbar(
+                        qa_sub_r, "Dissatisfaction_Subreason", "n", "Pct", "Audits",
+                        title="Dissatisfaction sub-reason",
+                        sample_unit="audits",
+                    ),
+                    key=f"qa_notes_sub_{_fn}",
+                    config=_DIALOG_CHART_CFG,
+                )
+            if qa_quotes.empty:
+                st.caption("No auditor notes on dissatisfied audits in this filter.")
+            else:
+                st.caption(
+                    "Sample notes on dissatisfied audits. 5-whys text is AI-generated and is not a dissatisfaction rate."
+                )
+                show_df(qa_quotes)
+
+        def extra_qa_48h() -> None:
+            st.caption(L("sub_qa_48h"))
+            if not qa_48h_ch.empty:
+                _plotly_chart(
+                    count_stack_chart(
+                        qa_48h_ch, "Repeat_48h", "Channel", "n",
+                        title="Same-CR contacts in last 48h by channel",
+                        cat_order=list(REPEAT_48H_ORDER),
+                        series_order=["Phone", "Live Chat"],
+                    ),
+                    key=f"qa_notes_48h_ch_{_fn}",
+                    config=_DIALOG_CHART_CFG,
+                )
+            st.caption(
+                "Repeat (≥2) is the only bucket that means a prior same-CR contact. "
+                "Do not compare this share with official recontact."
+            )
+
+        render_rule_heading(L("panel_qa_notes"))
+        st.caption(L("note_qa_notes"))
+        render_preview_board(
+            [
+                {
+                    "id": "qa_outcome", "btn": "btnch",
+                    "title": L("panel_qa_outcome"),
+                    "value": f"{qa_proc['pct_not_followed']:.1f}%",
+                    "delta": f"{qa_proc['n_not_followed']:,} did not follow process",
+                    "spark": spark_hbar_fig(
+                        qa_outcome["Auditor_Outcome"].tolist(),
+                        qa_outcome["n"].fillna(0).tolist(),
+                    ) if not qa_outcome.empty else None,
+                    "fig": score_volume_combo(
+                        qa_outcome, "Auditor_Outcome", "QA_Score", "n",
+                        goal=QA_GOAL, title="QA by solution and process",
+                        score_title="QA %", vol_title="Audits",
+                        bar_color=CHART_COLORS["qa"],
+                        sample_unit="audits",
+                    ),
+                    "extra": extra_qa_outcome,
+                },
+                {
+                    "id": "qa_dissat", "kind": "pie", "btn": "btnpie",
+                    "title": L("panel_qa_dissat"),
+                    "value": f"{pct_yes:.1f}%",
+                    "delta": f"{n_yes:,} of {int(len(audits)):,} audits",
+                    "spark": spark_donut_fig(
+                        qa_dissat["Dissatisfaction_Flag"].tolist(),
+                        qa_dissat["n"].fillna(0).tolist(),
+                        legend=True,
+                        colors=dissat_colors,
+                    ) if not qa_dissat.empty else None,
+                    "fig": share_donut_chart(
+                        qa_dissat, "Dissatisfaction_Flag", "n",
+                        title="Auditor-tagged dissatisfaction",
+                        colors=dissat_colors,
+                    ),
+                    "extra": extra_qa_dissat,
+                },
+                {
+                    "id": "qa_48h", "btn": "btndaily",
+                    "title": L("panel_qa_48h"),
+                    "value": f"{pct_rep:.1f}%",
+                    "delta": f"{n_rep:,} repeat (≥2)",
+                    "spark": spark_hbar_fig(
+                        qa_48h["Repeat_48h"].tolist(),
+                        qa_48h["n"].fillna(0).tolist(),
+                    ) if not qa_48h.empty else None,
+                    "fig": score_volume_combo(
+                        qa_48h, "Repeat_48h", "QA_Score", "n",
+                        goal=QA_GOAL, title="QA by same-CR contacts in last 48h",
+                        score_title="QA %", vol_title="Audits",
+                        bar_color=CHART_COLORS["qa"],
+                        sample_unit="audits",
+                    ),
+                    "extra": extra_qa_48h,
+                },
+            ],
+            state_key=f"qa_notes_{_fn}",
+            columns=3,
+        )
+
     render_methodology()
 
 elif page == "CSAT":
     render_banner(L("section_csat"))
-    ck1, ck2, ck3, ck4 = st.columns(4)
+    ck1, ck2, ck3, ck4 = st.columns(4, gap="medium")
     with ck1:
         render_kpi(
             L("kpi_csat"), f"{summary['csat']:.2f}%", cs_vs, "normal",
@@ -5165,7 +6733,7 @@ elif page == "CSAT":
     with ck2:
         render_kpi(
             L("kpi_surveys"), f"{volumes['surveys']:,}", s_txt, s_dcol,
-            spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["csat"],
+            spark=sparkbar_fig(vol_series["surveys"] or [volumes["surveys"]], CHART_COLORS["blue"],
                                vol_series.get("surveys_labels") or None, "", "Surveys"),
             spark_key="csat_spark_vol",
         )
@@ -5179,11 +6747,10 @@ elif page == "CSAT":
             ),
             "off",
             spark=spark_donut_fig(
-                _stars_hi["Rating"].astype(str).tolist(),
-                _stars_hi["Count"].fillna(0).tolist(),
+                _stars_hi.sort_values("Count", ascending=False)["Rating"].astype(str).tolist(),
+                _stars_hi.sort_values("Count", ascending=False)["Count"].fillna(0).tolist(),
             ) if not _stars_hi.empty else None,
             spark_key="csat_spark_stars_hi",
-            size="secondary",
         )
     with ck4:
         render_kpi(
@@ -5195,13 +6762,32 @@ elif page == "CSAT":
             ),
             "off",
             spark=spark_donut_fig(
-                _stars_lo["Rating"].astype(str).tolist(),
-                _stars_lo["Count"].fillna(0).tolist(),
+                _stars_lo.sort_values("Count", ascending=False)["Rating"].astype(str).tolist(),
+                _stars_lo.sort_values("Count", ascending=False)["Count"].fillna(0).tolist(),
             ) if not _stars_lo.empty else None,
             spark_key="csat_spark_stars_lo",
-            size="secondary",
         )
-    render_notes(csat_chip(summary["csat"]))
+    csat_below = (
+        float(hist_csat.loc[hist_csat["CSAT_Score"] < CSAT_GOAL, "Share_Pct"].sum())
+        if not hist_csat.empty else None
+    )
+    csat_day_col, csat_hist_col = st.columns(2, gap="medium")
+    with csat_day_col:
+        with panel("CSAT by day"):
+            _plotly_chart(control_i_chart(csat_spc, "Target 85"), key="csat_spc_full", drill="day")
+            st.caption("Click a day to apply that filter.")
+    with csat_hist_col:
+        with panel("CSAT score histogram"):
+            st.plotly_chart(
+                csat_histogram_chart(hist_csat) if hist_csat is not None and not hist_csat.empty else csat_histogram_chart(pd.DataFrame()),
+                width="stretch", config=CHART_CFG, key="csat_hist_full", theme=None,
+            )
+            st.caption(
+                (
+                    f"{csat_below:.0f}% of surveys below 85 · N = {volumes['surveys']:,} surveys"
+                    if csat_below is not None else f"N = {volumes['surveys']:,} surveys"
+                )
+            )
 
     render_banner("Customer comments")
     st.caption(
@@ -5252,19 +6838,19 @@ elif page == "CSAT":
                     elif low > 0 and tagged < low:
                         st.caption(f"{tagged:,} of {low:,} 1–3★ comments had a classifiable theme.")
 
-    ten_plot = csat_ten.copy()
-    if not ten_plot.empty:
-        ten_plot["Tenure"] = ten_plot["CSAT_Agent_Tenure"].astype(str).str.replace("_", " ")
-    qa_cs_r, qa_cs_n = _pair_r(corr_tbl, "QA vs CSAT")
+    ten_plot = ov_ten_csat.copy()
+    if not ten_plot.empty and "Tenure_Cohort" in ten_plot.columns:
+        ten_plot = ten_plot.rename(columns={"Tenure_Cohort": "Tenure"})
+    csat_rc_r, csat_rc_n = _pair_r(corr_tbl, "CSAT vs Recontact")
     aht_cs_r, aht_cs_n = _pair_r(aht_corr, "AHT vs CSAT", "All")
-    csat_roster = csat_agent_roster(csat, audits, min_n=_slice_csat_n)
+    csat_roster = csat_agent_roster(csat, audits, min_n=1)
     n_csat_roster = 0 if csat_roster.empty else len(csat_roster)
     n_csat_below = (
         0 if csat_roster.empty else int((csat_roster["CSAT_Score"] < CSAT_GOAL).sum())
     )
-    csat_agents_plot = (
-        csat_roster if see_all or csat_roster.empty else csat_roster.nsmallest(12, "CSAT_Score")
-    )
+    csat_agents_plot = csat_roster.copy() if not csat_roster.empty else csat_roster
+    if not csat_agents_plot.empty and _below_on(_csat_agent_below_k):
+        csat_agents_plot = csat_agents_plot[csat_agents_plot["CSAT_Score"] < CSAT_GOAL]
 
     def extra_csat_seg() -> None:
         if csat_seg.empty:
@@ -5276,19 +6862,16 @@ elif page == "CSAT":
     def extra_csat_agents() -> None:
         st.caption(
             "Official CSAT by agent · 4★+5★ / surveys. "
-            + (
-                "See all is on — every agent with ≥1 survey is shown (n can be 1)."
-                if see_all else "20+ surveys. Chart is the 12 lowest scores."
-            )
+            "Toggle below 85% only vs every agent with ≥1 survey in this filter."
         )
         if csat_roster.empty:
             render_notes({
-                "text": "No CSAT agents in this filter." if see_all else "No agent with 20+ surveys in this filter.",
+                "text": "No CSAT agents in this filter.",
                 "tone": "info",
             })
             return
         mapped = int((~csat_roster["Supervisor_ID"].eq(CSAT_UNMAPPED_SUPERVISOR)).sum())
-        n_floor = "≥1 survey" if see_all else "20+ surveys"
+        n_floor = "≥1 survey"
         render_notes({
             "text": (
                 f"{n_csat_below} of {n_csat_roster} agents with {n_floor} are below CSAT 85. "
@@ -5296,130 +6879,155 @@ elif page == "CSAT":
             ),
             "tone": "risk" if n_csat_below else "ok",
         })
-        view = st.radio(
-            "CSAT agent roster",
-            ("All agents", "Below CSAT 85"),
-            horizontal=True,
-            key=f"csat_agent_view_{_fn}",
-            label_visibility="collapsed",
-        )
         shown = csat_roster
-        if view == "Below CSAT 85":
+        if _below_on(_csat_agent_below_k):
             shown = csat_roster[csat_roster["CSAT_Score"] < CSAT_GOAL]
         if shown.empty:
             st.caption(
                 "No agent below CSAT 85 in this filter."
-                if see_all else "No agent below CSAT 85 with 20+ surveys."
             )
             return
         st.caption(
             "Official CSAT is 4★+5★ / Feedback CNT (ratio of sums). "
-            "Not mapped to a QA supervisor means the CSAT agent name has no QA Agent_ID match."
+            "Supervisor is the QA Supervisor_ID matched by agent name (Agent 238 and 238 are the same person). "
+            "CSAT has no native supervisor field — remaining unmatched agents stay as Not mapped to a QA supervisor."
         )
         show_df(csat_agent_roster_display(shown))
 
+    def _csat_sup_plot() -> pd.DataFrame:
+        frame = csat_by_supervisor(
+            csat, audits, min_n=1, top_n=None,
+            below_goal_only=_below_on(_csat_sup_below_k),
+        )
+        if frame.empty or "Supervisor_ID" not in frame.columns:
+            return frame
+        return frame.loc[~frame["Supervisor_ID"].eq(CSAT_UNMAPPED_SUPERVISOR)].copy()
+
     def extra_csat_sup() -> None:
+        below = _below_on(_csat_sup_below_k)
         st.caption(
             "Official CSAT by supervisor · agent name matched to QA. "
             + (
-                "See all is on — every supervisor with ≥1 mapped survey is shown."
-                if see_all else "Chart is the 12 lowest scores with ≥20 surveys."
+                "Filter on: every mapped supervisor below CSAT 85% with ≥1 survey."
+                if below else "Every mapped supervisor with ≥1 survey is shown."
             )
+            + " Unmapped surveys are not mixed into the red bars."
         )
+        _render_csat_unmapped_note(csat_supervisor_mapping(csat, audits))
 
     def extra_csat_cr(level: str) -> None:
-        grain = "Lv1 (group)" if level == "lv1" else "Lv4 (detail)"
+        grain = {
+            "lv1": "Lv1 (group)",
+            "lv4": "Lv4 (detail)",
+            "sub": "SUB_CR (finest)",
+        }.get(level, level)
         st.caption(
             f"Official CSAT by contact reason {grain} · 4★+5★ / surveys. "
-            + (
-                "See all is on — every contact reason with ≥1 survey is shown (n can be 1)."
-                if see_all else "Bars are the lowest scores with ≥20 surveys."
-            )
+            "N is all star ratings in the slices on this chart (the CSAT denominator). "
+            "It is not the unsatisfied count — that is the Pareto. "
+            "If this grain is Other, the bar uses the parent reason "
+            "(for example Cancellation rules Lv3 (other lv4)). "
+            "Toggle below 85% only vs every contact reason with ≥1 survey."
         )
 
-    csat_below = (
-        float(hist_csat.loc[hist_csat["CSAT_Score"] < CSAT_GOAL, "Share_Pct"].sum())
-        if not hist_csat.empty else None
-    )
+    def extra_csat_pareto_lv4() -> None:
+        st.caption(
+            "Unsatisfied = Feedback − 4★/5★ surveys. "
+            "If Lv4 is Other but Lv3 is specific, the bar is labeled like "
+            "'Cancellation rules Lv3 (other lv4)'. "
+            "Other at Lv1-Lv4 (no parent) means this file has Other at every contact-reason level "
+            "for those surveys — there is no Lv3 to show."
+        )
+        _pareto_tail_extra(
+            csat_unsat, "CR_Lv4", "Unsatisfied",
+            grain="Lv4 reasons", volume_label="unsatisfied surveys",
+        )
+
+    def extra_csat_pareto_sub() -> None:
+        st.caption(
+            "N is 1–3★ surveys only (Feedback − 4★/5★) across every SUB_CR in the filter, "
+            "including slices still on goal. That is why it will not match CSAT by SUB_CR, "
+            "whose N is all star ratings in the bars on that chart. "
+            "If SUB_CR is Other, the bar shows the parent Lv4 as 'reason Lv4 (other SUB_CR)'."
+        )
+        _pareto_tail_extra(
+            csat_unsat_sub, "SUB_CR", "Unsatisfied",
+            grain="SUB_CRs", volume_label="unsatisfied surveys",
+        )
+
+    csc1, csc2 = st.columns(2)
+    with csc1:
+        render_corr_scatter(
+            "CSAT vs handle time",
+            aht_metric_scatter(
+                aht_joined, "CSAT_Pct", y_title="CSAT %", title="CSAT vs AHT",
+                y_goal=CSAT_GOAL,
+                empty_text=aht_overlap_empty_text(
+                    aht_cs_n, "CSAT",
+                    surveys=volumes.get("surveys"),
+                    audits=volumes.get("evaluations"),
+                    min_audits=AHT_CR_MIN_AUDITS,
+                ),
+            ),
+            key="csat_aht_full",
+            r_args=(aht_cs_r, aht_cs_n, "CSAT vs handle time"),
+            r_kwargs={"surveys": volumes.get("surveys"), "audits": volumes.get("evaluations")},
+        )
+    with csc2:
+        render_corr_scatter(
+            "CSAT vs recontact",
+            csat_recontact_scatter(scatter_df),
+            key="csat_csrc_full",
+            r_args=(csat_rc_r, csat_rc_n, "CSAT vs recontact"),
+            r_kwargs={"surveys": volumes.get("surveys")},
+        )
 
     render_preview_board(
         [
             {
-                "id": "csat_stars", "btn": "btnpie",
-                "title": "CSAT by star rating",
-                "value": f"{summary['csat']:.2f}%",
-                "delta": (
-                    f"{int(stars['Count'].sum()):,} surveys — % of surveys rated 4 or 5 stars"
-                    if not stars.empty and "Count" in stars.columns
-                    else "% of surveys rated 4 or 5 stars"
-                ),
-                "spark": spark_hbar_fig(
-                    stars["Rating"].astype(str).tolist(), stars["Pct"].fillna(0).tolist(), unit="%",
-                ) if not stars.empty else None,
-                "fig": csat_star_chart(stars),
-                "extra": lambda: render_notes(csat_chip(summary["csat"])),
-            },
-            {
-                "id": "csat_hist", "btn": "btnscope",
-                "title": "How CSAT scores are spread",
-                "value": f"{summary['csat']:.2f}%",
-                "delta": f"{csat_below:.0f}% of surveys below 85" if csat_below is not None else None,
-                "delta_color": "off",
-                "spark": sparkbar_fig(
-                    hist_csat["Surveys"].tolist(),
-                    CHART_COLORS["csat"],
-                    hist_csat["CSAT_Score"].astype(str).tolist(),
-                    "", "Surveys",
-                ) if not hist_csat.empty else None,
-                "fig": csat_histogram_chart(hist_csat),
-                "extra": lambda: render_notes({
-                    "text": "Slice CSAT % weighted by surveys. Official KPI is the share of surveys rated 4 or 5 stars.",
-                    "tone": "info",
-                }),
-            },
-            {
-                "id": "csat_spc", "btn": "btndaily",
-                "title": "CSAT by day",
-                "value": f"{csat_day:.1f}%" if csat_day is not None else "—",
-                "delta": csat_day_delta,
-                "delta_color": csat_day_color,
-                "spark": sparkline_fig(csat_spark_vals, CHART_COLORS["csat"], csat_spark_lbl, "%", "CSAT %"),
-                "fig": control_i_chart(csat_spc, "Target 85"),
-                "drill": "day",
-            },
-            {
                 "id": "csat_ten", "btn": "btngroup",
-                "title": "CSAT by user tenure",
-                "value": f"{csat_ten.iloc[0]['CSAT_Score']:.1f}%" if not csat_ten.empty else "—",
-                "delta": _n_delta(csat_ten.iloc[0] if not csat_ten.empty else None, "Feedback", unit="surveys"),
+                "title": "CSAT by agent tenure",
+                "value": f"{ten_plot.iloc[0]['CSAT_Score']:.1f}%" if not ten_plot.empty else "—",
+                "delta": _n_delta(ten_plot.iloc[0] if not ten_plot.empty else None, "Feedback", unit="surveys"),
                 "spark": spark_hbar_fig(
                     ten_plot.head(5)["Tenure"].tolist(), ten_plot.head(5)["CSAT_Score"].fillna(0).tolist(), unit="%",
                 ) if not ten_plot.empty else None,
                 "fig": score_volume_combo(
                     ten_plot if not ten_plot.empty else pd.DataFrame(columns=["Tenure", "CSAT_Score", "Feedback"]),
                     "Tenure", "CSAT_Score", "Feedback",
-                    goal=CSAT_GOAL, title="CSAT by tenure",
+                    goal=CSAT_GOAL, title="CSAT by agent tenure",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                 ),
-                "extra": lambda: render_notes(tenure_chip(ten_plot if not ten_plot.empty else csat_ten, "CSAT_Score", "Tenure" if not ten_plot.empty else "CSAT_Agent_Tenure", CSAT_GOAL)),
+                "insight": tenure_chip(ten_plot, "CSAT_Score", "Tenure", CSAT_GOAL),
+                "extra": lambda: st.caption(
+                    "Agent tenure from QA, matched by CSAT agent name to QA Agent_ID. "
+                    "Surveys whose agent has no QA tenure stay out of this chart."
+                ),
+                "drill": "tenure",
             },
             {
                 "id": "csat_agents", "btn": "btndaily",
                 "title": "CSAT by agent",
                 "value": f"{n_csat_below} / {n_csat_roster}" if n_csat_roster else "0",
-                "delta": "all agents in this filter" if see_all else "below 85 · 20+ surveys",
+                "delta": "below 85" if _below_on(_csat_agent_below_k) else "all agents in this filter",
                 "spark": spark_hbar_fig(
                     csat_agents_plot.head(5)["Agent"].astype(str).tolist(),
                     csat_agents_plot.head(5)["CSAT_Score"].fillna(0).tolist(),
                     unit="%",
                 ) if not csat_agents_plot.empty else None,
-                "fig": score_volume_combo(
-                    csat_agents_plot if not csat_agents_plot.empty else pd.DataFrame(columns=["Agent", "CSAT_Score", "Feedback"]),
+                "fig": lambda: score_volume_combo(
+                    (
+                        csat_roster[csat_roster["CSAT_Score"] < CSAT_GOAL]
+                        if (not csat_roster.empty and _below_on(_csat_agent_below_k))
+                        else csat_roster
+                    ) if not csat_roster.empty else pd.DataFrame(columns=["Agent", "CSAT_Score", "Feedback"]),
                     "Agent", "CSAT_Score", "Feedback",
                     goal=CSAT_GOAL, title="CSAT by agent",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                     force_horizontal=True,
                 ),
+                "toolbar": lambda: _below_target_toggle(_csat_agent_below_k, goal=CSAT_GOAL, metric="CSAT"),
+                "below_key": _csat_agent_below_k,
                 "extra": extra_csat_agents,
                 "drill": "agent",
             },
@@ -5433,13 +7041,15 @@ elif page == "CSAT":
                     csat_scr_sup.head(5)["CSAT_Score"].fillna(0).tolist(),
                     unit="%",
                 ) if not csat_scr_sup.empty else None,
-                "fig": score_volume_combo(
-                    csat_scr_sup if not csat_scr_sup.empty else pd.DataFrame(columns=["Supervisor_ID", "CSAT_Score", "Feedback"]),
+                "fig": lambda: score_volume_combo(
+                    _csat_sup_plot(),
                     "Supervisor_ID", "CSAT_Score", "Feedback",
                     goal=CSAT_GOAL, title="CSAT by supervisor",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                     force_horizontal=True,
                 ),
+                "toolbar": lambda: _below_target_toggle(_csat_sup_below_k, goal=CSAT_GOAL, metric="CSAT"),
+                "below_key": _csat_sup_below_k,
                 "extra": extra_csat_sup,
                 "drill": "supervisor",
             },
@@ -5453,13 +7063,18 @@ elif page == "CSAT":
                     csat_scr_lv1.head(5)["CSAT_Score"].fillna(0).tolist(),
                     unit="%",
                 ) if not csat_scr_lv1.empty else None,
-                "fig": score_volume_combo(
-                    csat_scr_lv1 if not csat_scr_lv1.empty else pd.DataFrame(columns=["CR_Lv1", "CSAT_Score", "Feedback"]),
+                "fig": lambda: score_volume_combo(
+                    csat_score_by_cr(
+                        csat, level="lv1", lookup=cr_lookup, min_n=1, top_n=None,
+                        below_goal_only=_below_on(_csat_lv1_below_k),
+                    ) if not csat.empty else pd.DataFrame(columns=["CR_Lv1", "CSAT_Score", "Feedback"]),
                     "CR_Lv1", "CSAT_Score", "Feedback",
                     goal=CSAT_GOAL, title="CSAT by contact reason Lv1 (group)",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                     force_horizontal=True,
                 ),
+                "toolbar": lambda: _below_target_toggle(_csat_lv1_below_k, goal=CSAT_GOAL, metric="CSAT"),
+                "below_key": _csat_lv1_below_k,
                 "extra": lambda: extra_csat_cr("lv1"),
                 "drill": "cr_lv1",
             },
@@ -5473,35 +7088,88 @@ elif page == "CSAT":
                     csat_scr_lv4.head(5)["CSAT_Score"].fillna(0).tolist(),
                     unit="%",
                 ) if not csat_scr_lv4.empty else None,
-                "fig": score_volume_combo(
-                    csat_scr_lv4 if not csat_scr_lv4.empty else pd.DataFrame(columns=["CR_Lv4", "CSAT_Score", "Feedback"]),
+                "fig": lambda: score_volume_combo(
+                    csat_score_by_cr(
+                        csat, level="lv4", min_n=1, top_n=None,
+                        below_goal_only=_below_on(_csat_lv4_below_k),
+                    ) if not csat.empty else pd.DataFrame(columns=["CR_Lv4", "CSAT_Score", "Feedback"]),
                     "CR_Lv4", "CSAT_Score", "Feedback",
                     goal=CSAT_GOAL, title="CSAT by contact reason Lv4 (detail)",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                     force_horizontal=True,
                 ),
+                "toolbar": lambda: _below_target_toggle(_csat_lv4_below_k, goal=CSAT_GOAL, metric="CSAT"),
+                "below_key": _csat_lv4_below_k,
                 "extra": lambda: extra_csat_cr("lv4"),
                 "drill": "cr",
             },
             {
-                "id": "csat_seg", "btn": "btncr",
-                "title": "Segments furthest from CSAT 85",
-                "value": f"{csat_seg.sort_values('CSAT_Score').iloc[0]['CSAT_Score']:.1f}%" if not csat_seg.empty else "—",
-                "delta": _n_delta(
-                    csat_seg.sort_values("CSAT_Score").iloc[0] if not csat_seg.empty else None,
-                    "Feedback", unit="surveys",
-                ),
+                "id": "csat_sub", "btn": "btncr",
+                "title": "CSAT by contact reason SUB_CR",
+                "value": f"{csat_scr_sub.iloc[0]['CSAT_Score']:.1f}%" if not csat_scr_sub.empty else "—",
+                "delta": _n_delta(csat_scr_sub.iloc[0] if not csat_scr_sub.empty else None, "Feedback", unit="surveys"),
                 "spark": spark_hbar_fig(
-                    csat_seg.head(5)["Segment"].astype(str).tolist(), csat_seg.head(5)["CSAT_Score"].fillna(0).tolist(), unit="%",
-                ) if not csat_seg.empty else None,
-                "fig": score_volume_combo(
-                    csat_seg if see_all or csat_seg.empty else csat_seg.head(10),
-                    "Segment", "CSAT_Score", "Feedback",
-                    goal=CSAT_GOAL, title="CSAT furthest from 85%",
+                    csat_scr_sub.head(5)["SUB_CR"].astype(str).tolist(),
+                    csat_scr_sub.head(5)["CSAT_Score"].fillna(0).tolist(),
+                    unit="%",
+                ) if not csat_scr_sub.empty else None,
+                "fig": lambda: score_volume_combo(
+                    csat_score_by_cr(
+                        csat, level="sub", min_n=1, top_n=None,
+                        below_goal_only=_below_on(_csat_sub_below_k),
+                    ) if not csat.empty else pd.DataFrame(columns=["SUB_CR", "CSAT_Score", "Feedback"]),
+                    "SUB_CR", "CSAT_Score", "Feedback",
+                    goal=CSAT_GOAL, title="CSAT by contact reason SUB_CR (finest)",
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                     force_horizontal=True,
+                    sample_unit="surveys (all star ratings)",
                 ),
-                "extra": extra_csat_seg,
+                "toolbar": lambda: _below_target_toggle(_csat_sub_below_k, goal=CSAT_GOAL, metric="CSAT"),
+                "below_key": _csat_sub_below_k,
+                "extra": lambda: extra_csat_cr("sub"),
+                "drill": "sub_cr",
+            },
+            {
+                "id": "csat_pareto_lv4", "btn": "btncr",
+                "title": "CSAT unsatisfied Pareto · Lv4",
+                "value": f"{int(csat_unsat.iloc[0]['Unsatisfied']):,}" if not csat_unsat.empty else "—",
+                "delta": str(csat_unsat.iloc[0]["CR_Lv4"])[:36] if not csat_unsat.empty else None,
+                "spark": spark_hbar_fig(
+                    csat_unsat.head(5)["CR_Lv4"].astype(str).tolist(),
+                    csat_unsat.head(5)["Unsatisfied"].fillna(0).tolist(),
+                ) if not csat_unsat.empty else None,
+                "fig": lambda: pareto_dual_axis(
+                    csat_unsat.rename(columns={"CR_Lv4": "Cat"}) if not csat_unsat.empty else pd.DataFrame(),
+                    "Cat", "Unsatisfied",
+                    title="CSAT unsatisfied Pareto by contact reason Lv4 (detail)",
+                    value_title="Unsatisfied surveys",
+                    sample_unit="unsatisfied (1–3★) surveys",
+                    universe_n=int(csat_unsat["Unsatisfied"].sum()) if not csat_unsat.empty else None,
+                    bucket_other=True,
+                ),
+                "extra": extra_csat_pareto_lv4,
+                "drill": "cr",
+            },
+            {
+                "id": "csat_pareto_sub", "btn": "btncr",
+                "title": "CSAT unsatisfied Pareto · SUB_CR",
+                "value": f"{int(csat_unsat_sub.iloc[0]['Unsatisfied']):,}" if not csat_unsat_sub.empty else "—",
+                "delta": str(csat_unsat_sub.iloc[0]["SUB_CR"])[:36] if not csat_unsat_sub.empty else None,
+                "spark": spark_hbar_fig(
+                    csat_unsat_sub.head(5)["SUB_CR"].astype(str).tolist(),
+                    csat_unsat_sub.head(5)["Unsatisfied"].fillna(0).tolist(),
+                ) if not csat_unsat_sub.empty else None,
+                "fig": lambda: pareto_dual_axis(
+                    csat_unsat_sub.rename(columns={"SUB_CR": "Cat"}) if not csat_unsat_sub.empty else pd.DataFrame(),
+                    "Cat", "Unsatisfied",
+                    title="CSAT unsatisfied Pareto by contact reason SUB_CR (finest)",
+                    value_title="Unsatisfied surveys",
+                    sample_unit="unsatisfied (1–3★) surveys",
+                    universe_n=int(csat_unsat_sub["Unsatisfied"].sum()) if not csat_unsat_sub.empty else None,
+                    bucket_other=True,
+                ),
+                "extra": extra_csat_pareto_sub,
+                "drill": "sub_cr",
             },
             {
                 "id": "csat_bt", "btn": "btnscope",
@@ -5518,29 +7186,6 @@ elif page == "CSAT":
                     score_title="CSAT %", vol_title="Surveys", bar_color=CHART_COLORS["csat"],
                 ),
                 "drill": "business_type",
-            },
-            {
-                "id": "csat_aht", "btn": "btnscat",
-                "title": "CSAT vs handle time",
-                "value": f"{aht_cs_r:+.2f}" if aht_cs_r is not None else "—",
-                "delta": f"N = {aht_cs_n} shared Lv4" if aht_cs_n else None,
-                "spark": spark_r_fig(aht_cs_r),
-                "fig": aht_metric_scatter(
-                    aht_joined, "CSAT_Pct", y_title="CSAT %", title="CSAT vs AHT",
-                    y_goal=CSAT_GOAL,
-                    empty_text=aht_overlap_empty_text(
-                        aht_cs_n, "CSAT",
-                        surveys=volumes.get("surveys"),
-                        audits=volumes.get("evaluations"),
-                        min_audits=AHT_CR_MIN_AUDITS,
-                    ),
-                ),
-                "extra": lambda: render_r_box(
-                    aht_cs_r, aht_cs_n, "CSAT vs handle time",
-                    surveys=volumes.get("surveys"),
-                    audits=volumes.get("evaluations"),
-                ),
-                "drill": "cr",
             },
         ],
         state_key=f"csat_preview_{_fn}",
@@ -5586,6 +7231,10 @@ elif page == "Recontact":
             caption="Σ Recontact Volume · numerator of the official rate.",
         )
 
+    with panel("Recontact by day"):
+        _plotly_chart(control_i_chart(rc_spc, "Target 5.44"), key="rc_spc_full", drill="day")
+        st.caption("Click a day to apply that filter.")
+
     render_banner(L("panel_rc_channel"))
     with panel("Contacts, repeats, and rate by channel"):
         if rc_ch_tbl.empty:
@@ -5610,7 +7259,17 @@ elif page == "Recontact":
         if recontact is not None and not recontact.empty and "Recontact Volume" in recontact.columns
         else 0
     )
-    fig_rc_cr_combo = recontact_cr_combo_chart(rc_cr)
+    fig_rc_cr_combo = recontact_cr_combo_chart(rc_cr, bar_color=CHART_COLORS["blue"])
+    fig_rc_sub = recontact_cr_combo_chart(
+        rc_sub, cat_col="SUB_CR",
+        title="Repeated contacts and rate by contact reason SUB_CR",
+        bar_color=CHART_COLORS["blue"],
+    )
+    fig_rc_lv1 = recontact_cr_combo_chart(
+        rc_cr_groups, cat_col="CR_Lv1",
+        title="Recontact by contact reason Lv1 (group)",
+        bar_color=CHART_COLORS["blue"],
+    )
     fig_rc_scope = recontact_scope_chart(rc_scope if sel_channel == "All" else pd.DataFrame())
     fig_rc_ch = (
         pareto_dual_axis(
@@ -5619,20 +7278,6 @@ elif page == "Recontact":
             universe_n=rc_universe or None,
         )
         if not rc_ch_vol.empty else pareto_dual_axis(pd.DataFrame(), "Cat", "Count", title="Repeat volume by channel")
-    )
-    fig_rc_cr = (
-        pareto_dual_axis(
-            src_rc, "Cat", "Count", title="Repeat volume by contact reason Lv4 (detail)",
-            value_title="Repeats", sample_unit="repeats",
-            universe_n=rc_universe or None,
-        )
-        if not src_rc.empty else pareto_dual_axis(pd.DataFrame(), "Cat", "Count", title="Repeat volume by contact reason Lv4 (detail)")
-    )
-    fig_rc_lv1 = cr_group_hbar(
-        rc_cr_groups, "CR_Lv1", "Recontacts", "Pct", "Recontact volume",
-        title="Recontact by contact reason Lv1 (group)",
-        universe_n=rc_universe or None,
-        sample_unit="repeats",
     )
     fig_rc_spc = control_i_chart(rc_spc, "Target 5.44")
     fig_rc_aht = aht_metric_scatter(
@@ -5653,6 +7298,7 @@ elif page == "Recontact":
     )
 
     mix_top = rc_cr.iloc[0] if not rc_cr.empty else None
+    sub_top = rc_sub.iloc[0] if not rc_sub.empty else None
     ch_top = rc_ch_vol.iloc[0] if not rc_ch_vol.empty else None
     lv1_top = rc_cr_groups.iloc[0] if not rc_cr_groups.empty else None
     sh_share = dilution.get("share") if isinstance(dilution, dict) else None
@@ -5678,6 +7324,14 @@ elif page == "Recontact":
     def extra_rc_donut() -> None:
         st.caption("Bars are Σ Recontact Volume. The line is Σ Repeats / Σ Contacts for that contact reason Lv4 (detail), not an average of row rates.")
         render_notes(pareto_chip(rc_cr, "CR_Lv4", "Recontacts", "repeat volume") if not rc_cr.empty else None)
+
+    def extra_rc_sub() -> None:
+        st.caption(
+            "Recontact has no SUB_CR field. Bars are the official Lv4 repeat volume "
+            "split by CSAT survey mix inside that Lv4. The rate is still Σ Repeats / Σ Contacts "
+            "at Lv4 (ratio of sums), not a new formula. If SUB_CR is Other, the bar uses the parent Lv4."
+        )
+        render_notes(pareto_chip(rc_sub, "SUB_CR", "Recontacts", "repeat volume") if not rc_sub.empty else None)
 
     def extra_rc_scope() -> None:
         render_notes(fcr_scope_chip(
@@ -5730,6 +7384,20 @@ elif page == "Recontact":
                 "drill": "cr",
             },
             {
+                "id": "rc_sub",
+                "btn": "btncr",
+                "title": L("panel_rc_sub"),
+                "value": f"{sub_top['Pct']:.1f}%" if sub_top is not None else "—",
+                "delta": _n_delta(sub_top, "Recontacts", unit="repeats"),
+                "spark": spark_hbar_fig(
+                    rc_sub.head(5)["SUB_CR"].astype(str).tolist(),
+                    rc_sub.head(5)["Recontacts"].fillna(0).tolist(),
+                ) if not rc_sub.empty else None,
+                "fig": fig_rc_sub,
+                "extra": extra_rc_sub,
+                "drill": "sub_cr",
+            },
+            {
                 "id": "rc_scope",
                 "btn": "btnscope",
                 "title": L("panel_rc_scope"),
@@ -5756,20 +7424,6 @@ elif page == "Recontact":
                 "drill": "channel",
             },
             {
-                "id": "rc_pareto",
-                "btn": "btncr",
-                "title": L("panel_rc_pareto"),
-                "value": f"{mix_top['Pct']:.1f}%" if mix_top is not None else "—",
-                "delta": _n_delta(mix_top, "Recontacts", unit="repeats"),
-                "delta_color": "off",
-                "spark": spark_hbar_fig(
-                    rc_cr.head(5)["CR_Lv4"].tolist(), rc_cr.head(5)["Recontacts"].fillna(0).tolist(),
-                ) if not rc_cr.empty else None,
-                "fig": fig_rc_cr,
-                "extra": extra_rc_cr,
-                "drill": "cr",
-            },
-            {
                 "id": "rc_cr_lv1",
                 "btn": "btngroup",
                 "title": L("panel_cr_group_rc"),
@@ -5783,21 +7437,10 @@ elif page == "Recontact":
                 "drill": "cr_lv1",
             },
             {
-                "id": "rc_spc",
-                "btn": "btndaily",
-                "title": L("panel_rc_ichart"),
-                "value": f"{rc_day:.2f}%" if rc_day is not None else "—",
-                "delta": rc_day_delta,
-                "delta_color": rc_day_color,
-                "spark": sparkline_fig(rc_spark_vals, CHART_COLORS["recontact"], rc_spark_lbl, "%", "Rate %"),
-                "fig": fig_rc_spc,
-                "drill": "day",
-            },
-            {
                 "id": "rc_aht",
                 "btn": "btnscat",
                 "title": L("panel_aht_rc"),
-                "value": f"{aht_r:+.2f}" if aht_r is not None else "—",
+                "value": f"{float(aht_r)**2:.2f}" if aht_r is not None else "—",
                 "delta": f"N = {aht_n} shared Lv4" if aht_n else None,
                 "spark": spark_r_fig(aht_r),
                 "fig": fig_rc_aht,
@@ -5821,7 +7464,7 @@ elif page == "Alerts":
     def _next_ticket_n() -> int:
         return len(tickets) + 1
 
-    qa_q = qa_coaching_queue(agents_below_qa_goal(audits, min_n=_slice_qa_n, below_goal_only=True))
+    qa_q = qa_coaching_queue(agents_below_qa_goal(audits, min_n=RANKING_QA_MIN_N, below_goal_only=True))
     team_view = sel_supervisor != "All"
     qa_agents_view = qa_q_agents.copy() if qa_q_agents is not None and not qa_q_agents.empty else pd.DataFrame()
     csat_agents_view = csat_q_agents.copy() if csat_q_agents is not None and not csat_q_agents.empty else pd.DataFrame()
@@ -5850,8 +7493,8 @@ elif page == "Alerts":
         "Recontact": CHART_COLORS["recontact"],
     }
 
-    qa_floor = "≥1 audit" if see_all else f"n≥{_slice_qa_n} audits"
-    cs_floor = "≥1 survey" if see_all else f"n≥{_slice_csat_n} surveys"
+    qa_floor = f"n≥{RANKING_QA_MIN_N} audits"
+    cs_floor = f"n≥{RANKING_CSAT_MIN_N} surveys"
     h1, h2, h3 = st.columns(3)
     with h1:
         render_kpi(
@@ -5906,6 +7549,7 @@ elif page == "Alerts":
                 quartile_count_chart(qa_sum_view, title="QA agents by quartile"),
                 key="hub_qa_qcount",
             )
+            render_quartile_range_cards(qa_sum_view, metric="QA")
             render_quartile_bands(qa_sum_view)
             st.caption("Q1 is the top 25% of official QA in this filter. Names are a sample of each band.")
     with qright:
@@ -5914,6 +7558,7 @@ elif page == "Alerts":
                 quartile_count_chart(csat_sum_view, title="CSAT agents by quartile"),
                 key="hub_cs_qcount",
             )
+            render_quartile_range_cards(csat_sum_view, metric="CSAT")
             render_quartile_bands(csat_sum_view)
             st.caption("Official CSAT is 4★+5★ / Feedback (ratio of sums). No recontact-by-agent chart.")
 
@@ -6086,47 +7731,123 @@ elif page == "Alerts":
 
     render_banner("Coaching queue")
     st.caption(
-        "Each card states the talent-mix problem in one sentence. "
-        "Official team mean and Q4 share are different things — a team can be on goal and still have a Q4-heavy mix. "
+        "Red border = below the 85 goal. Amber = on goal, but in the bottom 25% of this filter. "
         "Click Focus to open that supervisor or agent."
     )
     people_shown = shown[shown["Desk"].isin(["QA", "CSAT"])] if not shown.empty else shown
     if people_shown is None or people_shown.empty:
         st.caption("No QA/CSAT coaching rows for the current filter.")
     else:
-        for desk in ("QA", "CSAT"):
-            grp = people_shown[people_shown["Desk"] == desk]
-            if grp.empty:
-                continue
-            hex_d = desk_hex.get(desk, STATUS_COLORS["neutral"])
-            st.markdown(
-                f'<div class="didi-watch-group">'
-                f'<span class="didi-watch-group-dot" style="background:{hex_d}"></span>'
-                f'<span class="didi-watch-group-name">{html_escape(desk)}</span>'
-                f'<span class="didi-watch-group-n">{len(grp)}</span>'
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            for i, row in grp.head(6).iterrows():
-                kind = _cell_str(row.get("Focus_Kind"))
-                key = _cell_str(row.get("Focus_Key"))
-                selected = (
-                    (kind == "supervisor" and str(sel_supervisor) == key)
-                    or (kind == "agent" and str(sel_agent) == key)
-                )
-                box = "didi_watch_on" if selected else "didi_watch"
-                with st.container(border=True, key=_next_didi_key(box)):
-                    st.markdown(
-                        f'<p class="didi-coach-copy">{html_escape(_cell_str(row.get("Issue")))}</p>',
-                        unsafe_allow_html=True,
+        def _coach_html(row: pd.Series, desk: str) -> str:
+            kind = _cell_str(row.get("Kind") or row.get("Focus_Kind"), "agent")
+            name = _cell_str(row.get("Owner"), "—")
+            score_txt = _fmt(row.get("Score"), 1, "%")
+            sup = _cell_str(row.get("Supervisor_ID"))
+            sample_n = int(row.get("Sample_N") or row.get("Volume") or 0)
+            unit = "audits" if desk == "QA" else "surveys"
+            pts = None
+            score_n = pd.to_numeric(row.get("Score"), errors="coerce")
+            if pd.notna(score_n):
+                goal = QA_GOAL if desk == "QA" else CSAT_GOAL
+                gap = goal - float(score_n)
+                if gap > 0:
+                    pts = (
+                        f"{round(gap):.0f} pts below goal"
+                        if abs(gap - round(gap)) < 0.05
+                        else f"{gap:.1f} pts below goal"
                     )
+            if kind == "supervisor":
+                n_q4 = int(row.get("Q4_N") or row.get("Volume") or 0)
+                n_ranked = int(row.get("Ranked_N") or 0)
+                mix = f"{n_q4} of {n_ranked} ranked in the bottom 25%"
+                why = f"{pts} · {mix}" if pts else f"Team mean on goal · {mix}"
+                n_txt = f"n={sample_n} {unit}" if sample_n else ""
+                meta = " · ".join(p for p in (why, n_txt) if p)
+            else:
+                why = (
+                    f"{pts} · bottom 25% of this filter"
+                    if pts
+                    else "Above goal · bottom 25% of this filter"
+                )
+                who = sup if sup else "no supervisor"
+                n_txt = f"n={sample_n} {unit}" if sample_n else ""
+                meta = " · ".join(p for p in (why, who, n_txt) if p)
+            return (
+                '<div class="didi-coach">'
+                '<div class="didi-coach-main">'
+                f'<p class="didi-coach-name">{html_escape(name)}</p>'
+                f'<p class="didi-coach-meta">{html_escape(meta)}</p>'
+                "</div>"
+                f'<p class="didi-coach-score">{html_escape(score_txt)}</p>'
+                "</div>"
+            )
+
+        def _render_coach_row(row: pd.Series, desk: str, idx: object) -> None:
+            kind = _cell_str(row.get("Focus_Kind"))
+            key = _cell_str(row.get("Focus_Key"))
+            selected = (
+                (kind == "supervisor" and str(sel_supervisor) == key)
+                or (kind == "agent" and str(sel_agent) == key)
+            )
+            score_n = pd.to_numeric(row.get("Score"), errors="coerce")
+            goal = QA_GOAL if desk == "QA" else CSAT_GOAL
+            below = _as_bool(row.get("Below_Goal")) or (
+                pd.notna(score_n) and float(score_n) < goal
+            )
+            tone = "red" if below else "amber"
+            box = f"didi_watch_{'on_' if selected else ''}{tone}"
+            with st.container(border=True, key=_next_didi_key(box)):
+                body, action = st.columns([4.4, 1.15], vertical_alignment="center")
+                with body:
+                    st.markdown(_coach_html(row, desk), unsafe_allow_html=True)
+                with action:
                     if st.button(
-                        "Clear focus" if selected else "Focus coaching",
-                        key=f"watch_{desk}_{i}_{_fn}",
+                        "Clear" if selected else "Focus coaching",
+                        key=f"watch_{desk}_{idx}_{_fn}",
                         width="stretch",
                     ):
                         dim = "supervisor" if kind == "supervisor" else "agent"
                         _set_people_filter(dim, None if selected else key)
+
+        for desk in ("QA", "CSAT"):
+            grp = people_shown[people_shown["Desk"] == desk].copy()
+            if grp.empty:
+                continue
+            hex_d = desk_hex.get(desk, STATUS_COLORS["neutral"])
+            n_agents = int(len(grp))
+            st.markdown(
+                f'<div class="didi-watch-group didi-watch-group--{html_escape(desk)}">'
+                f'<span class="didi-watch-group-dot" style="background:{hex_d}"></span>'
+                f'<span class="didi-watch-group-name">{html_escape(desk)}</span>'
+                f'<span class="didi-watch-group-n">· {n_agents} '
+                f'{"agent" if n_agents == 1 else "agents"}</span>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            scores = pd.to_numeric(grp["Score"], errors="coerce")
+            goal = QA_GOAL if desk == "QA" else CSAT_GOAL
+            if "Below_Goal" in grp.columns:
+                below_mask = grp["Below_Goal"].map(_as_bool)
+            else:
+                below_mask = scores < goal
+            grp = grp.assign(_gap=scores - goal, _below=below_mask)
+            grp = grp.sort_values(["_below", "_gap"], ascending=[False, True])
+            below_g = grp[grp["_below"].fillna(False)]
+            lag_g = grp[~grp["_below"].fillna(False)]
+            if not below_g.empty and not lag_g.empty:
+                st.markdown(
+                    '<p class="didi-watch-sub">Below company goal</p>',
+                    unsafe_allow_html=True,
+                )
+            for i, row in below_g.iterrows():
+                _render_coach_row(row, desk, i)
+            if not below_g.empty and not lag_g.empty:
+                st.markdown(
+                    '<p class="didi-watch-sub">On goal · bottom 25%</p>',
+                    unsafe_allow_html=True,
+                )
+            for i, row in lag_g.iterrows():
+                _render_coach_row(row, desk, i)
 
     render_banner("Recontact — operations")
     st.caption(

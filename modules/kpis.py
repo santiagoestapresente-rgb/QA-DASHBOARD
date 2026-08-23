@@ -18,6 +18,8 @@ from config import (
     RANKING_CSAT_MIN_N,
     RANKING_INDEX_WEIGHTS,
     RANKING_QA_MIN_N,
+    CR_COMBO_TOP_N,
+    CR_COMBO_MIN_QA_N,
     RECONTACT_GOAL,
     SUPERVISOR_Q4_SHARE_ALERT,
     TENURE_SOURCE_ORDER,
@@ -184,7 +186,7 @@ def daily_trends(audits: pd.DataFrame) -> pd.DataFrame:
 
 def agent_scores(audits: pd.DataFrame) -> pd.DataFrame:
     g = (
-        audits.groupby(["Agent_ID", "Supervisor_ID"])
+        audits.groupby("Agent_ID")
         .agg(
             QA_Score=("Score_Pct", "mean"),
             Fatal_Rate=("Fatal_Flag", "mean"),
@@ -192,6 +194,15 @@ def agent_scores(audits: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
+    if "Supervisor_ID" in audits.columns:
+        prim = (
+            audits.groupby(["Agent_ID", "Supervisor_ID"], as_index=False)
+            .size()
+            .sort_values("size", ascending=False)
+            .drop_duplicates("Agent_ID")
+            [["Agent_ID", "Supervisor_ID"]]
+        )
+        g = g.merge(prim, on="Agent_ID", how="left")
     g["QA_Score"] = g["QA_Score"].round(2)
     g["Fatal_Rate"] = (g["Fatal_Rate"] * 100).round(2)
     g["Reliable"] = g["Audit_Count"] >= MIN_SAMPLE_SIZE
@@ -338,20 +349,22 @@ def pareto_errors_impact(
     return df
 
 
+def cr_join_key(series: pd.Series) -> pd.Series:
+    """Casefold+strip so Incomplete order == incomplete order. Join key only."""
+    return series.astype(str).str.strip().str.casefold()
+
+
 def cr_level_metrics(
     audits: pd.DataFrame, csat: pd.DataFrame, recontact: pd.DataFrame
 ) -> pd.DataFrame:
     """One row per contact reason Lv4 (detail). Outer join so a filter that
     removes one source does not blank the other pairs."""
 
-    def _key(frame: pd.DataFrame, col: str = "CR_Lv4") -> pd.Series:
-        return frame[col].astype(str).str.strip().str.casefold()
-
     frames: list[pd.DataFrame] = []
 
     if not audits.empty and "CR_Lv4" in audits.columns:
         qa = audits.copy()
-        qa["_key"] = _key(qa)
+        qa["_key"] = cr_join_key(qa["CR_Lv4"])
         qa_cr = (
             qa.groupby("_key", as_index=False)
             .agg(CR_Lv4=("CR_Lv4", "first"), QA_Score=("Score_Pct", "mean"), QA_N=("Audit_ID", "count"))
@@ -361,7 +374,7 @@ def cr_level_metrics(
 
     if not csat.empty and "CR_Lv4" in csat.columns:
         cs = csat.copy()
-        cs["_key"] = _key(cs)
+        cs["_key"] = cr_join_key(cs["CR_Lv4"])
         csat_cr = (
             cs.groupby("_key", as_index=False)
             .agg(
@@ -379,7 +392,7 @@ def cr_level_metrics(
 
     if not recontact.empty and "CR_Lv4" in recontact.columns:
         rc = recontact.copy()
-        rc["_key"] = _key(rc)
+        rc["_key"] = cr_join_key(rc["CR_Lv4"])
         rc_cr = (
             rc.groupby("_key", as_index=False)
             .agg(
@@ -413,6 +426,74 @@ def cr_level_metrics(
     return merged.drop(columns=drop)
 
 
+def split_cr_combo_view(
+    df: pd.DataFrame,
+    *,
+    top_n: int = CR_COMBO_TOP_N,
+    min_qa_n: int = CR_COMBO_MIN_QA_N,
+    min_csat_n: int = RANKING_CSAT_MIN_N,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Top contact reasons by volume with enough QA or CSAT n. The rest is the long tail."""
+    empty = pd.DataFrame()
+    if df is None or df.empty:
+        return empty, empty
+
+    def _n(col: str) -> pd.Series:
+        if col not in df.columns:
+            return pd.Series(0.0, index=df.index)
+        return pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    work = df.copy()
+    qa_n = _n("QA_N")
+    feedback = _n("Feedback")
+    contacts = _n("Contacts")
+    work["_vol"] = np.maximum(np.maximum(feedback, contacts), qa_n)
+    reliable = (qa_n >= int(min_qa_n)) | (feedback >= int(min_csat_n))
+    ranked = work.loc[reliable].sort_values("_vol", ascending=False)
+    head = ranked.head(int(top_n)).copy()
+    rest = work.loc[~work.index.isin(head.index)].sort_values("_vol", ascending=False)
+    return (
+        head.drop(columns=["_vol"], errors="ignore").reset_index(drop=True),
+        rest.drop(columns=["_vol"], errors="ignore").reset_index(drop=True),
+    )
+
+
+def cr_group_metrics(
+    audits: pd.DataFrame,
+    csat: pd.DataFrame,
+    recontact: pd.DataFrame,
+    lookup: dict[str, str],
+) -> pd.DataFrame:
+    """Official QA / CSAT / recontact at contact reason Lv1 (group), inherited via Lv4."""
+    lv4 = cr_level_metrics(audits, csat, recontact)
+    if lv4 is None or lv4.empty or "CR_Lv4" not in lv4.columns:
+        return pd.DataFrame()
+    work = lv4.copy()
+    work["CR_Lv1"] = map_cr_group(work["CR_Lv4"], lookup)
+    rows = []
+    for name, sub in work.groupby("CR_Lv1", dropna=False):
+        qa_n = pd.to_numeric(sub.get("QA_N"), errors="coerce").fillna(0)
+        qa = pd.to_numeric(sub.get("QA_Score"), errors="coerce")
+        fb = pd.to_numeric(sub.get("Feedback"), errors="coerce").fillna(0)
+        sat = pd.to_numeric(sub.get("Satisfied"), errors="coerce").fillna(0)
+        contacts = pd.to_numeric(sub.get("Contacts"), errors="coerce").fillna(0)
+        repeats = pd.to_numeric(sub.get("Recontacts"), errors="coerce").fillna(0)
+        qa_w = float((qa * qa_n).sum()) / float(qa_n.sum()) if float(qa_n.sum()) else np.nan
+        csat_v = float(sat.sum()) / float(fb.sum()) * 100 if float(fb.sum()) else np.nan
+        rc_v = float(repeats.sum()) / float(contacts.sum()) * 100 if float(contacts.sum()) else np.nan
+        rows.append({
+            "CR_Lv1": name,
+            "QA_Score": qa_w,
+            "CSAT_Score": csat_v,
+            "Recontact_Rate": rc_v,
+            "QA_N": int(qa_n.sum()),
+            "Feedback": int(fb.sum()),
+            "Contacts": int(contacts.sum()),
+            "Recontacts": int(repeats.sum()),
+        })
+    return pd.DataFrame(rows).sort_values("Contacts", ascending=False).reset_index(drop=True)
+
+
 def cr_join_coverage(
     audits: pd.DataFrame, csat: pd.DataFrame, recontact: pd.DataFrame, min_qa: int = 3,
 ) -> dict:
@@ -421,11 +502,11 @@ def cr_join_coverage(
     def _names(df: pd.DataFrame) -> set[str]:
         if df is None or df.empty or "CR_Lv4" not in df.columns:
             return set()
-        return set(df["CR_Lv4"].dropna().astype(str).str.strip().str.casefold())
+        return set(cr_join_key(df["CR_Lv4"].dropna()))
 
     qa_n = pd.Series(dtype=int)
     if not audits.empty and "CR_Lv4" in audits.columns:
-        qa_n = audits.groupby(audits["CR_Lv4"].astype(str).str.strip().str.casefold())["Audit_ID"].count()
+        qa_n = audits.groupby(cr_join_key(audits["CR_Lv4"]))["Audit_ID"].count()
         qa = set(qa_n[qa_n >= min_qa].index)
     else:
         qa = set()
@@ -444,27 +525,48 @@ def cr_join_coverage(
 
 
 def correlation_matrix(audits: pd.DataFrame, csat: pd.DataFrame, recontact: pd.DataFrame) -> pd.DataFrame:
-    """Agent/CR-level correlation between QA, CSAT proxy, and FCR proxy."""
-    qa_cr = audits.groupby("CR_Lv4").agg(QA_Score=("Score_Pct", "mean")).reset_index()
+    """CR-level correlation between QA, CSAT, and FCR proxy.
 
+    Join is casefolded CR_Lv4. Formulas unchanged: QA mean, CSAT ratio-of-sums,
+    FCR = 100 − recontact ratio-of-sums.
+    """
+    if audits is None or audits.empty or "CR_Lv4" not in audits.columns:
+        return pd.DataFrame()
+    if csat is None or csat.empty or "CR_Lv4" not in csat.columns:
+        return pd.DataFrame()
+    if recontact is None or recontact.empty or "CR_Lv4" not in recontact.columns:
+        return pd.DataFrame()
+
+    qa = audits.copy()
+    qa["_key"] = cr_join_key(qa["CR_Lv4"])
+    qa_cr = qa.groupby("_key", as_index=False).agg(QA_Score=("Score_Pct", "mean"))
+
+    cs = csat.copy()
+    cs["_key"] = cr_join_key(cs["CR_Lv4"])
     csat_cr = (
-        csat.groupby("CR_Lv4")
-        .apply(lambda g: g["Satisfied_CNT"].sum() / g["Feedback CNT"].sum() * 100 if g["Feedback CNT"].sum() else np.nan)
-        .reset_index(name="CSAT_Pct")
+        cs.groupby("_key", as_index=False)
+        .agg(Satisfied=("Satisfied_CNT", "sum"), Feedback=("Feedback CNT", "sum"))
     )
-
-    rc = (
-        recontact.groupby("CR_Lv4")
-        .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
-        .reset_index()
-    )
-    rc["FCR_Pct"] = np.where(
-        rc["Contacts"] > 0,
-        100 - rc["Recontacts"] / rc["Contacts"] * 100,
+    csat_cr["CSAT_Pct"] = np.where(
+        csat_cr["Feedback"] > 0,
+        csat_cr["Satisfied"] / csat_cr["Feedback"] * 100,
         np.nan,
     )
 
-    merged = qa_cr.merge(csat_cr, on="CR_Lv4").merge(rc, on="CR_Lv4").dropna()
+    rc = recontact.copy()
+    rc["_key"] = cr_join_key(rc["CR_Lv4"])
+    rc_g = (
+        rc.groupby("_key", as_index=False)
+        .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
+    )
+    rc_g["FCR_Pct"] = np.where(
+        rc_g["Contacts"] > 0,
+        100 - rc_g["Recontacts"] / rc_g["Contacts"] * 100,
+        np.nan,
+    )
+
+    merged = qa_cr.merge(csat_cr, on="_key").merge(rc_g, on="_key")
+    merged = merged.dropna(subset=["QA_Score", "CSAT_Pct", "FCR_Pct"])
     if len(merged) < 3:
         return pd.DataFrame()
     return merged[["QA_Score", "CSAT_Pct", "FCR_Pct"]].corr().round(3)
@@ -843,21 +945,121 @@ def market_performance(
     return df.sort_values("Country_Name").reset_index(drop=True)
 
 
-def recontact_by_cr(recontact: pd.DataFrame, top_n: int = 6) -> pd.DataFrame:
-    if recontact.empty:
+def recontact_by_cr(
+    recontact: pd.DataFrame,
+    top_n: int = 6,
+    *,
+    cat_col: str = "CR_Lv4",
+    csat: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Official recontact (ratio of sums) by contact reason.
+
+    SUB_CR is native on CSAT/QA, not on Recontact. When `cat_col` is SUB_CR and
+    recontact has no SUB_CR values, Lv4 repeats/contacts are split by CSAT
+    survey mix inside that Lv4. The rate stays the official Lv4 ratio of sums.
+    """
+    if recontact is None or recontact.empty:
         return pd.DataFrame()
-    g = (
-        recontact.groupby("CR_Lv4")
-        .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
-        .reset_index()
-    )
-    g["Pct"] = (g["Recontacts"] / g["Recontacts"].sum() * 100).round(1)
+    if "Recontact Volume" not in recontact.columns or "Contacts" not in recontact.columns:
+        return pd.DataFrame()
+    grain = str(cat_col or "CR_Lv4")
+    if grain == "SUB_CR":
+        native = "SUB_CR" in recontact.columns and pd.Series(recontact["SUB_CR"]).notna().any()
+        if native:
+            work = recontact.copy()
+            work["_cat"] = cr_fallback_series(work, "SUB_CR")
+            g = (
+                work.groupby("_cat", dropna=False)
+                .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
+                .reset_index()
+                .rename(columns={"_cat": "SUB_CR"})
+            )
+        else:
+            g = _recontact_sub_cr_from_csat(recontact, csat)
+        if g is None or g.empty:
+            return pd.DataFrame()
+    else:
+        if "CR_Lv4" not in recontact.columns:
+            return pd.DataFrame()
+        g = (
+            recontact.groupby("CR_Lv4")
+            .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
+            .reset_index()
+        )
+    g = g[pd.to_numeric(g["Recontacts"], errors="coerce").fillna(0) > 0]
+    if g.empty:
+        return g
+    total = float(g["Recontacts"].sum())
+    g["Pct"] = (g["Recontacts"] / total * 100).round(1) if total else 0.0
     g["Recontact_Rate"] = np.where(
         g["Contacts"] > 0,
         (g["Recontacts"] / g["Contacts"] * 100).round(2),
         np.nan,
     )
-    return g.sort_values("Recontacts", ascending=False).head(top_n)
+    g = g.sort_values("Recontacts", ascending=False)
+    if top_n is not None:
+        g = g.head(int(top_n))
+    return g.reset_index(drop=True)
+
+
+def _recontact_sub_cr_from_csat(
+    recontact: pd.DataFrame,
+    csat: pd.DataFrame | None,
+) -> pd.DataFrame:
+    """Split official Lv4 recontact volume by CSAT SUB_CR mix. Not a new rate formula."""
+    if csat is None or csat.empty or "CR_Lv4" not in recontact.columns:
+        return pd.DataFrame()
+    cs = csat.copy()
+    if "SUB_CR" not in cs.columns and "Sub CR" in cs.columns:
+        cs["SUB_CR"] = cs["Sub CR"]
+    if "SUB_CR" not in cs.columns or "CR_Lv4" not in cs.columns or "Feedback CNT" not in cs.columns:
+        return pd.DataFrame()
+    cs["_sub"] = cr_fallback_series(cs, "SUB_CR")
+    cs["_lv4"] = cs["CR_Lv4"].astype(str).str.strip()
+    cs["_fb"] = pd.to_numeric(cs["Feedback CNT"], errors="coerce").fillna(0)
+    mix = (
+        cs.groupby(["_lv4", "_sub"], dropna=False)["_fb"]
+        .sum()
+        .reset_index(name="Feedback")
+    )
+    mix = mix[
+        mix["_sub"].astype(str).str.strip().ne("")
+        & mix["_sub"].astype(str).str.casefold().ne("nan")
+    ]
+    if mix.empty:
+        return pd.DataFrame()
+    parent = mix.groupby("_lv4")["Feedback"].transform("sum")
+    mix["share"] = np.where(parent > 0, mix["Feedback"] / parent, 0.0)
+
+    rc = recontact.copy()
+    rc["_lv4"] = rc["CR_Lv4"].astype(str).str.strip()
+    rc_g = (
+        rc.groupby("_lv4", dropna=False)
+        .agg(Recontacts=("Recontact Volume", "sum"), Contacts=("Contacts", "sum"))
+        .reset_index()
+    )
+    joined = mix.merge(rc_g, on="_lv4", how="inner")
+    if joined.empty and rc_g.empty:
+        return pd.DataFrame()
+    if not joined.empty:
+        joined["Recontacts"] = pd.to_numeric(joined["Recontacts"], errors="coerce").fillna(0) * joined["share"]
+        joined["Contacts"] = pd.to_numeric(joined["Contacts"], errors="coerce").fillna(0) * joined["share"]
+        pieces = joined[["_sub", "Recontacts", "Contacts"]]
+    else:
+        pieces = pd.DataFrame(columns=["_sub", "Recontacts", "Contacts"])
+    mapped = set(joined["_lv4"].astype(str)) if not joined.empty else set()
+    rest = rc_g[~rc_g["_lv4"].astype(str).isin(mapped)].copy()
+    if not rest.empty:
+        rest = rest.rename(columns={"_lv4": "_sub"})
+        pieces = pd.concat([pieces, rest[["_sub", "Recontacts", "Contacts"]]], ignore_index=True)
+    if pieces.empty:
+        return pd.DataFrame()
+    return (
+        pieces.groupby("_sub", dropna=False)
+        .agg(Recontacts=("Recontacts", "sum"), Contacts=("Contacts", "sum"))
+        .reset_index()
+        .rename(columns={"_sub": "SUB_CR"})
+    )
 
 
 def contact_volume_by_cr(
@@ -998,14 +1200,35 @@ def top_failing_attributes(
     return df
 
 
-def qa_score_by_cr(audits: pd.DataFrame, top_n: int | None = 10, min_n: int = 3) -> pd.DataFrame:
-    """Official QA (mean of Score_Pct) by contact reason Lv4. Lowest scores first."""
-    if audits.empty:
+def qa_score_by_cr(
+    audits: pd.DataFrame,
+    top_n: int | None = 10,
+    min_n: int = 3,
+    *,
+    cat_col: str = "CR_Lv4",
+    below_goal_only: bool = False,
+) -> pd.DataFrame:
+    """Official QA (mean of Score_Pct) by contact reason. Lowest scores first."""
+    if audits.empty or cat_col not in audits.columns:
         return pd.DataFrame()
+    work = audits.copy()
+    if cat_col in {"SUB_CR", "CR_Lv4"}:
+        work["_cat"] = cr_fallback_series(work, cat_col)
+    else:
+        work["_cat"] = work[cat_col].astype("string").str.strip()
+        work = work[work["_cat"].notna() & work["_cat"].ne("") & work["_cat"].str.casefold().ne("nan")]
+    if work.empty:
+        return pd.DataFrame()
+    work["_key"] = work["_cat"].astype(str).str.strip().str.casefold()
     g = (
-        audits.groupby("CR_Lv4")
-        .agg(QA_Score=("Score_Pct", "mean"), N=("Audit_ID", "count"))
-        .reset_index()
+        work.groupby("_key", as_index=False)
+        .agg(
+            _name=("_cat", "first"),
+            QA_Score=("Score_Pct", "mean"),
+            N=("Audit_ID", "count"),
+        )
+        .rename(columns={"_name": cat_col})
+        .drop(columns=["_key"])
     )
     if min_n:
         g = g[g["N"] >= int(min_n)]
@@ -1014,6 +1237,10 @@ def qa_score_by_cr(audits: pd.DataFrame, top_n: int | None = 10, min_n: int = 3)
     g["QA_Score"] = g["QA_Score"].round(1)
     g["vs_goal"] = (g["QA_Score"] - QA_GOAL).round(1)
     g["status"] = g["QA_Score"].apply(lambda v: _vs_goal_status(v, QA_GOAL, True))
+    if below_goal_only:
+        g = g[g["QA_Score"] < QA_GOAL]
+        if g.empty:
+            return g
     g = g.sort_values("QA_Score", ascending=True)
     if top_n is not None:
         g = g.head(int(top_n))
@@ -1055,14 +1282,30 @@ def map_cr_group(series: pd.Series, lookup: dict[str, str]) -> pd.Series:
     return mapped.mask(blank, CR_UNMAPPED)
 
 
-def qa_fails_by_cr(errors: pd.DataFrame, top_n: int = 12) -> pd.DataFrame:
-    """Attribute-fail counts by contact-reason detail. Not a new KPI formula."""
-    if errors.empty or "CR_Lv4" not in errors.columns:
+def qa_fails_by_cr(
+    errors: pd.DataFrame,
+    top_n: int | None = None,
+    *,
+    cat_col: str = "CR_Lv4",
+) -> pd.DataFrame:
+    """Attribute-fail counts by contact-reason grain. Not a new KPI formula."""
+    if errors.empty or cat_col not in errors.columns:
         return pd.DataFrame()
-    g = errors.groupby("CR_Lv4", as_index=False).agg(Fail_Count=("Audit_ID", "count"))
+    work = errors.copy()
+    if cat_col in {"SUB_CR", "CR_Lv4"}:
+        work["_cat"] = cr_fallback_series(work, cat_col)
+    else:
+        work["_cat"] = work[cat_col].astype("string").str.strip()
+        work = work[work["_cat"].notna() & work["_cat"].ne("") & work["_cat"].str.casefold().ne("nan")]
+    if work.empty:
+        return pd.DataFrame()
+    g = work.groupby("_cat", as_index=False).agg(Fail_Count=("Audit_ID", "count")).rename(columns={"_cat": cat_col})
     total = float(g["Fail_Count"].sum())
     g["Pct"] = (g["Fail_Count"] / total * 100).round(1) if total else 0.0
-    return g.sort_values("Fail_Count", ascending=False).head(top_n).reset_index(drop=True)
+    g = g.sort_values("Fail_Count", ascending=False)
+    if top_n is not None:
+        g = g.head(int(top_n))
+    return g.reset_index(drop=True)
 
 
 def qa_fails_by_cr_group(errors: pd.DataFrame, lookup: dict[str, str]) -> pd.DataFrame:
@@ -1341,18 +1584,56 @@ def _clip_comment(text: object, n: int = 160) -> str:
     return cut + "…"
 
 
+def _agent_keys(value: object) -> list[str]:
+    """Match 'Agent 238', '238', and 'agent 238' as the same person."""
+    s = str(value or "").strip()
+    if not s or s.casefold() in {"nan", "none", "<na>"}:
+        return []
+    keys = {s.casefold()}
+    m = re.search(r"(\d+)", s)
+    if m:
+        keys.add(m.group(1))
+        keys.add(f"agent {m.group(1)}")
+    return list(keys)
+
+
 def _agent_supervisor_map(audits: pd.DataFrame) -> dict[str, str]:
     if audits is None or audits.empty or "Agent_ID" not in audits.columns:
         return {}
     if "Supervisor_ID" not in audits.columns:
         return {}
     tmp = audits[["Agent_ID", "Supervisor_ID"]].copy()
-    tmp["_k"] = tmp["Agent_ID"].astype(str).str.strip().str.casefold()
-    tmp = tmp[tmp["_k"].ne("") & tmp["_k"].ne("nan")]
+    tmp["_k"] = tmp["Agent_ID"].astype(str).str.strip()
+    tmp = tmp[tmp["_k"].ne("") & tmp["_k"].str.casefold().ne("nan")]
     if tmp.empty:
         return {}
-    first = tmp.groupby("_k", as_index=False).agg(Supervisor_ID=("Supervisor_ID", "first"))
-    return dict(zip(first["_k"], first["Supervisor_ID"].astype(str)))
+    tmp["_fold"] = tmp["_k"].str.casefold()
+    first = tmp.groupby("_fold", as_index=False).agg(
+        Agent_ID=("_k", "first"), Supervisor_ID=("Supervisor_ID", "first"),
+    )
+    out: dict[str, str] = {}
+    for _, row in first.iterrows():
+        sup = str(row["Supervisor_ID"])
+        for k in _agent_keys(row["Agent_ID"]):
+            out.setdefault(k, sup)
+    return out
+
+
+def _map_supervisor(series: pd.Series, amap: dict[str, str]) -> pd.Series:
+    """Map CSAT agent names to QA Supervisor_ID, including numeric aliases."""
+    if series is None or not amap:
+        n = 0 if series is None else len(series)
+        return pd.Series([pd.NA] * n, index=getattr(series, "index", None))
+    s = series.astype(str).str.strip()
+    mapped = s.str.casefold().map(amap)
+    miss = mapped.isna()
+    if miss.any():
+        digits = s.loc[miss].str.extract(r"(\d+)", expand=False)
+        mapped.loc[miss] = digits.map(amap)
+        still = mapped.isna()
+        if still.any():
+            mapped.loc[still] = ("agent " + digits.reindex(mapped.index)[still].fillna("")).map(amap)
+    return mapped
 
 
 def filter_csat_by_supervisor(
@@ -1368,8 +1649,38 @@ def filter_csat_by_supervisor(
     amap = _agent_supervisor_map(audits)
     if not amap or "Agent name" not in csat.columns:
         return csat.iloc[0:0].copy()
-    mapped = csat["Agent name"].astype(str).str.strip().str.casefold().map(amap)
+    mapped = _map_supervisor(csat["Agent name"], amap)
     return csat[mapped.astype(str) == str(supervisor)].copy()
+
+
+def filter_csat_by_tenure(
+    csat: pd.DataFrame,
+    audits: pd.DataFrame,
+    tenure: str,
+) -> pd.DataFrame:
+    """Cut CSAT to agents whose QA Tenure_Cohort matches. Not CSAT user_tenure."""
+    if csat is None or csat.empty:
+        return csat if csat is not None else pd.DataFrame()
+    if not tenure or str(tenure) == "All":
+        return csat
+    if audits is None or audits.empty or "Tenure_Cohort" not in audits.columns:
+        return csat.iloc[0:0].copy() if csat is not None else pd.DataFrame()
+    if "Agent_ID" not in audits.columns or "Agent name" not in csat.columns:
+        return csat.iloc[0:0].copy()
+    keys = (
+        audits.loc[audits["Tenure_Cohort"].astype(str) == str(tenure), "Agent_ID"]
+        .astype(str).str.strip()
+    )
+    want: set[str] = set()
+    for raw in keys:
+        want.update(_agent_keys(raw))
+    if not want:
+        return csat.iloc[0:0].copy()
+    names = csat["Agent name"].astype(str)
+    hit = names.str.strip().str.casefold().isin(want)
+    digits = names.str.extract(r"(\d+)", expand=False)
+    hit = hit | digits.isin(want) | ("agent " + digits.fillna("")).isin(want)
+    return csat[hit].copy()
 
 
 def filter_csat_by_agent(csat: pd.DataFrame, agent: str) -> pd.DataFrame:
@@ -1380,9 +1691,12 @@ def filter_csat_by_agent(csat: pd.DataFrame, agent: str) -> pd.DataFrame:
         return csat
     if "Agent name" not in csat.columns:
         return csat.iloc[0:0].copy()
-    want = str(agent).strip().casefold()
-    names = csat["Agent name"].astype(str).str.strip().str.casefold()
-    return csat[names == want].copy()
+    want = set(_agent_keys(agent))
+    names = csat["Agent name"].astype(str)
+    hit = names.str.strip().str.casefold().isin(want)
+    digits = names.str.extract(r"(\d+)", expand=False)
+    hit = hit | digits.isin(want) | ("agent " + digits.fillna("")).isin(want)
+    return csat[hit].copy()
 
 
 def fail_event_totals(errors: pd.DataFrame) -> tuple[int, int]:
@@ -1477,8 +1791,7 @@ def csat_agent_manner(
 
     amap = _agent_supervisor_map(audits)
     work["_agent"] = work["Agent name"].astype(str).str.strip()
-    work["_akey"] = work["_agent"].str.casefold()
-    work["_sup"] = work["_akey"].map(amap)
+    work["_sup"] = _map_supervisor(work["Agent name"], amap)
     n_unmapped = int(work["_sup"].isna().sum())
     work = work[work["_sup"].notna()].copy()
     if work.empty:
@@ -1655,9 +1968,9 @@ def recontact_by_scope(recontact: pd.DataFrame) -> pd.DataFrame:
         else pd.Series("", index=recontact.index)
     )
     scopes = [
-        ("all", "All 12 channels (official)", recontact),
+        ("all", "Global: all 12 channels", recontact),
         ("ex_self_help", "Excluding Self Help", recontact[ch != SELF_HELP_CHANNEL]),
-        ("audited", "Phone + Live Chat only", recontact[ch.isin(AUDITED_RC_CHANNELS)]),
+        ("audited", "Human: Phone + Chat", recontact[ch.isin(AUDITED_RC_CHANNELS)]),
     ]
     rows = []
     for i, (key, name, sub) in enumerate(scopes, start=1):
@@ -1948,8 +2261,71 @@ def add_pareto_cumulative(
     return out.reset_index(drop=True)
 
 
+PARETO_VITAL_PCT = 80.0
+PARETO_MAX_NAMED = 30
+
+
+def pareto_vital_n(values: pd.Series, universe: float, pct: float = PARETO_VITAL_PCT) -> int:
+    """How many descending bars it takes to reach `pct` of universe volume."""
+    vals = pd.to_numeric(values, errors="coerce").fillna(0)
+    if len(vals) == 0 or universe is None or float(universe) <= 0:
+        return int(len(vals))
+    cum = vals.cumsum()
+    hit = np.where(cum.to_numpy() >= float(universe) * float(pct) / 100.0)[0]
+    return int(hit[0]) + 1 if len(hit) else int(len(vals))
+
+
+def pareto_named_and_tail(
+    df: pd.DataFrame,
+    count_col: str,
+    *,
+    pct: float = PARETO_VITAL_PCT,
+    max_named: int = PARETO_MAX_NAMED,
+    universe: float | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, int]:
+    """Split a ranked frame into named vital few vs leftover tail.
+
+    Returns (named, tail, n_to_pct). Tail is empty when every row is named.
+    """
+    if df is None or df.empty or count_col not in df.columns:
+        empty = df.copy() if df is not None else pd.DataFrame()
+        return empty, empty, 0
+    ranked = df.copy()
+    ranked[count_col] = pd.to_numeric(ranked[count_col], errors="coerce").fillna(0)
+    ranked = ranked[ranked[count_col] > 0].sort_values(count_col, ascending=False).reset_index(drop=True)
+    if ranked.empty:
+        return ranked, ranked.copy(), 0
+    tot = float(universe) if universe is not None and float(universe) > 0 else float(ranked[count_col].sum())
+    vital = pareto_vital_n(ranked[count_col], tot, pct)
+    named_n = min(int(vital), int(max_named), len(ranked))
+    return ranked.iloc[:named_n].copy(), ranked.iloc[named_n:].copy(), int(vital)
+
+
+def association_r2(r) -> float:
+    """R² of a simple OLS fit (r²). Unsigned. Direction lives on Pearson r."""
+    if r is None:
+        return np.nan
+    try:
+        if pd.isna(r):
+            return np.nan
+        return round(float(r) ** 2, 3)
+    except (TypeError, ValueError):
+        return np.nan
+
+
+def _assoc_fields(r, n: int) -> dict:
+    r_val = np.nan
+    if r is not None:
+        try:
+            if pd.notna(r):
+                r_val = round(float(r), 3)
+        except (TypeError, ValueError):
+            r_val = np.nan
+    return {"Pearson_r": r_val, "R2": association_r2(r_val), "N_CR": int(n)}
+
+
 def cr_correlation_summary(scatter: pd.DataFrame) -> pd.DataFrame:
-    """Pearson r at CR Lv4. One row per pair, even when N is below 5."""
+    """Association at CR Lv4. Pearson r kept for sign; R² is what the UI leads with."""
     pairs = [
         ("QA_Score", "CSAT_Pct", "QA vs CSAT"),
         ("QA_Score", "Recontact_Rate", "QA vs Recontact"),
@@ -1957,29 +2333,42 @@ def cr_correlation_summary(scatter: pd.DataFrame) -> pd.DataFrame:
     ]
     if scatter is None or scatter.empty:
         return pd.DataFrame([
-            {"Pair": label, "Pearson_r": np.nan, "N_CR": 0}
+            {"Pair": label, **_assoc_fields(np.nan, 0)}
             for _, _, label in pairs
         ])
     rows = []
     for a, b, label in pairs:
         if a not in scatter.columns or b not in scatter.columns:
-            rows.append({"Pair": label, "Pearson_r": np.nan, "N_CR": 0})
+            rows.append({"Pair": label, **_assoc_fields(np.nan, 0)})
             continue
         sub = scatter[[a, b]].dropna()
         n = int(len(sub))
         if n < 5:
-            rows.append({"Pair": label, "Pearson_r": np.nan, "N_CR": n})
+            rows.append({"Pair": label, **_assoc_fields(np.nan, n)})
             continue
         r = sub[a].corr(sub[b])
-        rows.append({
-            "Pair": label,
-            "Pearson_r": round(float(r), 3) if pd.notna(r) else np.nan,
-            "N_CR": n,
-        })
+        rows.append({"Pair": label, **_assoc_fields(r, n)})
     return pd.DataFrame(rows)
 
 
 TENURE_COHORT_ORDER = list(TENURE_SOURCE_ORDER) + ["Unknown"]
+
+
+def _tenure_sort_key(value: object) -> int:
+    raw = str(value or "").strip().replace("–", "-").replace("—", "-").casefold()
+    rank = {
+        str(k).replace("–", "-").replace("—", "-").casefold(): i
+        for i, k in enumerate(TENURE_COHORT_ORDER)
+    }
+    return rank.get(raw, 99)
+
+
+def order_tenure_frame(df: pd.DataFrame, col: str = "Tenure_Cohort") -> pd.DataFrame:
+    if df is None or df.empty or col not in df.columns:
+        return df
+    out = df.copy()
+    out["_ord"] = out[col].map(_tenure_sort_key)
+    return out.sort_values("_ord", kind="mergesort").drop(columns="_ord").reset_index(drop=True)
 
 
 def normalize_channel_label(value: object) -> str:
@@ -2021,8 +2410,14 @@ def slice_coverage_table() -> pd.DataFrame:
             {
                 "Dimension": "Tenure",
                 "QA": "Yes — agent tenure from the QA tab (5 cohorts)",
-                "CSAT": "Different field: user_tenure (new_hire / nesting / tenured / other). 81% is other",
+                "CSAT": "Inherited from QA via agent-name match. CSAT user_tenure is not used.",
                 "Recontact": "No — the tab has no tenure column",
+            },
+            {
+                "Dimension": "Business Type",
+                "QA": "Inherited via contact reason Lv4 names that carry that Business Type in CSAT",
+                "CSAT": "Yes — native Business Type field",
+                "Recontact": "No native field — not cut",
             },
             {
                 "Dimension": "Week",
@@ -2053,6 +2448,12 @@ def slice_coverage_table() -> pd.DataFrame:
                 "QA": "Yes — CR_Lv4",
                 "CSAT": "Yes — CR_Lv4",
                 "Recontact": "Yes — CR_Lv4",
+            },
+            {
+                "Dimension": "Contact reason SUB_CR (finest)",
+                "QA": "Yes — SUB_CR (auditor-corrected)",
+                "CSAT": "Yes — Sub CR",
+                "Recontact": "No native SUB_CR — the filter does not cut recontact.",
             },
             {
                 "Dimension": "Type of audit",
@@ -2136,6 +2537,36 @@ def qa_aht_by_channel(audits: pd.DataFrame) -> pd.DataFrame:
     return g.sort_values("n", ascending=False)
 
 
+def qa_aht_summary(audits: pd.DataFrame) -> dict:
+    """Mean QA Duration in minutes. Context only — not an official KPI.
+
+    CSAT has no handle-time field. Duration is stored in seconds.
+    """
+    empty = {"aht_min": None, "aht_p50_min": None, "n": 0, "channels": []}
+    if audits is None or audits.empty or "Duration" not in audits.columns:
+        return empty
+    work = audits.copy()
+    work["Duration"] = pd.to_numeric(work["Duration"], errors="coerce")
+    work = work[work["Duration"] > 0]
+    if work.empty:
+        return empty
+    channels: list[tuple[str, float]] = []
+    if "Channel" in work.columns:
+        ch = work.groupby("Channel", dropna=False)["Duration"].mean()
+        prefer = {"Phone": 0, "Live Chat": 1}
+        for name, sec in ch.items():
+            if pd.isna(sec):
+                continue
+            channels.append((str(name), round(float(sec) / 60.0, 1)))
+        channels.sort(key=lambda row: (prefer.get(row[0], 9), row[0]))
+    return {
+        "aht_min": round(float(work["Duration"].mean()) / 60.0, 1),
+        "aht_p50_min": round(float(work["Duration"].median()) / 60.0, 1),
+        "n": int(len(work)),
+        "channels": channels,
+    }
+
+
 def supervisor_overview(audits: pd.DataFrame, csat: pd.DataFrame, min_n: int = 5) -> pd.DataFrame:
     """Compact supervisor snapshot for Overview: QA + AHT from audits, CSAT via agent name.
 
@@ -2167,18 +2598,12 @@ def supervisor_overview(audits: pd.DataFrame, csat: pd.DataFrame, min_n: int = 5
     g["QA_Score"] = g["QA_Score"].round(1)
     g["AHT_min"] = (g["AHT_sec"] / 60).round(1)
 
-    agent_key = qa["Agent_ID"].astype(str).str.strip().str.casefold()
-    agent_sup = (
-        qa.assign(_agent=agent_key)
-        .groupby("_agent", as_index=False)
-        .agg(Supervisor_ID=("Supervisor_ID", "first"))
-    )
-    amap = dict(zip(agent_sup["_agent"], agent_sup["Supervisor_ID"]))
+    amap = _agent_supervisor_map(qa)
 
     csat_map = pd.DataFrame(columns=["Supervisor_ID", "CSAT_Score", "Feedback"])
     if not csat.empty and "Agent name" in csat.columns and "Feedback CNT" in csat.columns:
         cs = csat.copy()
-        cs["_sup"] = cs["Agent name"].astype(str).str.strip().str.casefold().map(amap)
+        cs["_sup"] = _map_supervisor(cs["Agent name"], amap)
         cs = cs[cs["_sup"].notna()]
         if not cs.empty:
             csat_map = (
@@ -2199,6 +2624,189 @@ def _gap_impact(score, n, goal: float) -> float:
     if pd.isna(score) or pd.isna(n) or float(n) <= 0:
         return 0.0
     return float(max(0.0, goal - float(score)) * float(n))
+
+
+def csat_supervisor_mapping(csat: pd.DataFrame, audits: pd.DataFrame) -> dict:
+    """Survey-weighted coverage of CSAT agent names that match a QA Agent_ID."""
+    empty = {
+        "n_surveys": 0,
+        "n_mapped": 0,
+        "n_unmapped": 0,
+        "pct_unmapped": 0.0,
+        "n_unmapped_agents": 0,
+    }
+    if csat is None or csat.empty or "Agent name" not in csat.columns or "Feedback CNT" not in csat.columns:
+        return empty
+    work = csat.copy()
+    work["_fb"] = pd.to_numeric(work["Feedback CNT"], errors="coerce").fillna(0)
+    amap = _agent_supervisor_map(audits)
+    work["_sup"] = _map_supervisor(work["Agent name"], amap)
+    n_all = float(work["_fb"].sum())
+    n_un = float(work.loc[work["_sup"].isna(), "_fb"].sum())
+    n_un_agents = int(
+        work.loc[work["_sup"].isna(), "Agent name"].astype(str).str.strip().str.casefold().nunique()
+    )
+    return {
+        "n_surveys": int(n_all),
+        "n_mapped": int(n_all - n_un),
+        "n_unmapped": int(n_un),
+        "pct_unmapped": round(100.0 * n_un / n_all, 1) if n_all else 0.0,
+        "n_unmapped_agents": n_un_agents,
+    }
+
+
+_CR_CATCHALL_EXACT = frozenset({
+    "", "nan", "none", "null", "other", "not mapped", "not classified", "n/a",
+    "non sub cr", "non-sub cr", "non-sub-cr", "no sub cr",
+})
+_CR_FALLBACK_CHAIN = (
+    ("SUB_CR", "SUB_CR"),
+    ("CR_Lv4", "Lv4"),
+    ("CR_Lv3", "Lv3"),
+    ("CR_Lv2", "Lv2"),
+    ("CR_Lv1", "Lv1"),
+)
+_CR_FALLBACK_START = {
+    "sub": 0, "sub_cr": 0, "subcr": 0, "SUB_CR": 0,
+    "lv4": 1, "cr_lv4": 1, "cr": 1, "Lv4": 1,
+    "lv3": 2, "cr_lv3": 2, "Lv3": 2,
+    "lv2": 3, "cr_lv2": 3, "Lv2": 3,
+    "lv1": 4, "cr_lv1": 4, "Lv1": 4,
+}
+_CR_FALLBACK_CLICK = re.compile(
+    r"^(?P<name>.+?) (?P<tag>Lv[1-4]|SUB_CR) \(other .+\)$",
+    re.IGNORECASE,
+)
+_CR_FALLBACK_DIM = {
+    "SUB_CR": "sub_cr",
+    "Lv4": "cr",
+    "Lv3": "cr",
+    "Lv2": "cr_lv1",
+    "Lv1": "cr_lv1",
+}
+
+
+def is_cr_catchall(value) -> bool:
+    text = str(value or "").strip().casefold()
+    if not text or text in _CR_CATCHALL_EXACT:
+        return True
+    return text.startswith("other")
+
+
+def _cr_fallback_start(grain: str) -> int:
+    if not grain:
+        return 0
+    if grain in _CR_FALLBACK_START:
+        return _CR_FALLBACK_START[grain]
+    key = str(grain).strip()
+    if key in _CR_FALLBACK_START:
+        return _CR_FALLBACK_START[key]
+    return _CR_FALLBACK_START.get(key.casefold().replace(" ", "_"), 0)
+
+
+def cr_fallback_series(df: pd.DataFrame, grain: str = "SUB_CR") -> pd.Series:
+    """Keep a specific reason; if it is Other, label the parent like 'Cancellation rules Lv3 (other lv4)'."""
+    if df is None or df.empty:
+        return pd.Series(dtype="string")
+    start = _cr_fallback_start(grain)
+    chain = _CR_FALLBACK_CHAIN[start:]
+    result = pd.Series(pd.NA, index=df.index, dtype="string")
+    prev_tag = None
+    start_tag = chain[0][1] if chain else "Lv4"
+    for i, (col, tag) in enumerate(chain):
+        if col not in df.columns:
+            prev_tag = tag
+            continue
+        raw = df[col].astype("string").str.strip()
+        usable = raw.notna() & ~raw.map(is_cr_catchall)
+        fill = result.isna() & usable
+        if not fill.any():
+            prev_tag = tag
+            continue
+        if i == 0 or prev_tag is None:
+            result = result.mask(fill, raw)
+        else:
+            child = prev_tag if prev_tag == "SUB_CR" else prev_tag.lower()
+            result = result.mask(fill, raw + f" {tag} (other {child})")
+        prev_tag = tag
+    if "Business_Type" in df.columns:
+        biz_col = "Business_Type"
+    elif "Business Type Name" in df.columns:
+        biz_col = "Business Type Name"
+    else:
+        biz_col = None
+    if biz_col is not None:
+        raw = df[biz_col].astype("string").str.strip()
+        usable = raw.notna() & ~raw.map(is_cr_catchall)
+        fill = result.isna() & usable
+        if fill.any():
+            child = "SUB_CR" if start_tag == "SUB_CR" else start_tag.lower()
+            result = result.mask(fill, raw + f" (other {child})")
+    return result.fillna("Other at Lv1-Lv4 (no parent)")
+
+
+def parse_cr_fallback_label(text: str | None) -> tuple[str, str] | None:
+    """('Cancellation rules', 'cr') from 'Cancellation rules Lv3 (other lv4)'."""
+    if not text:
+        return None
+    m = _CR_FALLBACK_CLICK.match(str(text).strip())
+    if not m:
+        return None
+    name = m.group("name").strip()
+    tag = m.group("tag")
+    tag_norm = "SUB_CR" if tag.upper() == "SUB_CR" else f"Lv{tag[-1]}"
+    dim = _CR_FALLBACK_DIM.get(tag_norm)
+    if not name or not dim:
+        return None
+    return name, dim
+
+
+def cr_taxonomy_coverage(csat: pd.DataFrame) -> pd.DataFrame:
+    """Share of CSAT surveys classified vs catch-all at each contact-reason grain."""
+    if csat is None or csat.empty or "Feedback CNT" not in csat.columns:
+        return pd.DataFrame()
+    fb = pd.to_numeric(csat["Feedback CNT"], errors="coerce").fillna(0)
+    total = float(fb.sum())
+    if total <= 0:
+        return pd.DataFrame()
+    rows = []
+    for label, col in (
+        ("Lv1 (group)", "CR_Lv1"),
+        ("Lv3", "CR_Lv3"),
+        ("Lv4 (detail)", "CR_Lv4"),
+        ("SUB_CR (finest)", "SUB_CR"),
+    ):
+        if col not in csat.columns:
+            continue
+        other = csat[col].map(is_cr_catchall)
+        n_other = float(fb[other].sum())
+        rows.append({
+            "Level": label,
+            "Classified_Pct": round(100.0 * (total - n_other) / total, 1),
+            "Other_Pct": round(100.0 * n_other / total, 1),
+            "Other_N": int(n_other),
+            "Total_N": int(total),
+        })
+    return pd.DataFrame(rows)
+
+
+def cr_finest_volume(csat: pd.DataFrame, top_n: int | None = 12) -> pd.DataFrame:
+    """Survey volume by the finest usable contact reason. Falls back when a child is Other."""
+    if csat is None or csat.empty or "Feedback CNT" not in csat.columns:
+        return pd.DataFrame()
+    work = csat.copy()
+    work["_fb"] = pd.to_numeric(work["Feedback CNT"], errors="coerce").fillna(0)
+    work["_sat"] = pd.to_numeric(work.get("Satisfied_CNT", 0), errors="coerce").fillna(0)
+    work["Cat"] = cr_fallback_series(work, "SUB_CR")
+    out = (
+        work.groupby("Cat", as_index=False)
+        .agg(Feedback=("_fb", "sum"), Satisfied=("_sat", "sum"))
+    )
+    out["Unsatisfied"] = (out["Feedback"] - out["Satisfied"]).clip(lower=0)
+    out = out.sort_values("Feedback", ascending=False)
+    if top_n is not None:
+        out = out.head(int(top_n))
+    return out.reset_index(drop=True)
 
 
 def gap_pareto_frame(
@@ -2234,7 +2842,7 @@ def tenure_qa_overview(audits: pd.DataFrame) -> pd.DataFrame:
         )
     )
     g["QA_Score"] = g["QA_Score"].round(1)
-    return g
+    return order_tenure_frame(g)
 
 
 def tenure_csat_overview(audits: pd.DataFrame, csat: pd.DataFrame) -> pd.DataFrame:
@@ -2268,7 +2876,7 @@ def tenure_csat_overview(audits: pd.DataFrame, csat: pd.DataFrame) -> pd.DataFra
         (g["Satisfied"] / g["Feedback"] * 100).round(1),
         np.nan,
     )
-    return g
+    return order_tenure_frame(g)
 
 
 def agents_below_qa_goal(
@@ -2283,13 +2891,19 @@ def agents_below_qa_goal(
     """
     if audits.empty or "Agent_ID" not in audits.columns:
         return pd.DataFrame()
-    group = ["Agent_ID"]
-    if "Supervisor_ID" in audits.columns:
-        group.append("Supervisor_ID")
     g = (
-        audits.groupby(group, as_index=False)
+        audits.groupby("Agent_ID", as_index=False)
         .agg(QA_Score=("Score_Pct", "mean"), n=("Audit_ID", "count"))
     )
+    if "Supervisor_ID" in audits.columns:
+        prim = (
+            audits.groupby(["Agent_ID", "Supervisor_ID"], as_index=False)
+            .size()
+            .sort_values("size", ascending=False)
+            .drop_duplicates("Agent_ID")
+            [["Agent_ID", "Supervisor_ID"]]
+        )
+        g = g.merge(prim, on="Agent_ID", how="left")
     if "Tenure_Cohort" in audits.columns:
         ten = (
             audits.groupby("Agent_ID", as_index=False)
@@ -2322,16 +2936,22 @@ def qa_agent_roster(
     """
     if audits is None or audits.empty or "Agent_ID" not in audits.columns:
         return pd.DataFrame()
-    group = ["Agent_ID"]
-    if "Supervisor_ID" in audits.columns:
-        group.append("Supervisor_ID")
     agg = {
         "QA_Score": ("Score_Pct", "mean"),
         "Audit_Count": ("Audit_ID", "count"),
     }
     if "Fatal_Flag" in audits.columns:
         agg["Fatal_Rate"] = ("Fatal_Flag", "mean")
-    g = audits.groupby(group, as_index=False).agg(**agg)
+    g = audits.groupby("Agent_ID", as_index=False).agg(**agg)
+    if "Supervisor_ID" in audits.columns:
+        prim = (
+            audits.groupby(["Agent_ID", "Supervisor_ID"], as_index=False)
+            .size()
+            .sort_values("size", ascending=False)
+            .drop_duplicates("Agent_ID")
+            [["Agent_ID", "Supervisor_ID"]]
+        )
+        g = g.merge(prim, on="Agent_ID", how="left")
     if "Tenure_Cohort" in audits.columns:
         ten = audits.groupby("Agent_ID", as_index=False).agg(Tenure_Cohort=("Tenure_Cohort", "first"))
         g = g.merge(ten, on="Agent_ID", how="left")
@@ -2342,18 +2962,13 @@ def qa_agent_roster(
     if errors is not None and not errors.empty and "Agent_ID" in errors.columns:
         fails = errors.copy()
         fails["_ak"] = fails["Agent_ID"].astype(str).str.strip().str.casefold()
-        f_keys = ["_ak"]
-        # Same grain as the roster row (agent × supervisor). Agent-only merge
-        # stamped one agent's events onto every supervisor split of that agent.
-        if "Supervisor_ID" in group and "Supervisor_ID" in fails.columns:
-            f_keys.append("Supervisor_ID")
         f_agg = {"Fail_Count": ("Audit_ID", "count")}
         if "Is_Critical" in fails.columns:
             f_agg["Crit_Fails"] = ("Is_Critical", "sum")
-        f = fails.groupby(f_keys, as_index=False).agg(**f_agg)
+        f = fails.groupby("_ak", as_index=False).agg(**f_agg)
         g["_ak"] = g["Agent_ID"].astype(str).str.strip().str.casefold()
         g = g.drop(columns=["Fail_Count", "Crit_Fails"], errors="ignore").merge(
-            f, on=f_keys, how="left",
+            f, on="_ak", how="left",
         )
         g = g.drop(columns=["_ak"])
     if "Fail_Count" not in g.columns:
@@ -2487,7 +3102,7 @@ def csat_agent_unsat_concentrators(
         np.nan,
     )
     amap = _agent_supervisor_map(audits) if audits is not None else {}
-    g["Supervisor_ID"] = g["_key"].map(amap)
+    g["Supervisor_ID"] = _map_supervisor(g["Agent"], amap)
     g["Supervisor_ID"] = g["Supervisor_ID"].fillna(CSAT_UNMAPPED_SUPERVISOR)
     g["_ord"] = g["Agent"].map(_agent_sort_num)
     g = (
@@ -2543,7 +3158,7 @@ def csat_agent_roster(
     g["Gap_Impact"] = (CSAT_GOAL - g["CSAT_Score"]).clip(lower=0) * g["Feedback"]
     g["Unsat_Share"] = (g["Unsatisfied"] / universe_u * 100).round(1) if universe_u else 0.0
     amap = _agent_supervisor_map(audits)
-    g["Supervisor_ID"] = g["_key"].map(amap)
+    g["Supervisor_ID"] = _map_supervisor(g["Agent"], amap)
     g["Supervisor_ID"] = g["Supervisor_ID"].fillna(CSAT_UNMAPPED_SUPERVISOR)
     team = g.groupby("Supervisor_ID", as_index=False).agg(
         Team_Unsat=("Unsatisfied", "sum"),
@@ -2575,26 +3190,56 @@ def csat_agent_roster(
 
 # Same floor as cr_level_metrics QA_N ≥ 3. An 8-audit cut blanks supervisor × Phone
 # slices (e.g. Supervisor 1 Phone: 27 audits, max 7 per Lv4) even when CSAT has
-# thousands of surveys. Pearson r is still withheld until 5 shared names.
+# thousands of surveys. R² is still withheld until 5 shared names.
 AHT_CR_MIN_AUDITS = 3
 
 
-def qa_aht_by_cr(audits: pd.DataFrame, min_n: int = AHT_CR_MIN_AUDITS) -> pd.DataFrame:
-    """Official QA vs Duration (seconds → minutes) at contact-reason Lv4. Association only."""
-    if audits.empty or "Duration" not in audits.columns or "CR_Lv4" not in audits.columns:
+def qa_aht_by_cr(
+    audits: pd.DataFrame,
+    min_n: int = AHT_CR_MIN_AUDITS,
+    *,
+    cat_col: str = "CR_Lv4",
+    lookup: dict | None = None,
+    by_channel: bool = True,
+) -> pd.DataFrame:
+    """Official QA vs Duration (seconds → minutes) at a contact-reason grain. Association only."""
+    grain = str(cat_col or "CR_Lv4")
+    if audits.empty or "Duration" not in audits.columns:
         return pd.DataFrame()
     df = audits.copy()
     df["Duration"] = pd.to_numeric(df["Duration"], errors="coerce")
-    df = df[df["Duration"] > 0].dropna(subset=["Score_Pct", "CR_Lv4"])
+    df = df[df["Duration"] > 0].dropna(subset=["Score_Pct"])
     if df.empty:
         return pd.DataFrame()
-    keys = ["CR_Lv4", "Channel"] if "Channel" in df.columns else ["CR_Lv4"]
+    if grain in {"CR_Lv1", "lv1"}:
+        if "CR_Lv4" not in df.columns:
+            return pd.DataFrame()
+        df["CR_Lv1"] = map_cr_group(df["CR_Lv4"], lookup or {})
+        name_col = "CR_Lv1"
+    elif grain in {"SUB_CR", "sub"}:
+        if "SUB_CR" not in df.columns and "Sub CR" in df.columns:
+            df["SUB_CR"] = df["Sub CR"]
+        if "SUB_CR" not in df.columns:
+            return pd.DataFrame()
+        df["SUB_CR"] = cr_fallback_series(df, "SUB_CR")
+        name_col = "SUB_CR"
+    else:
+        if "CR_Lv4" not in df.columns:
+            return pd.DataFrame()
+        name_col = "CR_Lv4"
+    df = df[df[name_col].astype(str).str.strip().ne("") & df[name_col].astype(str).str.casefold().ne("nan")]
+    if df.empty:
+        return pd.DataFrame()
+    keys = [name_col]
+    if by_channel and "Channel" in df.columns:
+        keys = [name_col, "Channel"]
     g = (
         df.groupby(keys, dropna=False)
         .agg(QA_Score=("Score_Pct", "mean"), AHT_sec=("Duration", "mean"), n=("Audit_ID", "count"))
         .reset_index()
     )
-    g = g[g["n"] >= min_n]
+    if min_n:
+        g = g[g["n"] >= int(min_n)]
     if g.empty:
         return g
     g["QA_Score"] = g["QA_Score"].round(1)
@@ -2678,10 +3323,10 @@ def aht_joined_outcomes(
 
 
 def aht_correlation_summary(df: pd.DataFrame, min_n: int = 5) -> pd.DataFrame:
-    """Pearson r of AHT vs QA / CSAT / recontact. Always returns rows; r only if N ≥ min_n.
+    """AHT vs QA / CSAT / recontact. R² for the UI; Pearson r kept for sign.
 
     'All' is the pooled Phone+Chat cloud. Read channel rows first — Phone handle
-    is longer by nature, so the pooled r can be misleading on its own.
+    is longer by nature, so the pooled R² can be misleading on its own.
     """
     pairs = [
         ("QA_Score", "AHT vs QA"),
@@ -2701,20 +3346,15 @@ def aht_correlation_summary(df: pd.DataFrame, min_n: int = 5) -> pd.DataFrame:
     for y, label in pairs:
         for slice_name, sub in slices:
             if sub is None or sub.empty or y not in sub.columns or "AHT_min" not in sub.columns:
-                rows.append({"Pair": label, "Slice": slice_name, "Pearson_r": np.nan, "N_CR": 0})
+                rows.append({"Pair": label, "Slice": slice_name, **_assoc_fields(np.nan, 0)})
                 continue
             pair = sub[["AHT_min", y]].dropna()
             n = int(len(pair))
             if n < min_n:
-                rows.append({"Pair": label, "Slice": slice_name, "Pearson_r": np.nan, "N_CR": n})
+                rows.append({"Pair": label, "Slice": slice_name, **_assoc_fields(np.nan, n)})
                 continue
             r = pair["AHT_min"].corr(pair[y])
-            rows.append({
-                "Pair": label,
-                "Slice": slice_name,
-                "Pearson_r": round(float(r), 3) if pd.notna(r) else np.nan,
-                "N_CR": n,
-            })
+            rows.append({"Pair": label, "Slice": slice_name, **_assoc_fields(r, n)})
     return pd.DataFrame(rows)
 
 
@@ -2736,22 +3376,32 @@ def _csat_cr_base(
         else:
             return pd.DataFrame()
         cat_name = "CR_Lv1"
+    elif level == "sub":
+        col = "SUB_CR" if "SUB_CR" in work.columns else ("Sub CR" if "Sub CR" in work.columns else None)
+        if col is None:
+            return pd.DataFrame()
+        if col != "SUB_CR":
+            work["SUB_CR"] = work[col]
+        work["_cat"] = cr_fallback_series(work, "SUB_CR")
+        cat_name = "SUB_CR"
     else:
         if "CR_Lv4" not in work.columns:
             return pd.DataFrame()
-        work["_cat"] = work["CR_Lv4"].astype(str).str.strip()
+        work["_cat"] = cr_fallback_series(work, "Lv4")
         cat_name = "CR_Lv4"
     work = work[work["_cat"].ne("") & work["_cat"].str.casefold().ne("nan")]
     if work.empty:
         return pd.DataFrame()
+    work["_key"] = work["_cat"].astype(str).str.strip().str.casefold()
     g = (
-        work.groupby("_cat", dropna=False)
+        work.groupby("_key", dropna=False, as_index=False)
         .agg(
+            _name=("_cat", "first"),
             Satisfied=("Satisfied_CNT", "sum"),
             Feedback=("Feedback CNT", "sum"),
         )
-        .reset_index()
-        .rename(columns={"_cat": cat_name})
+        .rename(columns={"_name": cat_name})
+        .drop(columns=["_key"])
     )
     g["CSAT_Score"] = np.where(
         g["Feedback"] > 0,
@@ -2768,6 +3418,7 @@ def csat_score_by_cr(
     lookup: dict | None = None,
     min_n: int = 20,
     top_n: int | None = 12,
+    below_goal_only: bool = False,
 ) -> pd.DataFrame:
     """Official CSAT by contact reason. Default: lowest scores with enough surveys."""
     g = _csat_cr_base(csat, level=level, lookup=lookup)
@@ -2776,6 +3427,10 @@ def csat_score_by_cr(
     g = g[g["Feedback"] >= int(min_n)]
     if g.empty:
         return g
+    if below_goal_only:
+        g = g[g["CSAT_Score"] < CSAT_GOAL]
+        if g.empty:
+            return g
     g = g.sort_values("CSAT_Score", ascending=True)
     if top_n is not None:
         g = g.head(int(top_n))
@@ -2809,6 +3464,7 @@ def csat_by_supervisor(
     audits: pd.DataFrame | None = None,
     min_n: int = 20,
     top_n: int | None = 12,
+    below_goal_only: bool = False,
 ) -> pd.DataFrame:
     """Official CSAT by QA supervisor (agent name → Agent_ID). Lowest score first."""
     if csat is None or csat.empty or "Agent name" not in csat.columns:
@@ -2824,7 +3480,7 @@ def csat_by_supervisor(
     work["_sat"] = pd.to_numeric(work["Satisfied_CNT"], errors="coerce").fillna(0)
     work["_key"] = work["_ak"].str.casefold()
     amap = _agent_supervisor_map(audits) if audits is not None else {}
-    work["Supervisor_ID"] = work["_key"].map(amap).fillna(CSAT_UNMAPPED_SUPERVISOR)
+    work["Supervisor_ID"] = _map_supervisor(work["_ak"], amap).fillna(CSAT_UNMAPPED_SUPERVISOR)
     g = (
         work.groupby("Supervisor_ID", as_index=False)
         .agg(Satisfied=("_sat", "sum"), Feedback=("_fb", "sum"), Agents=("_ak", "nunique"))
@@ -2837,20 +3493,40 @@ def csat_by_supervisor(
         (g["Satisfied"] / g["Feedback"] * 100).round(1),
         np.nan,
     )
+    if below_goal_only:
+        g = g[g["CSAT_Score"] < CSAT_GOAL]
+        if g.empty:
+            return g
     g = g.sort_values("CSAT_Score", ascending=True)
     if top_n is not None:
         g = g.head(int(top_n))
     return g.reset_index(drop=True)
 
 
-def csat_unsatisfied_by_cr(csat: pd.DataFrame) -> pd.DataFrame:
-    """Unsatisfied survey volume (Feedback − 4★/5★) by contact reason Lv4. Not a new CSAT formula."""
-    if csat.empty or "CR_Lv4" not in csat.columns or "Feedback CNT" not in csat.columns:
+def csat_unsatisfied_by_cr(csat: pd.DataFrame, cat_col: str = "CR_Lv4") -> pd.DataFrame:
+    """Unsatisfied survey volume (Feedback − 4★/5★) by contact reason. Not a new CSAT formula."""
+    col = cat_col
+    if csat.empty or "Feedback CNT" not in csat.columns:
+        return pd.DataFrame()
+    if col not in csat.columns and cat_col == "SUB_CR" and "Sub CR" in csat.columns:
+        col = "Sub CR"
+    if col not in csat.columns:
+        return pd.DataFrame()
+    work = csat.copy()
+    if cat_col in {"SUB_CR", "CR_Lv4"}:
+        if cat_col == "SUB_CR" and "SUB_CR" not in work.columns and "Sub CR" in work.columns:
+            work["SUB_CR"] = work["Sub CR"]
+        work["_cat"] = cr_fallback_series(work, cat_col)
+    else:
+        work["_cat"] = work[col].astype("string").str.strip()
+        work = work[work["_cat"].notna() & work["_cat"].ne("") & work["_cat"].str.casefold().ne("nan")]
+    if work.empty:
         return pd.DataFrame()
     g = (
-        csat.groupby("CR_Lv4", dropna=False)
+        work.groupby("_cat", dropna=False)
         .agg(Feedback=("Feedback CNT", "sum"), Satisfied=("Satisfied_CNT", "sum"))
         .reset_index()
+        .rename(columns={"_cat": cat_col})
     )
     g["Unsatisfied"] = (g["Feedback"] - g["Satisfied"]).clip(lower=0)
     g = g[g["Unsatisfied"] > 0]
@@ -2888,9 +3564,7 @@ def qa_by_tenure(audits: pd.DataFrame) -> pd.DataFrame:
     g["QA_vs_Goal"] = (g["QA_Score"] - QA_GOAL).round(2)
     g["QA_Status"] = g["QA_Score"].apply(lambda v: _vs_goal_status(v, QA_GOAL, True))
     g["Applies_To"] = "QA only — CSAT/Recontact cannot use this tenure"
-    order = {k: i for i, k in enumerate(TENURE_COHORT_ORDER)}
-    g["_ord"] = g["Tenure_Cohort"].map(order).fillna(99)
-    return g.sort_values(["_ord", "QA_Evaluations"], ascending=[True, False]).drop(columns="_ord")
+    return order_tenure_frame(g)
 
 
 def csat_by_user_tenure(csat: pd.DataFrame) -> pd.DataFrame:
@@ -3111,8 +3785,8 @@ def quartile_band_summary(
     n_names: int = 5,
 ) -> dict:
     """Counts and a few names per Q1–Q4. Safe on empty / NA quartile columns."""
-    bands = {q: {"n": 0, "names": []} for q in ("Q1", "Q2", "Q3", "Q4")}
-    empty = {"ranked": 0, "q4": 0, "bands": bands}
+    bands = {q: {"n": 0, "names": [], "lo": None, "hi": None, "mean": None} for q in ("Q1", "Q2", "Q3", "Q4")}
+    empty = {"ranked": 0, "q4": 0, "bands": bands, "score_col": None, "unit": "%"}
     if df is None or df.empty or "Quartile" not in df.columns:
         return empty
     work = df.copy()
@@ -3125,12 +3799,29 @@ def quartile_band_summary(
             "Agent" if "Agent" in ranked.columns else None
         )
     )
+    score_col = None
+    for cand in ("QA_Score", "CSAT_Score"):
+        if cand in ranked.columns:
+            score_col = cand
+            break
     for q in bands:
         sub = ranked[ranked["Quartile"] == q]
         bands[q]["n"] = int(len(sub))
         if label_col:
             bands[q]["names"] = [str(v) for v in sub[label_col].astype(str).head(int(n_names)).tolist()]
-    return {"ranked": int(len(ranked)), "q4": bands["Q4"]["n"], "bands": bands}
+        if score_col:
+            sc = pd.to_numeric(sub[score_col], errors="coerce").dropna()
+            if not sc.empty:
+                bands[q]["lo"] = float(sc.min())
+                bands[q]["hi"] = float(sc.max())
+                bands[q]["mean"] = float(sc.mean())
+    return {
+        "ranked": int(len(ranked)),
+        "q4": bands["Q4"]["n"],
+        "bands": bands,
+        "score_col": score_col,
+        "unit": "%",
+    }
 
 
 def supervisor_quartile_mix(
@@ -3384,4 +4075,255 @@ def supervisor_talent_frame(
     out["QA_below"] = pd.to_numeric(out.get("QA_Score"), errors="coerce") < QA_GOAL
     out["CSAT_below"] = pd.to_numeric(out.get("CSAT_Score"), errors="coerce") < CSAT_GOAL
     return out.sort_values(["Requires_Review", "Q4_Share", "Team_Index"], ascending=[False, False, True]).reset_index(drop=True)
+
+
+AUDITOR_OUTCOME_ORDER = (
+    "Resolved + process",
+    "Unresolved + process",
+    "Abandoned",
+    "Resolved, no process",
+    "Unresolved, no process",
+)
+
+REPEAT_48H_ORDER = (
+    "Single contact (1)",
+    "Unmarked (Phone 0)",
+    "Repeat (≥2)",
+)
+
+
+def _qa_group_score(audits: pd.DataFrame, cat_col: str, order: tuple[str, ...] | None = None) -> pd.DataFrame:
+    if audits is None or audits.empty or cat_col not in audits.columns or "Score_Pct" not in audits.columns:
+        return pd.DataFrame()
+    work = audits.copy()
+    work["_cat"] = work[cat_col].astype("string").str.strip()
+    work = work[work["_cat"].notna() & work["_cat"].ne("") & work["_cat"].str.casefold().ne("nan")]
+    if work.empty:
+        return pd.DataFrame()
+    g = (
+        work.groupby("_cat", as_index=False)
+        .agg(QA_Score=("Score_Pct", "mean"), n=("Audit_ID", "count"))
+        .rename(columns={"_cat": cat_col})
+    )
+    g["QA_Score"] = g["QA_Score"].round(2)
+    if order:
+        g["_ord"] = g[cat_col].map({name: i for i, name in enumerate(order)})
+        g = g.sort_values(["_ord", "n"], ascending=[True, False], na_position="last").drop(columns="_ord")
+    else:
+        g = g.sort_values("n", ascending=False)
+    return g.reset_index(drop=True)
+
+
+def qa_auditor_outcome(audits: pd.DataFrame) -> pd.DataFrame:
+    """Official QA (mean of Score_Pct) by parsed solution × process. Not a new KPI."""
+    return _qa_group_score(audits, "Auditor_Outcome", AUDITOR_OUTCOME_ORDER)
+
+
+def auditor_resolution_summary(audits: pd.DataFrame) -> dict:
+    """Auditor resolution rate — not FCR.
+
+    Rate = Resolved / (Resolved + Not resolved) × 100.
+    Abandoned and Not assessed are excluded from the denominator.
+    Source is the form question "Se le brindó solución a la solicitud".
+    This field does not enter the official QA score. FCR is 100 − recontact.
+    """
+    empty = {
+        "rate": None,
+        "n_resolved": 0,
+        "n_not_resolved": 0,
+        "n_abandoned": 0,
+        "n_assessed": 0,
+        "n_audits": 0,
+        "abandon_rate": None,
+        "n_unres_process": 0,
+        "n_unres_agent": 0,
+        "pct_unres_process": None,
+        "qa_resolved": None,
+        "qa_not_resolved": None,
+        "qa_abandoned": None,
+        "qa_assessed": None,
+        "qa_unres_process": None,
+        "qa_unres_agent": None,
+    }
+    if audits is None or audits.empty or "Solution_Provided" not in audits.columns:
+        return empty
+    s = audits["Solution_Provided"].astype("string").str.strip()
+    n_audits = int(len(audits))
+    n_resolved = int(s.eq("Resolved").sum())
+    n_not = int(s.eq("Not resolved").sum())
+    n_abandoned = int(s.eq("Abandoned").sum())
+    n_assessed = n_resolved + n_not
+    n_unres_process = n_unres_agent = 0
+    unres_process_mask = s.eq("Not resolved")
+    unres_agent_mask = s.eq("Not resolved")
+    if n_not and "Process_Adherence" in audits.columns:
+        nr = audits["Process_Adherence"].astype("string").str.strip()
+        unres_process_mask = s.eq("Not resolved") & nr.eq("Followed process")
+        unres_agent_mask = s.eq("Not resolved") & nr.eq("Did not follow process")
+        n_unres_process = int(unres_process_mask.sum())
+        n_unres_agent = int(unres_agent_mask.sum())
+
+    def _qa(mask) -> float | None:
+        if "Score_Pct" not in audits.columns or mask is None:
+            return None
+        vals = pd.to_numeric(audits.loc[mask, "Score_Pct"], errors="coerce").dropna()
+        if vals.empty:
+            return None
+        return round(float(vals.mean()), 1)
+
+    return {
+        "rate": round(n_resolved / n_assessed * 100, 2) if n_assessed else None,
+        "n_resolved": n_resolved,
+        "n_not_resolved": n_not,
+        "n_abandoned": n_abandoned,
+        "n_assessed": n_assessed,
+        "n_audits": n_audits,
+        "abandon_rate": round(n_abandoned / n_audits * 100, 2) if n_audits else None,
+        "n_unres_process": n_unres_process,
+        "n_unres_agent": n_unres_agent,
+        "pct_unres_process": (
+            round(n_unres_process / n_not * 100, 1) if n_not else None
+        ),
+        "qa_resolved": _qa(s.eq("Resolved")),
+        "qa_not_resolved": _qa(s.eq("Not resolved")),
+        "qa_abandoned": _qa(s.eq("Abandoned")),
+        "qa_assessed": _qa(s.isin(["Resolved", "Not resolved"])),
+        "qa_unres_process": _qa(unres_process_mask) if n_not else None,
+        "qa_unres_agent": _qa(unres_agent_mask) if n_not else None,
+    }
+
+
+def qa_process_adherence_summary(audits: pd.DataFrame) -> dict:
+    if audits is None or audits.empty or "Process_Adherence" not in audits.columns:
+        return {"n": 0, "n_not_followed": 0, "pct_not_followed": 0.0}
+    n = int(len(audits))
+    n_bad = int((audits["Process_Adherence"].astype(str) == "Did not follow process").sum())
+    return {
+        "n": n,
+        "n_not_followed": n_bad,
+        "pct_not_followed": round(n_bad / n * 100, 1) if n else 0.0,
+    }
+
+
+def qa_dissatisfaction_split(audits: pd.DataFrame) -> pd.DataFrame:
+    """Auditor Yes/No dissatisfaction flag. Nested owner/sub-reason only exist on Yes."""
+    if audits is None or audits.empty or "Dissatisfaction_Flag" not in audits.columns:
+        return pd.DataFrame()
+    g = (
+        audits.groupby("Dissatisfaction_Flag", as_index=False)
+        .agg(n=("Audit_ID", "count"), QA_Score=("Score_Pct", "mean"))
+    )
+    g["QA_Score"] = g["QA_Score"].round(2)
+    total = float(g["n"].sum())
+    g["Pct"] = (g["n"] / total * 100).round(1) if total else 0.0
+    order = {"Yes": 0, "No": 1, "Not assessed": 2}
+    g["_ord"] = g["Dissatisfaction_Flag"].map(order)
+    return g.sort_values("_ord").drop(columns="_ord").reset_index(drop=True)
+
+
+def qa_dissatisfaction_owner(audits: pd.DataFrame) -> pd.DataFrame:
+    if audits is None or audits.empty or "Dissatisfaction_Owner" not in audits.columns:
+        return pd.DataFrame()
+    if "Dissatisfaction_Flag" in audits.columns:
+        work = audits[audits["Dissatisfaction_Flag"].astype(str).eq("Yes")].copy()
+    else:
+        work = audits.copy()
+    if work.empty:
+        return pd.DataFrame()
+    work["_cat"] = work["Dissatisfaction_Owner"].astype("string").str.strip()
+    work["_cat"] = work["_cat"].mask(
+        work["_cat"].isna() | work["_cat"].eq("") | work["_cat"].str.casefold().isin(("nan", "none")),
+        "Not tagged",
+    )
+    g = work.groupby("_cat", as_index=False).agg(n=("Audit_ID", "count")).rename(columns={"_cat": "Dissatisfaction_Owner"})
+    total = float(g["n"].sum())
+    g["Pct"] = (g["n"] / total * 100).round(1) if total else 0.0
+    return g.sort_values("n", ascending=False).reset_index(drop=True)
+
+
+def qa_dissatisfaction_subreason(audits: pd.DataFrame) -> pd.DataFrame:
+    if audits is None or audits.empty or "Dissatisfaction_Subreason" not in audits.columns:
+        return pd.DataFrame()
+    if "Dissatisfaction_Flag" in audits.columns:
+        work = audits[audits["Dissatisfaction_Flag"].astype(str).eq("Yes")].copy()
+    else:
+        work = audits.copy()
+    if work.empty:
+        return pd.DataFrame()
+    work["_cat"] = work["Dissatisfaction_Subreason"].astype("string").str.strip()
+    work["_cat"] = work["_cat"].mask(
+        work["_cat"].isna() | work["_cat"].eq("") | work["_cat"].str.casefold().isin(("nan", "none")),
+        "Not tagged",
+    )
+    g = work.groupby("_cat", as_index=False).agg(n=("Audit_ID", "count")).rename(columns={"_cat": "Dissatisfaction_Subreason"})
+    total = float(g["n"].sum())
+    g["Pct"] = (g["n"] / total * 100).round(1) if total else 0.0
+    return g.sort_values("n", ascending=False).reset_index(drop=True)
+
+
+def qa_repeat_48h(audits: pd.DataFrame) -> pd.DataFrame:
+    """QA by 48h same-CR contact count. Not the official recontact KPI."""
+    return _qa_group_score(audits, "Repeat_48h", REPEAT_48H_ORDER)
+
+
+def qa_repeat_48h_by_channel(audits: pd.DataFrame) -> pd.DataFrame:
+    if audits is None or audits.empty or "Repeat_48h" not in audits.columns or "Channel" not in audits.columns:
+        return pd.DataFrame()
+    work = audits.copy()
+    work["Channel"] = work["Channel"].map(normalize_channel_label)
+    g = (
+        work.groupby(["Repeat_48h", "Channel"], as_index=False)
+        .agg(n=("Audit_ID", "count"))
+    )
+    return g
+
+
+def _note_body(text: object) -> str:
+    raw = str(text or "").strip()
+    if not raw or raw.casefold() in {"nan", "none", "nat"}:
+        return ""
+    keep: list[str] = []
+    skip_rest = {"n/a", "na", "sí", "si", "no", "yes"}
+    headers = {
+        "insatisfaccion", "insatisfacción", "causa principal",
+        "descripcion", "descripción", "limitacion", "limitación",
+        "insatisfaccion final", "insatisfacción final",
+    }
+    for line in raw.splitlines():
+        t = line.strip()
+        if not t:
+            continue
+        key = t.split(":", 1)[0].strip().casefold()
+        if key in headers:
+            rest = t.split(":", 1)[1].strip() if ":" in t else ""
+            if rest and rest.casefold() not in skip_rest:
+                keep.append(rest)
+            continue
+        keep.append(t)
+    return " ".join(keep).strip()
+
+
+def qa_auditor_quotes(audits: pd.DataFrame, top_n: int = 8) -> pd.DataFrame:
+    """Sample auditor notes for dissatisfied audits. Source text, not a KPI."""
+    if audits is None or audits.empty or "Dissatisfaction_Flag" not in audits.columns:
+        return pd.DataFrame()
+    work = audits[audits["Dissatisfaction_Flag"].astype(str).eq("Yes")].copy()
+    if work.empty:
+        return pd.DataFrame()
+    body = work["Dissatisfaction_Notes"].map(_note_body) if "Dissatisfaction_Notes" in work.columns else ""
+    if not isinstance(body, pd.Series):
+        body = pd.Series([""] * len(work), index=work.index)
+    five = work["Five_Whys"].astype("string") if "Five_Whys" in work.columns else pd.Series("", index=work.index)
+    five = five.fillna("").astype(str)
+    out = pd.DataFrame({
+        "Contact reason Lv4": work["CR_Lv4"].astype(str) if "CR_Lv4" in work.columns else "",
+        "Owner": work["Dissatisfaction_Owner"].fillna("Not tagged").astype(str) if "Dissatisfaction_Owner" in work.columns else "",
+        "Sub-reason": work["Dissatisfaction_Subreason"].fillna("Not tagged").astype(str) if "Dissatisfaction_Subreason" in work.columns else "",
+        "Auditor note": body,
+        "5 whys": five.str.replace(r"\s+", " ", regex=True).str.slice(0, 280),
+    })
+    meat = out["Auditor note"].astype(str).str.len().gt(8) | out["5 whys"].astype(str).str.len().gt(40)
+    ranked = out.loc[meat] if meat.any() else out
+    return ranked.head(int(top_n)).reset_index(drop=True)
+
 

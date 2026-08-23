@@ -92,6 +92,28 @@ def _as_bool(value) -> bool:
     return bool(value)
 
 
+def _score_num(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pts_below(score: float | None, goal: float) -> str | None:
+    if score is None:
+        return None
+    gap = float(goal) - float(score)
+    if gap <= 0:
+        return None
+    if abs(gap - round(gap)) < 0.05:
+        return f"{round(gap):.0f} pts below goal"
+    return f"{gap:.1f} pts below goal"
+
+
 def people_watchlist(
     qa_mix: pd.DataFrame,
     csat_mix: pd.DataFrame | None = None,
@@ -128,20 +150,27 @@ def people_watchlist(
             n_ranked = int(row.get("Ranked_Agents") or 0)
             owner = str(row.get("Supervisor_ID") or "")
             qa_txt = _score_txt(row.get("QA_Score"))
-            issue = (
-                f"{owner}: {n_q4} of {n_ranked} ranked agents are in company Q4 "
-                f"(bottom 25% of this filter). Official team QA is {qa_txt}% — "
-                "that mean can still be on goal while the talent mix is not."
-            )
+            score = _score_num(row.get("QA_Score"))
+            below = bool(score is not None and score < QA_GOAL)
+            pts = _pts_below(score, QA_GOAL)
+            mix = f"{n_q4} of {n_ranked} ranked agents in the bottom 25% of this filter"
+            why = f"{pts} · {mix}" if pts else f"team mean on goal · {mix}"
+            issue = f"{owner} — QA {qa_txt}% ({why})"
             rows.append({
                 "Desk": "QA",
                 "Issue": issue,
                 "Owner": owner,
                 "Volume": n_q4,
                 "Score": row.get("QA_Score"),
+                "Sample_N": int(row.get("n") or 0),
+                "Ranked_N": n_ranked,
+                "Q4_N": n_q4,
+                "Below_Goal": below,
+                "Kind": "supervisor",
                 "Follow-up": "Leadership audit / coaching",
                 "Focus_Kind": "supervisor",
                 "Focus_Key": owner,
+                "Supervisor_ID": owner,
                 "Requires_Review": _as_bool(row.get("Requires_Review")),
             })
 
@@ -166,19 +195,27 @@ def people_watchlist(
                 continue
             n_ranked = int(row.get("Ranked_Agents") or 0)
             cs_txt = _score_txt(row.get("CSAT_Score"))
-            issue = (
-                f"{owner}: {n_q4} of {n_ranked} ranked agents are in company CSAT Q4 "
-                f"(bottom 25% of this filter). Official team CSAT is {cs_txt}%."
-            )
+            score = _score_num(row.get("CSAT_Score"))
+            below = bool(score is not None and score < CSAT_GOAL)
+            pts = _pts_below(score, CSAT_GOAL)
+            mix = f"{n_q4} of {n_ranked} ranked agents in the bottom 25% of this filter"
+            why = f"{pts} · {mix}" if pts else f"team mean on goal · {mix}"
+            issue = f"{owner} — CSAT {cs_txt}% ({why})"
             rows.append({
                 "Desk": "CSAT",
                 "Issue": issue,
                 "Owner": owner,
                 "Volume": n_q4,
                 "Score": row.get("CSAT_Score"),
+                "Sample_N": int(row.get("Feedback") or 0),
+                "Ranked_N": n_ranked,
+                "Q4_N": n_q4,
+                "Below_Goal": below,
+                "Kind": "supervisor",
                 "Follow-up": "First-contact script coaching",
                 "Focus_Kind": "supervisor",
                 "Focus_Key": owner,
+                "Supervisor_ID": owner,
                 "Requires_Review": _as_bool(row.get("Requires_Review")),
             })
 
@@ -190,6 +227,7 @@ def people_watchlist(
         work = work[work["Quartile"].eq("Q4")]
         if work.empty:
             return
+        goal = QA_GOAL if desk == "QA" else CSAT_GOAL
         sort_col = score_col if score_col in work.columns else work.columns[0]
         work = work.sort_values(sort_col, ascending=True)
         for _, row in work.head(8).iterrows():
@@ -197,10 +235,14 @@ def people_watchlist(
             if not agent:
                 continue
             score_txt = _score_txt(row.get(score_col))
+            score = _score_num(row.get(score_col))
+            below = bool(score is not None and score < goal)
+            pts = _pts_below(score, goal)
+            why = f"{pts} · bottom 25% of this filter" if pts else "above goal, but bottom 25% of this filter"
             sup = str(row.get("Supervisor_ID") or "")
             issue = (
-                f"{agent} is in company {desk} Q4 (bottom 25% of this filter). "
-                f"{desk} {score_txt}% · {sup or 'no supervisor'}."
+                f"{agent} — {desk} {score_txt}% ({why.split(' · ')[0]}) · "
+                f"{sup or 'no supervisor'}"
             )
             rows.append({
                 "Desk": desk,
@@ -208,6 +250,9 @@ def people_watchlist(
                 "Owner": agent,
                 "Volume": int(row.get(n_col) or 0),
                 "Score": row.get(score_col),
+                "Sample_N": int(row.get(n_col) or 0),
+                "Below_Goal": below,
+                "Kind": "agent",
                 "Follow-up": "Coaching session",
                 "Focus_Kind": "agent",
                 "Focus_Key": agent,
