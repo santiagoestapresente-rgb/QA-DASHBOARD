@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DiDi CX Quality · v2</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="mark">DiDi</div>
+      <p class="side-kicker">CX Quality v2</p>
+      <p class="side-note">Native UI. Same official formulas as Streamlit v1. Channel filter updates in place — no page reload.</p>
+      <p class="side-label">Channel</p>
+      <div class="chips" id="chips"></div>
+    </aside>
+    <main>
+      <header class="head">
+        <div>
+          <h1>CX Quality Dashboard</h1>
+          <p class="sub">Customer Experience Quality · Service Operations</p>
+        </div>
+        <p class="slice" id="slice-label">Market All · all weeks</p>
+      </header>
+      <section class="kpis" id="kpis"></section>
+      <section class="panel">
+        <h2>QA, CSAT and recontact by channel</h2>
+        <div id="chart"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

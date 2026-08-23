@@ -8,7 +8,6 @@ from __future__ import annotations
 from html import escape as html_escape
 from pathlib import Path
 from urllib.parse import quote
-import json
 import time
 
 import streamlit as st
@@ -422,11 +421,9 @@ _CSS = f"""
 
 html, body, [class*="css"], .stApp, .stMarkdown, .stCaption, button, input, textarea {{
     font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }}
 html {{
-    zoom: 1 !important;
+    zoom: 0.8;
 }}
 .stApp {{
     background: {DIDI_NAVY};
@@ -1059,19 +1056,6 @@ section.main [class*="st-key-didi_rcard"] [data-testid="stMetric"] > div {{
     font-size: 1.7rem !important; font-weight: 600 !important;
     color: {DIDI_TEXT} !important; letter-spacing: -0.03em; line-height: 1.15 !important;
     font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
-}}
-[class*="st-key-didi_tile"] [data-testid="stMetricValue"] {{
-    display: none !important;
-}}
-[class*="st-key-didi_tile"] iframe {{
-    background: transparent !important;
-    border: 0 !important;
-}}
-[class*="st-key-didi_anim_"] {{
-    margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: none !important;
 }}
 [data-testid="stMetricLabel"] {{
     color: {DIDI_MUTED} !important; text-transform: uppercase; letter-spacing: .08em;
@@ -2410,71 +2394,17 @@ div[data-testid="stDialog"] .didi-note--info {{
     color: {DIDI_DARK} !important;
 }}
 #didi-theme-sync {{ display: none !important; height: 0 !important; }}
-div[data-testid="stHtml"]:has(#didi-theme-sync),
-div[data-testid="stElementContainer"]:has(#didi-theme-sync) {{
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    width: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    border: none !important;
-    background: transparent !important;
-    position: absolute !important;
-    pointer-events: none !important;
-}}
-/* Keep the last complete paint visible while Streamlit reruns. */
-[data-stale],
-[data-stale="true"],
-[data-testid="stElementContainer"][data-stale] {{
-    opacity: 1 !important;
-    transition: none !important;
-    animation: none !important;
-}}
-[data-stale] [data-testid="stPlotlyChart"],
-[data-stale] [data-testid="stMetricDelta"],
-[data-stale] .didi-light-tag {{
-    animation: none !important;
-}}
-html {{
-    scroll-behavior: smooth;
-}}
-@keyframes didi-soft-in {{
-    from {{ opacity: 0; }}
-    to {{ opacity: 1; }}
-}}
-@media (prefers-reduced-motion: no-preference) {{
-    section.main [data-testid="stPlotlyChart"] {{
-        animation: didi-soft-in 0.5s cubic-bezier(.22,.8,.28,1) both;
-    }}
-    section.main [class*="st-key-didi_tile"] [data-testid="stPlotlyChart"] {{
-        animation: didi-soft-in 0.28s cubic-bezier(.22,.8,.28,1) both;
-    }}
-    section.main [class*="st-key-didi_tile"] [data-testid="stMetricDelta"],
-    section.main [class*="st-key-didi_tile"] .didi-light-tag {{
-        animation: didi-soft-in 0.4s cubic-bezier(.22,.8,.28,1) both;
-    }}
-    [class*="st-key-didi_anim_"] iframe {{
-        animation: didi-soft-in 0.22s ease-out both;
-    }}
-}}
-@media (prefers-reduced-motion: reduce) {{
-    html {{ scroll-behavior: auto; }}
-    section.main [data-testid="stPlotlyChart"],
-    section.main [class*="st-key-didi_tile"] [data-testid="stMetricDelta"],
-    section.main [class*="st-key-didi_tile"] .didi-light-tag,
-    [class*="st-key-didi_anim_"] iframe {{
-        animation: none !important;
-    }}
+div[data-testid="stHtml"]:has(#didi-theme-sync) {{
+    height: 0 !important; min-height: 0 !important; margin: 0 !important;
+    padding: 0 !important; overflow: hidden !important;
 }}
 """
 st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
 st.html(
-    "<div id='didi-theme-sync' style='display:none;height:0;width:0;overflow:hidden'></div>"
+    "<div id='didi-theme-sync'></div>"
     "<script>"
     "(function(){"
-    "try{document.documentElement.style.removeProperty('zoom');}catch(e){}"
+    "try{document.documentElement.style.zoom='0.8';}catch(e){}"
     "if(window.__didiDialogGrip)return;"
     "window.__didiDialogGrip=true;"
     "var MIN_W=560,MIN_H=420;"
@@ -2550,7 +2480,6 @@ st.html(
     "setTimeout(scan,50);setTimeout(scan,200);setTimeout(scan,500);"
     "})();"
     "</script>",
-    width="content",
     unsafe_allow_javascript=True,
 )
 
@@ -3171,72 +3100,6 @@ def _col_kicker(text: str) -> None:
     st.markdown(f'<div class="didi-col-kicker">{html_escape(text)}</div>', unsafe_allow_html=True)
 
 
-def _render_animated_kpi(display: str, kpi_id: str, *, size: str, color: str) -> None:
-    """Count-up inside an iframe so Streamlit's rerun cannot overwrite the digits."""
-    font_px = 21 if size == "secondary" else 27
-    height = 32 if size == "secondary" else 40
-    payload = json.dumps({"id": str(kpi_id), "to": display, "color": color, "font": font_px}, ensure_ascii=False)
-    html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-html,body{{margin:0;padding:0;background:transparent!important;overflow:hidden;}}
-#v{{font:600 {font_px}px Inter,"Segoe UI",system-ui,sans-serif;color:{html_escape(color)};
-letter-spacing:-0.03em;line-height:1.15;text-align:center;font-variant-numeric:tabular-nums;
-width:100%;will-change:contents;}}
-</style></head><body>
-<div id="v"></div>
-<script>
-(function(){{
-  var cfg = {payload};
-  var store;
-  try {{ store = window.parent.sessionStorage; }} catch (e) {{ store = sessionStorage; }}
-  function parse(t){{
-    t = String(t || "").replace(/\\u00a0/g, " ").replace(/\\s+/g, " ").trim();
-    if (!t || t === "\\u2014" || t === "-") return null;
-    var m = t.match(/^([^0-9\\-]*)(-?[0-9]{{1,3}}(?:,[0-9]{{3}})*(?:\\.[0-9]+)?|-?[0-9]+(?:\\.[0-9]+)?)(.*)$/);
-    if (!m) return null;
-    return {{p:m[1], n:parseFloat(m[2].replace(/,/g,"")), s:m[3], d:(m[2].split(".")[1]||"").length, c:m[2].indexOf(",")>=0}};
-  }}
-  function fmt(n,i,extra){{
-    var d = i.d === 0 ? 0 : (extra ? Math.max(i.d, 2) : i.d);
-    var v = d ? n.toFixed(d) : String(Math.round(n));
-    if (i.c){{ var x=v.split("."); x[0]=x[0].replace(/\\B(?=(\\d{{3}})+(?!\\d))/g,","); v=x.join("."); }}
-    return i.p + v + i.s;
-  }}
-  function ease(t){{
-    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
-  }}
-  var el = document.getElementById("v");
-  var nextStr = cfg.to;
-  var next = parse(nextStr);
-  var prevStr = null;
-  try {{ prevStr = store.getItem("didiKpi:"+cfg.id); }} catch (e) {{}}
-  try {{ store.setItem("didiKpi:"+cfg.id, nextStr); }} catch (e) {{}}
-  var prev = parse(prevStr);
-  if (!next || !prev || prev.p !== next.p || prev.s !== next.s || Math.abs(prev.n - next.n) < 0.0005) {{
-    el.textContent = nextStr;
-    return;
-  }}
-  el.textContent = prevStr;
-  var span = Math.abs(next.n - prev.n);
-  var DUR = Math.max(650, Math.min(1100, 550 + span * 8));
-  var t0 = performance.now();
-  function step(now){{
-    var p = Math.min(1, (now - t0) / DUR);
-    var e = ease(p);
-    el.textContent = p < 1 ? fmt(prev.n + (next.n - prev.n) * e, next, 1) : nextStr;
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = nextStr;
-  }}
-  requestAnimationFrame(function(){{ requestAnimationFrame(step); }});
-}})();
-</script>
-</body></html>"""
-    safe_key = "".join(ch if ch.isalnum() else "_" for ch in str(kpi_id))[:48]
-    with st.container(key=_next_didi_key(f"didi_anim_{safe_key}")):
-        st.iframe(html, height=height)
-
-
 def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spark=None, spark_key=None, caption=None, size="primary", traffic=None, traffic_label=True):
     prefix = "didi_tile" if size == "primary" else "didi_tile_sm"
     tone = traffic if traffic in {"green", "amber", "red"} else "neutral"
@@ -3249,14 +3112,6 @@ def render_kpi(label, value, delta=None, delta_color="off", help_text=None, spar
         st.markdown(
             f"<p class='didi-panel-title'>{html_escape(label)}{help_mark}</p>",
             unsafe_allow_html=True,
-        )
-        kpi_id = spark_key or f"{prefix}_{label}"
-        display = "" if value is None else str(value)
-        _render_animated_kpi(
-            display,
-            str(kpi_id),
-            size=size,
-            color=STATUS_COLORS.get(tone, DIDI_TEXT),
         )
         st.metric(
             label, value, delta=delta, delta_color=delta_color,

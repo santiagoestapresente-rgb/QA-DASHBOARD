@@ -21,10 +21,5 @@ gatherUsageStats = false
 showErrorDetails = "none"
 toolbarMode = "minimal"
 
-[runner]
-# Cancel an in-flight rerun as soon as the user changes a widget, so the
-# dashboard stays on the last complete paint instead of fading mid-compute.
-fastReruns = true
-
 [logger]
 level = "warning"
