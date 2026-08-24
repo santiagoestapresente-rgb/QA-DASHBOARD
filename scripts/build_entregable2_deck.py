@@ -60,6 +60,42 @@ def st_res(value):
     return "red"
 
 
+def st_n(n):
+    """Sample-size traffic light. Small n is the reason not to start on a red QA."""
+    if n < 10:
+        return "red"
+    if n < 20:
+        return "amber"
+    return "green"
+
+
+def st_share(pct):
+    """Share of the QA fail pile. 7.1% is the volume leader."""
+    if pct >= 7:
+        return "red"
+    if pct >= 4:
+        return "amber"
+    return "green"
+
+
+def st_csat_share(pct):
+    """Share of unsatisfied surveys. 10%+ is the volume start."""
+    if pct >= 10:
+        return "red"
+    if pct >= 5:
+        return "amber"
+    return "green"
+
+
+def st_below(n):
+    """Audits below the 85 QA goal. 14 is the Phone volume cluster."""
+    if n >= 10:
+        return "red"
+    if n >= 5:
+        return "amber"
+    return "amber"
+
+
 def pp(value, digits=2):
     return f"+{value:.{digits}f}" if value >= 0 else f"{value:.{digits}f}"
 
@@ -641,27 +677,38 @@ def s_qa_fail_volume(prs, D):
          size=10.5, bold=True, color=INK)
     cols_l = [("Contact reason", 3.35), ("QA", 0.70), ("n", 0.55), ("Start here?", 1.45)]
     rows_l = [
-        ["Completed not received (market place)", "47.5", "4", "No. Too few audits."],
-        ["Active order, already received", "65.8", "12", "Watch. Small n."],
-        ["Completed not received (full service)", "68.2", "49", "Yes. Rate and volume."],
-        ["Verbal aggression", "76.0", "5", "No. Too few audits."],
-        ["Refund status and conditions", "76.4", "25", "Yes, on Phone."],
+        ["Completed not received (market place)",
+         ("47.5", st(47.5, 85)), ("4", st_n(4)), ("Too few", "red")],
+        ["Active order, already received",
+         ("65.8", st(65.8, 85)), ("12", st_n(12)), ("Watch", "amber")],
+        ["Completed not received (full service)",
+         ("68.2", st(68.2, 85)), ("49", st_n(49)), ("Start", "green")],
+        ["Verbal aggression",
+         ("76.0", st(76.0, 85)), ("5", st_n(5)), ("Too few", "red")],
+        ["Refund status and conditions",
+         ("76.4", st(76.4, 85)), ("25", st_n(25)), ("Start · Phone", "green")],
     ]
     data_table(s, MARGIN, BODY_TOP + 0.32, cols_l, rows_l, header_h=0.36, row_h=0.46,
-               size=8, bold_first=True)
+               heat_cols=(1, 2), status_cols=(3,), align_right=(1, 2), size=8,
+               bold_first=True)
 
     text(s, 7.15, BODY_TOP, 5.70, 0.24, "Where the 518 attribute fails sit",
          size=10.5, bold=True, color=INK)
     cols_r = [("Contact reason", 3.20), ("Fails", 0.70), ("Share", 0.70), ("Below 85", 0.90)]
     rows_r = [
-        ["Completed not received (full service)", "37", "7.1%", "14"],
-        ["Cancel the order", "25", "4.8%", "5"],
-        ["After-sales fraud review", "23", "4.4%", "4"],
-        ["Cash order blocked (antifraud)", "21", "4.1%", "4"],
-        ["Incomplete order", "21", "4.1%", "7"],
+        ["Completed not received (full service)",
+         ("37", st_share(7.1)), ("7.1%", st_share(7.1)), ("14", st_below(14))],
+        ["Cancel the order",
+         ("25", st_share(4.8)), ("4.8%", st_share(4.8)), ("5", st_below(5))],
+        ["After-sales fraud review",
+         ("23", st_share(4.4)), ("4.4%", st_share(4.4)), ("4", st_below(4))],
+        ["Cash order blocked (antifraud)",
+         ("21", st_share(4.1)), ("4.1%", st_share(4.1)), ("4", st_below(4))],
+        ["Incomplete order",
+         ("21", st_share(4.1)), ("4.1%", st_share(4.1)), ("7", st_below(7))],
     ]
     data_table(s, 7.15, BODY_TOP + 0.32, cols_r, rows_r, header_h=0.36, row_h=0.46,
-               size=8, bold_first=True)
+               heat_cols=(1, 2, 3), align_right=(1, 2, 3), size=8, bold_first=True)
 
     y = BODY_TOP + 0.32 + 0.36 + 5 * 0.46 + 0.22
     callout(s, MARGIN, y, CONTENT_W, 1.55,
@@ -682,27 +729,37 @@ def s_csat_fail_volume(prs, D):
          size=10.5, bold=True, color=INK)
     cols_l = [("Contact reason", 3.20), ("CSAT", 0.72), ("Surveys", 0.85), ("Share of pile", 1.20)]
     rows_l = [
-        ["After-sales fraud review", "6.1%", "475", "2.9%"],
-        ["Other (unmapped Business Type)", "26.5%", "558", "2.6%"],
-        ["Membership program renewal", "28.6%", "248", "1.1%"],
-        ["Membership program benefits", "43.1%", "109", "0.4%"],
-        ["Placing an order information", "50.7%", "142", "0.5%"],
+        ["After-sales fraud review",
+         ("6.1%", st(6.1, 85)), "475", ("2.9%", st_csat_share(2.9))],
+        ["Other (unmapped Business Type)",
+         ("26.5%", st(26.5, 85)), "558", ("2.6%", st_csat_share(2.6))],
+        ["Membership program renewal",
+         ("28.6%", st(28.6, 85)), "248", ("1.1%", st_csat_share(1.1))],
+        ["Membership program benefits",
+         ("43.1%", st(43.1, 85)), "109", ("0.4%", st_csat_share(0.4))],
+        ["Placing an order information",
+         ("50.7%", st(50.7, 85)), "142", ("0.5%", st_csat_share(0.5))],
     ]
     data_table(s, MARGIN, BODY_TOP + 0.32, cols_l, rows_l, header_h=0.36, row_h=0.46,
-               size=8, bold_first=True)
+               heat_cols=(1, 3), align_right=(1, 2, 3), size=8, bold_first=True)
 
     text(s, 7.15, BODY_TOP, 5.70, 0.24, "Where the 15,488 unsatisfied sit",
          size=10.5, bold=True, color=INK)
     cols_r = [("Contact reason", 3.05), ("Unsat.", 0.78), ("Share", 0.70), ("CSAT", 0.72)]
     rows_r = [
-        ["Order status / delay information", "3,189", "20.6%", "67.8%"],
-        ["Disagrees with cancellation charge", "1,951", "12.6%", "67.4%"],
-        ["Order status & delays", "1,800", "11.6%", "64.7%"],
-        ["No longer wants the order", "1,229", "7.9%", "88.3%"],
-        ["Refund status and conditions", "1,181", "7.6%", "67.0%"],
+        ["Order status / delay information",
+         ("3,189", st_csat_share(20.6)), ("20.6%", st_csat_share(20.6)), ("67.8%", st(67.8, 85))],
+        ["Disagrees with cancellation charge",
+         ("1,951", st_csat_share(12.6)), ("12.6%", st_csat_share(12.6)), ("67.4%", st(67.4, 85))],
+        ["Order status & delays",
+         ("1,800", st_csat_share(11.6)), ("11.6%", st_csat_share(11.6)), ("64.7%", st(64.7, 85))],
+        ["No longer wants the order",
+         ("1,229", st_csat_share(7.9)), ("7.9%", st_csat_share(7.9)), ("88.3%", st(88.3, 85))],
+        ["Refund status and conditions",
+         ("1,181", st_csat_share(7.6)), ("7.6%", st_csat_share(7.6)), ("67.0%", st(67.0, 85))],
     ]
     data_table(s, 7.15, BODY_TOP + 0.32, cols_r, rows_r, header_h=0.36, row_h=0.46,
-               size=8, bold_first=True)
+               heat_cols=(1, 2, 3), align_right=(1, 2, 3), size=8, bold_first=True)
 
     y = BODY_TOP + 0.32 + 0.36 + 5 * 0.46 + 0.22
     callout(s, MARGIN, y, CONTENT_W, 1.55,
