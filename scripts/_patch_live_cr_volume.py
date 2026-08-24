@@ -1,4 +1,4 @@
-"""Add QA/CSAT fail-volume slides to the recovered deck. Do not rebuild."""
+"""Insert QA/CSAT volume slides into the recovered PPTX. Do not rebuild."""
 from __future__ import annotations
 
 import inspect
@@ -18,7 +18,6 @@ import didi_deck as dd  # noqa: E402
 LIVE = os.path.join(ROOT, "entregable 2", "deck", "Entregable_2_Weekly_Performance_Report.pptx")
 COPIES = [
     os.path.join(ROOT, "entregable 2", "Entregable_2_Weekly_Performance_Report.pptx"),
-    os.path.join(ROOT, "entregable 2", "Entregable_2_LISTO.pptx"),
 ]
 FOOTER = "DiDi Global, CX Service Operations   |   Confidential. Internal use only"
 QA_TITLE = "QA analysis: lowest score vs fail volume"
@@ -80,15 +79,18 @@ def set_text(shape, new):
                 run.text = ""
 
 
-def replace_in_slide(slide, old, new):
+def replace_contains(slide, needle, new_full_or_fragment, replace_fragment=True):
     n = 0
     for shape in slide.shapes:
         if not shape.has_text_frame:
             continue
         raw = shape.text_frame.text
-        if old not in raw:
+        if needle not in raw:
             continue
-        set_text(shape, raw.replace(old, new).strip())
+        if replace_fragment:
+            set_text(shape, raw.replace(needle, new_full_or_fragment).strip())
+        else:
+            set_text(shape, new_full_or_fragment)
         n += 1
     return n
 
@@ -108,7 +110,7 @@ def add_qa_volume(prs):
         "14",
     )
     footnote(s, FOOTER)
-    text(s, MARGIN, BODY_TOP, 6.05, 0.24, "Lowest QA (rate, n ≥ 3)",
+    text(s, MARGIN, BODY_TOP, 6.05, 0.24, "Lowest QA (rate, n >= 3)",
          size=10.5, bold=True, color=INK)
     data_table(
         s, MARGIN, BODY_TOP + 0.32,
@@ -130,7 +132,7 @@ def add_qa_volume(prs):
         [
             ["Completed not received (full service)", "37", "7.1%", "14"],
             ["Cancel the order", "25", "4.8%", "5"],
-            ["After-sales fraud review", "23", "4.4%", "—"],
+            ["After-sales fraud review", "23", "4.4%", "4"],
             ["Cash order blocked (antifraud)", "21", "4.1%", "4"],
             ["Incomplete order", "21", "4.1%", "7"],
         ],
@@ -202,18 +204,34 @@ def main():
     shutil.copy2(LIVE, bak)
 
     prs = Presentation(LIVE)
-
-    n13 = replace_in_slide(
+    n13 = replace_contains(
         prs.slides[12],
-        'Volume-Driven Masking: "Undelivered full-service" appears compliant at 86.5 (N=138), hiding a failing 68.2 Phone baseline (N=49).',
-        'Volume-Driven Masking: "Undelivered full-service" appears compliant at 86.5 (N=138), hiding a failing 68.2 Phone baseline (N=49). '
-        "That CR is also the fail-volume leader (37 attribute fails). Lowest blended score is marketplace on 4 audits. Next slide splits rate vs volume.",
+        'hiding a failing 68.2 Phone baseline (N=49).',
+        "hiding a failing 68.2 Phone baseline (N=49). "
+        "That CR is also the fail-volume leader (37 attribute fails). "
+        "Lowest blended score is marketplace on 4 audits. Next slide splits rate vs volume.",
     )
-    n15 = replace_in_slide(
+    n15 = replace_contains(
         prs.slides[14],
         "Order Status & Delays: Chat drops to 60.3% CSAT vs. Phone's 79.8% (a 19.5 pp gap).",
         "Order Status & Delays: Chat drops to 60.3% CSAT vs. Phone's 79.8% (a 19.5 pp gap). "
-        "Those CRs are also the detractor pile: order-status family plus cancellation charge is 44.8% of unsatisfied surveys. Next CSAT slide splits rate vs volume.",
+        "Those CRs are also the detractor pile: order-status family plus cancellation charge is 44.8% of unsatisfied surveys. The volume split is two slides later (rate vs the 15,488-unsatisfied pile).",
+    )
+    n31 = 0
+    n31 += replace_contains(
+        prs.slides[30],
+        "CSAT 80.74% on 46,071 surveys; order status repeats at 19.34%. Chat closes 6 of 10 assessed: this is that gap, not a staffing gap.",
+        "CSAT 80.74% on 46,071 surveys; order-status family is 32.2% of unsatisfied surveys and repeats at 19.34%. Chat closes 6 of 10: ETA, not headcount.",
+    )
+    n31 += replace_contains(
+        prs.slides[30],
+        "CSAT 79.67%, the lowest of the volume lines; undelivered orders audit at 68.2 on 49 audits",
+        "CSAT 79.67%, lowest volume line. Undelivered full-service is QA 68.2 (n=49) and the QA fail-volume leader (37 of 518 fails).",
+    )
+    n31 += replace_contains(
+        prs.slides[30],
+        "Refund or compensation not received is 18.8% of negative verbatims",
+        "Refund or compensation not received is 18.8% of negative verbatims. Refund status is 7.6% of unsatisfied surveys (1,181).",
     )
 
     inserted = []
@@ -222,12 +240,13 @@ def main():
         move_slide(prs, len(list(prs.slides)) - 1, 13)
         inserted.append("qa")
     if not has_title(prs, CSAT_TITLE):
-        # After insert, original CSAT pair is now 16 and 17 (1-based) if QA slide went after 13.
         add_csat_volume(prs)
-        # Place after the second CSAT analysis slide (title CSAT analysis, second occurrence).
-        csat_idx = [i for i, s in enumerate(prs.slides)
-                    if any(sh.has_text_frame and sh.text_frame.text.strip() == "CSAT analysis"
-                           for sh in s.shapes)]
+        csat_idx = []
+        for i, s in enumerate(prs.slides):
+            for sh in s.shapes:
+                if sh.has_text_frame and sh.text_frame.text.strip() == "CSAT analysis":
+                    csat_idx.append(i)
+                    break
         target = (csat_idx[-1] + 1) if csat_idx else 17
         move_slide(prs, len(list(prs.slides)) - 1, target)
         inserted.append("csat")
@@ -237,13 +256,13 @@ def main():
         prs.save(LIVE)
         saved = LIVE
     except PermissionError:
-        saved = os.path.join(ROOT, "entregable 2", "Entregable_2_LISTO.pptx")
+        saved = os.path.join(ROOT, "entregable 2", "Entregable_2_Weekly_Performance_Report.pptx")
         prs.save(saved)
         print("LIVE open; wrote", saved)
 
     print("backup", bak)
     print("saved", saved, "slides", len(list(Presentation(saved).slides)),
-          "inserted", inserted, "n13", n13, "n15", n15)
+          "inserted", inserted, "n13", n13, "n15", n15, "n31", n31)
     for dest in COPIES:
         if os.path.abspath(dest) == os.path.abspath(saved):
             continue

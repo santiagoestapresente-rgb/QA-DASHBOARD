@@ -656,7 +656,7 @@ def s_qa_fail_volume(prs, D):
     rows_r = [
         ["Completed not received (full service)", "37", "7.1%", "14"],
         ["Cancel the order", "25", "4.8%", "5"],
-        ["After-sales fraud review", "23", "4.4%", "—"],
+        ["After-sales fraud review", "23", "4.4%", "4"],
         ["Cash order blocked (antifraud)", "21", "4.1%", "4"],
         ["Incomplete order", "21", "4.1%", "7"],
     ]
@@ -1342,8 +1342,9 @@ def actions_bt(D):
     return [
         {"scope": "Food",
          "evidence": f"CSAT {bt.loc['Food', 'CSAT_Score']:.2f}% on "
-                     f"{int(bt.loc['Food', 'Feedback']):,} surveys; order status repeats "
-                     f"at {os_rc:.2f}%",
+                     f"{int(bt.loc['Food', 'Feedback']):,} surveys; order-status family is "
+                     f"32.2% of unsatisfied surveys and repeats at {os_rc:.2f}%. "
+                     f"Chat closes 6 of 10: ETA, not headcount.",
          "action": "Add a live courier ETA to the agent console so customers receive a verifiable status.",
          "short": "Live courier ETA in the agent console",
          "why": (f"Order status & delays: QA {D['os_qa']:.1f}, CSAT {D['os_csat']:.1f}%, "
@@ -1353,8 +1354,9 @@ def actions_bt(D):
          "who": "CX Ops + Product", "when": "30 Jun", "severity": "Critical",
          "kpis": ("CSAT", "Recontact")},
         {"scope": "Full Service",
-         "evidence": f"CSAT {bt.loc['Full Service', 'CSAT_Score']:.2f}%, the lowest of the "
-                     f"volume lines; undelivered orders audit at {fs_qa:.1f} on {fs_n} audits",
+         "evidence": f"CSAT {bt.loc['Full Service', 'CSAT_Score']:.2f}%, lowest volume line. "
+                     f"Undelivered full-service is QA {fs_qa:.1f} (n={fs_n}) and the QA "
+                     f"fail-volume leader (37 of 518 fails).",
          "action": "Give Phone agents limited same-call refund authority for eligible undelivered orders",
          "short": "Same-call refund authority for undelivered orders",
          "why": (f"Phone undelivered full-service QA is {fs_qa:.1f} (n={fs_n}). "
@@ -1376,7 +1378,8 @@ def actions_bt(D):
          "kpis": ("QA", "CSAT")},
         {"scope": "All Business Types",
          "evidence": f"Refund or compensation not received is {D['voc_top_pct']:.1f}% of "
-                     f"negative verbatims",
+                     f"negative verbatims. Refund status is 7.6% of unsatisfied surveys "
+                     f"(1,181).",
          "action": "Send an automatic notification whenever refund status changes",
          "short": "Automatic refund-status notifications",
          "why": f"{D['voc_resolution']:.1f}% of negative comments are unresolved refunds or unsolved issues, not agent attitude ({D['voc_attitude']:.1f}%).",
