@@ -1144,29 +1144,34 @@ def s_resolution_csat(prs, D):
 
     def heat_parents(nodes):
         rows = []
+        rc_map = D.get("rc_rate_by_cr") or {}
         for p in nodes[:4]:
+            rate = rc_map.get(str(p["name"]).strip().casefold())
+            rc_cell = ((f"{rate:.1f}%", st(rate, 5.44, lower_better=True))
+                       if rate is not None else ("—", None))
             rows.append([
-                _short(p["name"], 28),
+                _short(p["name"], 24),
                 (f"{p['pct_res']:.0f}%", st_res(p["pct_res"])),
                 (f"{p['csat']:.1f}%", st(p["csat"], 85)),
+                rc_cell,
                 f"{p['n']:,}",
                 f"{p['fb']:,}",
             ])
         return rows
 
     y = BODY_TOP + 3.88
-    cols = [("Contact reason (Lv4)", 2.70), ("Resolved", 0.75), ("CSAT", 0.70),
-            ("Audits", 0.68), ("Surveys", 0.72)]
+    cols = [("Contact reason (Lv4)", 2.20), ("Resolved", 0.68), ("CSAT", 0.62),
+            ("Recontact", 0.82), ("Audits", 0.60), ("Surveys", 0.63)]
     text(s, MARGIN, y, 5.55, 0.18, "Reasons with higher closure rates", size=10, bold=True, color=INK)
     data_table(s, MARGIN, y + 0.20, cols, heat_parents(R["cr_a"]),
-               header_h=0.26, row_h=0.26, heat_cols=(1, 2), align_right=(1, 2, 3, 4),
-               size=7.6, bold_first=True)
+               header_h=0.26, row_h=0.26, heat_cols=(1, 2, 3), align_right=(1, 2, 3, 4, 5),
+               size=7.4, bold_first=True)
 
     x2 = 7.15
     text(s, x2, y, 5.70, 0.18, "Reasons with lower closure rates", size=10, bold=True, color=INK)
     data_table(s, x2, y + 0.20, cols, heat_parents(R["cr_b"]),
-               header_h=0.26, row_h=0.26, heat_cols=(1, 2), align_right=(1, 2, 3, 4),
-               size=7.6, bold_first=True)
+               header_h=0.26, row_h=0.26, heat_cols=(1, 2, 3), align_right=(1, 2, 3, 4, 5),
+               size=7.4, bold_first=True)
 
     y2 = 6.68
     bits = []
@@ -1696,6 +1701,7 @@ def gather():
     voc = K.voc_themes_negative(c, top_n=7)
     scope = K.recontact_by_scope(r).set_index("Scope_Key")
     rc_cr = K.recontact_by_cr(r, top_n=15, csat=c)
+    rc_all = K.recontact_by_cr(r, top_n=None)
     csat_spc = K.csat_control_daily(c)
     qa_spc = K.qa_control_daily(a)
 
@@ -1816,6 +1822,10 @@ def gather():
         "voc_attitude": float(voc[voc["Theme"].str.contains("attitude")]["Pct"].iloc[0]),
         "rc_channels": K.recontact_channel_table(r),
         "rc_cr": rc_cr,
+        "rc_rate_by_cr": {
+            str(k).strip().casefold(): float(v)
+            for k, v in zip(rc_all["CR_Lv4"], rc_all["Recontact_Rate"])
+        },
         "rc_top_rate": rc_cr[rc_cr["Contacts"] >= 3000].nlargest(5, "Recontact_Rate"),
         "rc_top3_share": float(rc_cr.head(3)["Pct"].sum()),
         "rc_ex_sh": float(scope.loc["ex_self_help", "Rate"]),
