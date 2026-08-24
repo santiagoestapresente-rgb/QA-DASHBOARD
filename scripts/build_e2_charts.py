@@ -469,6 +469,59 @@ def chart_bar_status(df, cat_col, val_col, goal, name, title, xlabel,
     return _save(fig, name)
 
 
+def chart_volume_bars(name, title, xlabel, items, figsize=(7.3, 3.35)):
+    """Horizontal volume bars. items: (label, value, color, annotation)."""
+    fig, ax = plt.subplots(figsize=figsize)
+    labels = [it[0] for it in items]
+    values = [it[1] for it in items]
+    colors = [it[2] for it in items]
+    notes = [it[3] for it in items]
+    y = np.arange(len(items))[::-1]
+    ax.barh(y, values, color=colors, height=0.62, zorder=3)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=8.0)
+    xmax = max(values) * 1.38
+    for yi, v, note in zip(y, values, notes):
+        ax.text(v + xmax * 0.018, yi, f"{v:,.0f}   {note}", va="center",
+                fontsize=8.0, color=INK, fontweight="bold")
+    ax.set_xlim(0, xmax)
+    ax.set_xlabel(xlabel, fontsize=8.5)
+    ax.grid(axis="y", visible=False)
+    _clean(ax)
+    ax.set_title(title, fontsize=10.5, fontweight="bold", color=INK, loc="left", pad=10)
+    return _save(fig, name)
+
+
+def chart_qa_fail_volume(name="bar_qa_fail_volume.png"):
+    return chart_volume_bars(
+        name,
+        "Where the 518 attribute fails sit",
+        "Attribute fails",
+        [
+            ("Completed not received\n(full service)", 37, ORANGE, "7.1%  ·  14 below 85"),
+            ("Cancel the order", 25, "#F7A76C", "4.8%"),
+            ("After-sales fraud review", 23, "#F7A76C", "4.4%"),
+            ("Cash order blocked (antifraud)", 21, "#C9CCD1", "4.1%"),
+            ("Incomplete order", 21, "#C9CCD1", "4.1%"),
+        ],
+    )
+
+
+def chart_csat_fail_volume(name="bar_csat_fail_volume.png"):
+    return chart_volume_bars(
+        name,
+        "Where the 15,488 unsatisfied sit",
+        "Unsatisfied surveys",
+        [
+            ("Order status / delay info", 3189, RED, "20.6%  ·  CSAT 67.8%"),
+            ("Cancellation charge", 1951, RED, "12.6%  ·  CSAT 67.4%"),
+            ("Order status & delays", 1800, RED, "11.6%  ·  CSAT 64.7%"),
+            ("No longer wants the order", 1229, GREEN, "7.9%  ·  CSAT 88.3%"),
+            ("Refund status and conditions", 1181, AMBER, "7.6%  ·  CSAT 67.0%"),
+        ],
+    )
+
+
 def chart_stars(csat, name):
     s = K.csat_by_star_rating(csat)
     order = ["5 Stars", "4 Stars", "3 Stars", "2 Stars", "1 Star"]
@@ -905,6 +958,8 @@ def main():
                      "bar_qa_by_cr.png",
                      "Lowest QA scores by contact reason (blended Phone + Chat)",
                      "QA score", n_col="N", width=6.8, height=3.8)
+    chart_qa_fail_volume()
+    chart_csat_fail_volume()
 
     # People cuts
     qa_bands = K.quartile_band_summary(K.qa_agent_quartiles(a, min_n=5))

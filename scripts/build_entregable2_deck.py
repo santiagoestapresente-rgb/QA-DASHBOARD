@@ -673,10 +673,12 @@ def s_qa_fail_volume(prs, D):
     s = slide(prs, "QA analysis: lowest score vs fail volume",
               "A red score on 4 audits is not the same as 37 fails on one contact reason.",
               "03")
-    text(s, MARGIN, BODY_TOP, 6.05, 0.24, "Lowest QA (rate, n ≥ 3)",
+    picture(s, chart("bar_qa_fail_volume.png"), MARGIN, BODY_TOP, 7.10, 3.18)
+    x = 7.75
+    text(s, x, BODY_TOP, 5.10, 0.24, "Lowest QA (rate, n ≥ 3)",
          size=10.5, bold=True, color=INK)
-    cols_l = [("Contact reason", 3.35), ("QA", 0.70), ("n", 0.55), ("Start here?", 1.45)]
-    rows_l = [
+    cols = [("Contact reason", 2.40), ("QA", 0.55), ("n", 0.42), ("Start here?", 1.70)]
+    rows = [
         ["Completed not received (market place)",
          ("47.5", st(47.5, 85)), ("4", st_n(4)), ("Too few", "red")],
         ["Active order, already received",
@@ -686,31 +688,12 @@ def s_qa_fail_volume(prs, D):
         ["Verbal aggression",
          ("76.0", st(76.0, 85)), ("5", st_n(5)), ("Too few", "red")],
         ["Refund status and conditions",
-         ("76.4", st(76.4, 85)), ("25", st_n(25)), ("Start · Phone", "green")],
+         ("76.4", st(76.4, 85)), ("25", st_n(25)), ("Start", "green")],
     ]
-    data_table(s, MARGIN, BODY_TOP + 0.32, cols_l, rows_l, header_h=0.36, row_h=0.46,
-               heat_cols=(1, 2), status_cols=(3,), align_right=(1, 2), size=8,
+    data_table(s, x, BODY_TOP + 0.32, cols, rows, header_h=0.36, row_h=0.50,
+               heat_cols=(1, 2), status_cols=(3,), align_right=(1, 2), size=7.8,
                bold_first=True)
-
-    text(s, 7.15, BODY_TOP, 5.70, 0.24, "Where the 518 attribute fails sit",
-         size=10.5, bold=True, color=INK)
-    cols_r = [("Contact reason", 3.20), ("Fails", 0.70), ("Share", 0.70), ("Below 85", 0.90)]
-    rows_r = [
-        ["Completed not received (full service)",
-         ("37", st_share(7.1)), ("7.1%", st_share(7.1)), ("14", st_below(14))],
-        ["Cancel the order",
-         ("25", st_share(4.8)), ("4.8%", st_share(4.8)), ("5", st_below(5))],
-        ["After-sales fraud review",
-         ("23", st_share(4.4)), ("4.4%", st_share(4.4)), ("4", st_below(4))],
-        ["Cash order blocked (antifraud)",
-         ("21", st_share(4.1)), ("4.1%", st_share(4.1)), ("4", st_below(4))],
-        ["Incomplete order",
-         ("21", st_share(4.1)), ("4.1%", st_share(4.1)), ("7", st_below(7))],
-    ]
-    data_table(s, 7.15, BODY_TOP + 0.32, cols_r, rows_r, header_h=0.36, row_h=0.46,
-               heat_cols=(1, 2, 3), align_right=(1, 2, 3), size=8, bold_first=True)
-
-    y = BODY_TOP + 0.32 + 0.36 + 5 * 0.46 + 0.22
+    y = BODY_TOP + 3.22
     callout(s, MARGIN, y, CONTENT_W, 1.55,
             "Phone QA volume focus is one contact reason. Chat QA fails are spread.",
             "Completed-not-received full service is 26% of Phone audits below 85 (14 of 53) and "
@@ -725,10 +708,12 @@ def s_csat_fail_volume(prs, D):
     s = slide(prs, "CSAT analysis: lowest score vs detractor volume",
               "15,488 unsatisfied surveys. Priority is share of that pile, not the ugliest percentage.",
               "04")
-    text(s, MARGIN, BODY_TOP, 6.05, 0.24, "Worst CSAT (rate, min 100 surveys)",
+    picture(s, chart("bar_csat_fail_volume.png"), MARGIN, BODY_TOP, 7.10, 3.18)
+    x = 7.75
+    text(s, x, BODY_TOP, 5.10, 0.24, "Worst CSAT (rate, min 100 surveys)",
          size=10.5, bold=True, color=INK)
-    cols_l = [("Contact reason", 3.20), ("CSAT", 0.72), ("Surveys", 0.85), ("Share of pile", 1.20)]
-    rows_l = [
+    cols = [("Contact reason", 2.35), ("CSAT", 0.70), ("Surveys", 0.78), ("Share", 1.24)]
+    rows = [
         ["After-sales fraud review",
          ("6.1%", st(6.1, 85)), "475", ("2.9%", st_csat_share(2.9))],
         ["Other (unmapped Business Type)",
@@ -740,28 +725,9 @@ def s_csat_fail_volume(prs, D):
         ["Placing an order information",
          ("50.7%", st(50.7, 85)), "142", ("0.5%", st_csat_share(0.5))],
     ]
-    data_table(s, MARGIN, BODY_TOP + 0.32, cols_l, rows_l, header_h=0.36, row_h=0.46,
-               heat_cols=(1, 3), align_right=(1, 2, 3), size=8, bold_first=True)
-
-    text(s, 7.15, BODY_TOP, 5.70, 0.24, "Where the 15,488 unsatisfied sit",
-         size=10.5, bold=True, color=INK)
-    cols_r = [("Contact reason", 3.05), ("Unsat.", 0.78), ("Share", 0.70), ("CSAT", 0.72)]
-    rows_r = [
-        ["Order status / delay information",
-         ("3,189", st_csat_share(20.6)), ("20.6%", st_csat_share(20.6)), ("67.8%", st(67.8, 85))],
-        ["Disagrees with cancellation charge",
-         ("1,951", st_csat_share(12.6)), ("12.6%", st_csat_share(12.6)), ("67.4%", st(67.4, 85))],
-        ["Order status & delays",
-         ("1,800", st_csat_share(11.6)), ("11.6%", st_csat_share(11.6)), ("64.7%", st(64.7, 85))],
-        ["No longer wants the order",
-         ("1,229", st_csat_share(7.9)), ("7.9%", st_csat_share(7.9)), ("88.3%", st(88.3, 85))],
-        ["Refund status and conditions",
-         ("1,181", st_csat_share(7.6)), ("7.6%", st_csat_share(7.6)), ("67.0%", st(67.0, 85))],
-    ]
-    data_table(s, 7.15, BODY_TOP + 0.32, cols_r, rows_r, header_h=0.36, row_h=0.46,
-               heat_cols=(1, 2, 3), align_right=(1, 2, 3), size=8, bold_first=True)
-
-    y = BODY_TOP + 0.32 + 0.36 + 5 * 0.46 + 0.22
+    data_table(s, x, BODY_TOP + 0.32, cols, rows, header_h=0.36, row_h=0.50,
+               heat_cols=(1, 3), align_right=(1, 2, 3), size=7.8, bold_first=True)
+    y = BODY_TOP + 3.22
     callout(s, MARGIN, y, CONTENT_W, 1.55,
             "CSAT focus is order status, cancellation charge and refunds. Not fraud.",
             "The two order-status reasons plus cancellation charge are 44.8% of every unsatisfied survey. "
