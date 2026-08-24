@@ -1,31 +1,46 @@
 # DiDi CX Dashboard v2.0
 
-Separate from the Streamlit v1 app (`app.py`). Official QA / CSAT / recontact
-formulas stay in `modules/kpis.py` — this folder only serves them over HTTP
-and renders a native browser UI so filters can animate without a full rerun.
+Completely separate from Streamlit v1 (`app.py`). Do not run this folder
+through Streamlit Cloud. Official QA / CSAT / recontact formulas stay in
+`modules/kpis.py` — this app only **reads** them over HTTP and paints a native
+browser UI so filters animate without a full page rewrite.
+
+v1 on Streamlit Cloud is unchanged. Building v2 does not edit `app.py`,
+`.streamlit/config.toml`, or root `requirements.txt`.
 
 ## Run locally
 
-From the **repo root**:
+From the **repo root**. First time only, install v2 packages (once):
 
 ```bat
 C:\Users\PC\AppData\Local\Programs\Python\Python311\python.exe -m pip install -r dashboard_v2\backend\requirements.txt
+```
+
+Then start the app:
+
+```bat
+dashboard_v2\run.bat
+```
+
+Open http://127.0.0.1:8000
+
+Or:
+
+```bat
 C:\Users\PC\AppData\Local\Programs\Python\Python311\python.exe -m uvicorn dashboard_v2.backend.main:app --reload --port 8000
 ```
 
 Open http://127.0.0.1:8000
 
-## What is in this first slice
+## What is in this build
 
-- Overview KPIs (QA, CSAT, recontact, volumes) from the same packaged snapshot
-- Channel filter: All / Phone / Live Chat — numbers count up in the browser
-- Channel comparison chart via Plotly.js (`Plotly.react`, no page reload)
-- Control totals on Market=All must stay QA **94.14** · CSAT **79.95** · RC **5.83**
+- Pages: Overview, QA Score, CSAT, Recontact, Alerts
+- Live filters: Channel, Market, Week — numbers count up, charts `Plotly.react`
+- Same packaged snapshot and the same `apply_filters` cuts as v1
+- Control totals on Market=All / all weeks: QA **94.14** · CSAT **79.95** · RC **5.83**
 
-## What is not migrated yet
+## What is still thinner than v1
 
-QA detail, CSAT VOC, Recontact Paretos, Performance Hub, dialogs, and the rest
-of the Streamlit pages. Add them as more `/api/...` endpoints plus frontend
-views, still calling `modules/kpis.py`.
-
-The live Streamlit Cloud app remains v1 until you choose to replace it.
+Advanced Streamlit-only filters (agent click-to-filter, label editor, ticket
+tracker, some Performance Hub dialogs) are not cloned yet. Add them as more
+query params on `/api/dashboard` without touching v1.

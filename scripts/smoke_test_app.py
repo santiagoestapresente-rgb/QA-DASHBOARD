@@ -399,6 +399,7 @@ def _assert_population_n() -> str | None:
     from modules.data_loader import load_all_data
     from modules.kpis import (
         channel_match,
+        cr_finest_volume,
         csat_agent_roster,
         csat_agent_unsat_concentrators,
         csat_unsat_totals,
@@ -407,6 +408,7 @@ def _assert_population_n() -> str | None:
         filter_csat_by_agent,
         filter_csat_by_supervisor,
         kpi_summary,
+        overall_csat,
         qa_agent_fail_concentrators,
         qa_agent_roster,
         recontact_rate,
@@ -504,6 +506,36 @@ def _assert_population_n() -> str | None:
     if not u_ag.empty and int(u_ag["Unsatisfied"].sum()) != u_all:
         return f"CSAT agent concentrator {int(u_ag['Unsatisfied'].sum())} != {u_all}"
     filter_csat_by_agent(cc, "Agent 26")
+
+    country_col = "Country Code" if "Country Code" in csat.columns else "Country"
+    co = csat[csat[country_col].astype(str).str.strip() == "CO"].copy()
+    n_co = int(pd.to_numeric(co["Feedback CNT"], errors="coerce").fillna(0).sum())
+    if n_co != 24122:
+        return f"Colombia official CSAT N drifted: {n_co} (expected 24,122)"
+    if round(float(overall_csat(co)), 2) != 79.89:
+        return f"Colombia official CSAT % drifted: {overall_csat(co)}"
+    top12 = cr_finest_volume(co, top_n=12)
+    if int(top12["Feedback"].sum()) != 15353:
+        return f"Colombia SUB_CR top-12 volume drifted: {int(top12['Feedback'].sum())}"
+    finest = cr_finest_volume(co, top_n=None)
+    if int(finest["Feedback"].sum()) != n_co:
+        return (
+            f"SUB_CR finest-grain volume {int(finest['Feedback'].sum())} "
+            f"!= Colombia CSAT {n_co}"
+        )
+    fig_cr = pareto_dual_axis(
+        finest, "Cat", "Feedback",
+        title="Top contact reasons (SUB_CR)",
+        value_title="Surveys",
+        sample_unit="surveys",
+        universe_n=n_co,
+        n_note=f"{int(finest['Feedback'].head(10).sum()):,} in the 10 largest reasons",
+    )
+    blob_cr = _annotation_text(fig_cr)
+    if "N = 15,353" in blob_cr:
+        return f"SUB_CR Pareto still labels top-12 volume as N: {blob_cr!r}"
+    if "N = 24,122 surveys" not in blob_cr:
+        return f"SUB_CR Pareto should use official Colombia CSAT N: {blob_cr!r}"
     return None
 
 

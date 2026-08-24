@@ -3,34 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DiDi CX Quality · v2</title>
-  <link rel="stylesheet" href="/assets/app.css" />
+  <title>CX Quality Dashboard · DiDi</title>
+  <link rel="icon" href="/assets/brand/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/app.css?v=ov10" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <aside class="side">
-      <div class="mark">DiDi</div>
-      <p class="side-kicker">CX Quality v2</p>
-      <p class="side-note">Native UI. Same official formulas as Streamlit v1. Channel filter updates in place — no page reload.</p>
-      <p class="side-label">Channel</p>
-      <div class="chips" id="chips"></div>
+  <div class="loadbar" id="loadbar" aria-hidden="true"></div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="side-logo" src="/assets/brand/didi_mark.png" alt="DiDi" />
+        <p class="brand-name">CX Quality</p>
+      </div>
+      <p class="nav-group">Analysis</p>
+      <nav class="nav" id="nav-analysis"></nav>
+      <p class="nav-group">Support</p>
+      <nav class="nav" id="nav-support"></nav>
+      <div class="side-foot">
+        <p>© DiDi Global</p>
+        <p>Confidential · internal use only</p>
+      </div>
     </aside>
-    <main>
-      <header class="head">
-        <div>
-          <h1>CX Quality Dashboard</h1>
-          <p class="sub">Customer Experience Quality · Service Operations</p>
+    <div class="main">
+      <header class="top">
+        <div class="top-left">
+          <div class="mast">
+            <img class="head-logo" src="/assets/brand/didi_logo.png" alt="DiDi" />
+            <div>
+              <p class="mast-kicker">DiDi Global · SSL Delivery</p>
+              <h1 id="page-title">CX Quality Dashboard</h1>
+              <p class="subtitle" id="page-sub">Customer Experience Quality · Service Operations</p>
+            </div>
+          </div>
+          <p class="targets" id="tgt-line">QA ≥ 85 · CSAT ≥ 85% · Recontact ≤ 5.44%</p>
         </div>
-        <p class="slice" id="slice-label">Market All · all weeks</p>
+        <div class="top-right">
+          <div class="asof">
+            <span id="as-of">Data as of …</span>
+            <button type="button" class="icon-btn" id="refresh" title="Refresh">↻</button>
+          </div>
+          <label class="flt-pill">
+            <span>📅</span>
+            <select id="weeks"></select>
+          </label>
+          <label class="flt-pill">
+            <span>🌐</span>
+            <select id="country"></select>
+          </label>
+          <label class="flt-pill">
+            <span>🏢</span>
+            <select id="biz"></select>
+          </label>
+        </div>
       </header>
-      <section class="kpis" id="kpis"></section>
-      <section class="panel">
-        <h2>QA, CSAT and recontact by channel</h2>
-        <div id="chart"></div>
-      </section>
-    </main>
+      <div class="filter-row">
+        <label>Channel
+          <select id="channel"></select>
+        </label>
+        <label>Day
+          <select id="day"></select>
+        </label>
+        <label>LOB
+          <select id="lob"></select>
+        </label>
+        <label>Tenure
+          <select id="tenure"></select>
+        </label>
+        <button type="button" class="ghost" id="reset">Reset</button>
+        <p class="slice" id="slice-label"></p>
+      </div>
+      <section class="view" id="view"></section>
+    </div>
   </div>
-  <script src="/assets/app.js"></script>
+  <script src="/assets/app.js?v=ov10"></script>
 </body>
 </html>

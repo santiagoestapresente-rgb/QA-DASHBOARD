@@ -2791,7 +2791,12 @@ def cr_taxonomy_coverage(csat: pd.DataFrame) -> pd.DataFrame:
 
 
 def cr_finest_volume(csat: pd.DataFrame, top_n: int | None = 12) -> pd.DataFrame:
-    """Survey volume by the finest usable contact reason. Falls back when a child is Other."""
+    """Survey volume by the finest usable contact reason. Falls back when a child is Other.
+
+    Every CSAT row keeps a label (parent fallback, then 'Other at Lv1-Lv4 (no parent)').
+    Do not pass a truncated frame into a Pareto if N should match official Feedback CNT —
+    pass ``top_n=None`` and let the chart name the largest bars.
+    """
     if csat is None or csat.empty or "Feedback CNT" not in csat.columns:
         return pd.DataFrame()
     work = csat.copy()

@@ -1,0 +1,365 @@
+{
+  "meta_keys": [
+    "version",
+    "source",
+    "goals",
+    "control",
+    "weeks",
+    "channels",
+    "countries",
+    "lobs",
+    "tenure",
+    "business_types",
+    "days",
+    "note",
+    "as_of"
+  ],
+  "ov_keys": [
+    "page",
+    "filters",
+    "goals",
+    "kpis",
+    "slice_note",
+    "overview"
+  ],
+  "kpis": {
+    "qa": 94.14,
+    "qa_n": 2460,
+    "qa_traffic": "green",
+    "fatal": 4.47,
+    "csat": 79.95,
+    "csat_n": 77266,
+    "csat_traffic": "red",
+    "recontact": 5.83,
+    "recontact_n": 994591,
+    "recontact_traffic": "amber",
+    "surveys": 77266,
+    "contacts": 994591,
+    "recontacts": 57976,
+    "evaluations": 2460,
+    "agents": 264,
+    "fcr": 94.17
+  },
+  "goals": {
+    "qa": 85.0,
+    "csat": 85.0,
+    "recontact": 5.44
+  },
+  "overview_keys": [
+    "insight",
+    "by_channel",
+    "by_market",
+    "weekly",
+    "daily",
+    "volumes",
+    "hist_qa",
+    "crit",
+    "aht",
+    "resolution",
+    "stars",
+    "cr_lv1",
+    "cr_lv4",
+    "top_sub",
+    "phone_chat",
+    "subcr",
+    "taxonomy",
+    "supervisors",
+    "aht_lv1",
+    "aht_lv4",
+    "aht_sub",
+    "failing",
+    "rc_reasons",
+    "qa_by_lob",
+    "csat_by_biz",
+    "agents",
+    "goals"
+  ],
+  "by_channel0": [
+    {
+      "Segment": "Phone",
+      "QA_Score": 83.04225352112677,
+      "CSAT_Score": 86.26079609463012,
+      "Recontact_Rate": 13.467810121995411,
+      "QA_N": 355,
+      "QA_Score_vs": -1.96,
+      "QA_Score_status": "amber",
+      "CSAT_Score_vs": 1.26,
+      "CSAT_Score_status": "green",
+      "Recontact_Rate_vs": 8.03,
+      "Recontact_Rate_status": "red",
+      "QA_Share": 14.4
+    }
+  ],
+  "weekly0": [
+    {
+      "Week": "W18",
+      "CSAT_Score": 79.75,
+      "Surveys": 8603,
+      "Recontact_Rate": 6.33,
+      "Contacts": 112468
+    }
+  ],
+  "failing0": [
+    {
+      "Error_Category": "Time management",
+      "Fail_Count": 133,
+      "Pct_Of_Fails": 25.7,
+      "Impact_pp": -1.2,
+      "Is_Critical": false
+    }
+  ],
+  "rc0": [
+    {
+      "CR_Lv4": "user request order status or delay information",
+      "Recontacts": 13014,
+      "Contacts": 76911,
+      "Pct": 22.4,
+      "Recontact_Rate": 16.92
+    }
+  ],
+  "agents": {
+    "n": 264,
+    "avg_qa": 91.28,
+    "bottom10_avg": 50.19,
+    "thin_n": 93,
+    "low": [
+      {
+        "Agent_ID": "Agent 228",
+        "QA_Score": 36.0,
+        "Fatal_Rate": 60.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 13",
+        "Reliable": true,
+        "Status": "red"
+      },
+      {
+        "Agent_ID": "Agent 21",
+        "QA_Score": 61.67,
+        "Fatal_Rate": 33.33,
+        "Audit_Count": 6,
+        "Supervisor_ID": "Supervisor 9",
+        "Reliable": true,
+        "Status": "red"
+      },
+      {
+        "Agent_ID": "Agent 135",
+        "QA_Score": 66.67,
+        "Fatal_Rate": 33.33,
+        "Audit_Count": 6,
+        "Supervisor_ID": "Supervisor 12",
+        "Reliable": true,
+        "Status": "red"
+      },
+      {
+        "Agent_ID": "Agent 44",
+        "QA_Score": 71.43,
+        "Fatal_Rate": 28.57,
+        "Audit_Count": 7,
+        "Supervisor_ID": "Supervisor 7",
+        "Reliable": true,
+        "Status": "red"
+      },
+      {
+        "Agent_ID": "Agent 48",
+        "QA_Score": 76.0,
+        "Fatal_Rate": 20.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 9",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 82",
+        "QA_Score": 78.0,
+        "Fatal_Rate": 20.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 11",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 45",
+        "QA_Score": 78.0,
+        "Fatal_Rate": 20.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 9",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 203",
+        "QA_Score": 79.09,
+        "Fatal_Rate": 18.18,
+        "Audit_Count": 11,
+        "Supervisor_ID": "Supervisor 20",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 19",
+        "QA_Score": 80.0,
+        "Fatal_Rate": 20.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 7",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 171",
+        "QA_Score": 80.0,
+        "Fatal_Rate": 17.65,
+        "Audit_Count": 17,
+        "Supervisor_ID": "Supervisor 20",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 8",
+        "QA_Score": 80.0,
+        "Fatal_Rate": 16.67,
+        "Audit_Count": 6,
+        "Supervisor_ID": "Supervisor 8",
+        "Reliable": true,
+        "Status": "amber"
+      },
+      {
+        "Agent_ID": "Agent 1",
+        "QA_Score": 80.0,
+        "Fatal_Rate": 16.67,
+        "Audit_Count": 6,
+        "Supervisor_ID": "Supervisor 1",
+        "Reliable": true,
+        "Status": "amber"
+      }
+    ],
+    "high": [
+      {
+        "Agent_ID": "Agent 215",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 9,
+        "Supervisor_ID": "Supervisor 8",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 240",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 7,
+        "Supervisor_ID": "Supervisor 16",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 245",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 11,
+        "Supervisor_ID": "Supervisor 1",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 29",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 9",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 250",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 6,
+        "Supervisor_ID": "Supervisor 6",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 111",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 12,
+        "Supervisor_ID": "Supervisor 3",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 113",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 5,
+        "Supervisor_ID": "Supervisor 3",
+        "Reliable": true,
+        "Status": "green"
+      },
+      {
+        "Agent_ID": "Agent 119",
+        "QA_Score": 100.0,
+        "Fatal_Rate": 0.0,
+        "Audit_Count": 11,
+        "Supervisor_ID": "Supervisor 9",
+        "Reliable": true,
+        "Status": "green"
+      }
+    ],
+    "unreliable": 93,
+    "min_n": 5
+  },
+  "qa_keys": [
+    "weekly",
+    "daily",
+    "hist",
+    "failing",
+    "pareto",
+    "by_cr",
+    "tenure",
+    "special",
+    "audit_type",
+    "by_channel",
+    "crit",
+    "volumes",
+    "spark_weekly",
+    "resolution",
+    "qa_by_lob",
+    "agents",
+    "aht"
+  ],
+  "csat_keys": [
+    "stars",
+    "hi",
+    "lo",
+    "voc",
+    "comments",
+    "daily",
+    "subcr",
+    "spark_weekly",
+    "volumes",
+    "by_channel",
+    "csat_by_biz",
+    "taxonomy"
+  ],
+  "rc_keys": [
+    "dilution",
+    "channels",
+    "by_cr",
+    "daily",
+    "spark_weekly",
+    "volumes",
+    "phone_chat",
+    "goal"
+  ],
+  "al_keys": [
+    "n",
+    "avg_qa",
+    "bottom10_avg",
+    "thin_n",
+    "low",
+    "high",
+    "unreliable",
+    "min_n"
+  ]
+}

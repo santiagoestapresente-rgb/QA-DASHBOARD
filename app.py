@@ -5878,7 +5878,12 @@ if page == "Overview":
                 )
 
     cr_cov = cr_taxonomy_coverage(csat)
-    cr_finest = cr_finest_volume(csat, top_n=12)
+    cr_finest = cr_finest_volume(csat, top_n=None)
+    n_csat = int(volumes["surveys"])
+    n_top10 = (
+        int(pd.to_numeric(cr_finest["Feedback"], errors="coerce").fillna(0).head(10).sum())
+        if not cr_finest.empty else 0
+    )
     cov_col, fine_col = st.columns(2, gap="medium")
     with cov_col:
         with panel("Contact reason classification coverage"):
@@ -5898,6 +5903,12 @@ if page == "Overview":
                     title="Top contact reasons (SUB_CR)",
                     value_title="Surveys",
                     sample_unit="surveys",
+                    universe_n=n_csat or None,
+                    n_note=(
+                        f"{n_top10:,} in the 10 largest reasons"
+                        if n_csat and n_top10 and n_top10 != n_csat
+                        else None
+                    ),
                 ) if not cr_finest.empty else pareto_dual_axis(
                     pd.DataFrame(), "Cat", "Feedback",
                     title="Top contact reasons (SUB_CR)",
@@ -5905,7 +5916,9 @@ if page == "Overview":
                 key="ov_cr_finest",
             )
             st.caption(
-                "CSAT survey volume at SUB_CR (finest grain). "
+                "N is official CSAT surveys in this filter (sum of Feedback CNT). "
+                "Bars are the 10 largest reasons at SUB_CR (finest grain); "
+                "the remaining reasons are in N and the cumulative %. "
                 "If SUB_CR is Other, the bar uses the parent Lv4; if Lv4 is also Other, it uses Lv3. "
                 "Not a Lv3-only or Lv4-only chart."
             )
